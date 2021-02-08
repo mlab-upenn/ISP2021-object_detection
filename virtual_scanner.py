@@ -87,3 +87,7 @@ class VirtualScanner:
 
 
 
+if __name__ == "__main__":
+    rospy.init_node("virtual_scan")
+    vs = VirtualScanner()
+    rospy.spin()
