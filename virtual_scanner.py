@@ -1,8 +1,8 @@
 import numpy as np
 import rospy
 
-
-lidar_scan_time = None #TODO: FILL WITH LIDAR SCAN TIME (HOW LONG IT TAKES TO COMPLETE A SINGLE SCAN)
+from sensor_msgs.msg import LaserScan
+lidar_scan_time = 0.025 #25 ms
 
 class VirtualScanner:
     lidar_topic = "/scan"
@@ -10,14 +10,14 @@ class VirtualScanner:
     odom_topic = "/odom"
     def __init__(self):
         self.init_publishers_subscribers()
-        self.poses = np.zeros((4,100)) #Timestamp, X,Y, Heading?.
+        self.poses = np.zeros((3,100)) #Timestamp, X,Y
         self.pose_row_cnt = 0
 
         self.grid_dict = {"pose_origin": (0,0), "polar_grid": np.zeros((3, 1440))}
         
 
     def init_publishers_subscribers(self):
-        self.lidar_sub = rospy.Subscriber(self.lidar_topic, LidarScan, self.lidar_callback, queue_size = 1)
+        self.lidar_sub = rospy.Subscriber(self.lidar_topic, LaserScan, self.lidar_callback, queue_size = 1)
         self.odom_sub = rospy.Subscriber(self.odom_topic, Odometry, self.odom_callback, queue_size = 1)
         #how often does odom update? If LiDAR is updating faster than odom, we can't take average...
         self.vscan_pub = rospy.Publisher(self.vscan_topic, VirtualScan, queue_size = 1)
@@ -26,21 +26,24 @@ class VirtualScanner:
 
         self.generate_virtual_map(data)
 
-        pass
+
+        self.vscan_pub.publish(self.grid_dict)
+
 
     def odom_callback(self, data):
-        self.pose[i] = [rospy.Time.Now(), data.pose] #TODO: PROCESS DATA
+        location = np.array([data.pose.pose.position.x, data.pose.pose.position.y])
+        self.poses[self.pose_row_cnt] = np.concatenate(([rospy.Time.now()], location))
         self.pose_row_cnt += 1
 
 
     def generate_virtual_map(self, data):
         send_time = data.header.time
-        begin_time = send_time - lidar_scan_time
+        begin_time = send_time - lidar_scan_time #probs need to convert from seconds to some other datatype...
 
-        pose_idx = np.where(np.logical_and(self.poses[0]>= begin_time, self.poses[0]< send_time))
-        locations = self.poses[pose_idx, 1:3]
+        pose_idx = np.where(np.logical_and(self.poses[:,0]>= begin_time, self.poses[:,0]< send_time))
+        scan_origin_locations = self.poses[pose_idx, 1:3]
 
-        scan_origin = np.mean(locations, axis = 1)
+        scan_origin = np.mean(scan_origin_locations, axis = 1)
 
         ranges = np.array(data.ranges)
 
@@ -70,7 +73,7 @@ class VirtualScanner:
         
         May want to move this to another node, 
         as it'll likely be time consuming (good to run on separate thread)"""
-        good_idx = np.where(self.grid_dict["pose_grid"][1])
+        good_idx = np.where(self.grid_dict["pose_grid"][1]) #only do this on the non-erroneous readings to save time.
         rel_x_coords = self.grid_dict["pose_grid"][good_idx]*np.cos(self.grid_dict["pose_grid"][0][good_idx])
         rel_y_coords = self.grid_dict["pose_grid"][good_idx]*np.sin(self.grid_dict["pose_grid"][0][good_idx])
 
@@ -81,8 +84,6 @@ class VirtualScanner:
         #How to visualize this in sim? Sim-dependent. May need to run Bresenham's line algorithm...
         return None
 
-    def average_pose(self):
-        pass
 
 
 
