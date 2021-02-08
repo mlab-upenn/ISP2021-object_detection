@@ -1,14 +1,20 @@
+class Test:
+    def __init__(self):
+        self.i = 0
+    
+    def inc(self, increment):
+        self.i += increment
+    
+    def get_value(self):
+        return self.i
 
-d = 100
 
-x = {0: 1, 1: 2, 2:3}
-t= sorted([k for k in x.keys() if x[k] is None])
+blehlist = []
 
-if len(t) > 0:
-    print("test")
-else:
-    x[0] = x[1]
-    x[1] = x[2]
-    x[2] = d
-    print(x)
+for i in range(10):
+    t = Test()
+    t.inc(i)
+    blehlist.append(t)
 
+for elem in blehlist:
+    print(elem.get_value())

@@ -27,7 +27,8 @@ class VirtualScanner:
         self.generate_virtual_map(data)
 
 
-        self.vscan_pub.publish(self.grid_dict)
+        #convert grid_dict to sendable message. Need to think of datastructure...
+        self.vscan_pub.publish(vscan)
 
 
     def odom_callback(self, data):

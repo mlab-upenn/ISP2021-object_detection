@@ -1,14 +1,20 @@
 import numpy as np
-import rospy
 
+#Rao Blackwell Particle Filter
 
 class Filter:
     def __init__(self):
         pass
 
 
+    def calc_motion_belief(self):
+        pass
 
-if __name__ == "__main__":
-    rospy.init_node("filter")
-    fn = Filter()
-    rospy.spin()
+    def calc_geometry_belief(self):
+        pass
+
+    def calc_importance_weights(self):
+        pass
+
+    def update(self):
+        pass
