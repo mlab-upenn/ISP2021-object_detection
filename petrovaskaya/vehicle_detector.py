@@ -77,7 +77,7 @@ class Detector:
         filter_list = []
         vel_list = []
         for vehicle in fitted_vehicles:
-            fltr = Filter() #maybe pass in area of focus?
+            fltr = Filter() #may need to clean up after removing filters. Otherwise, lots of floating Filter() objects
             fltr.update(self.vscan_dict[frame]) #update on first frame.
             vel = fltr.estimate_velocity()
 
