@@ -1,7 +1,8 @@
 import numpy as np
 import rospy
 from scipy.sparse import block_diag
-
+from cluster import Cluster
+from icp import ICP
 class Helper:
     @staticmethod
     def compute_rot_matrix(angle):
@@ -49,8 +50,6 @@ class lidarUpdater:
         
         return xt, P
 
-    def associate_and_update(self):
-        pass
 
     def merge_tracks(self):
         pass
@@ -66,6 +65,12 @@ class lidarUpdater:
         #DATA ASSOCIATION *IS* THE KALMAN MEASUREMENT UPDATE!
         ### STEP 1: COURSE LEVEL ASSOCIATION
         #1. Cluster: EMST-EGBIS
+        #   1a. Compute EMST over collection of points
+        #   1b. Throw the EMST as input graph structure to EGBIS to compute clusters
+        #   1c. Edge weights of EMST (euclidean distances between points) are taken directly
+            #   as dissimilarity measure
+
+        clusters = Cluster.cluster(data)
         #2. assign to static and dynamic background recursively with ICP (iterative closest point?)
         #   2a. clusters in C which contain measurements matched with boundary points in static background 
             # are associated with static background, and used to update or initialize new boundary points at fine level for static background
