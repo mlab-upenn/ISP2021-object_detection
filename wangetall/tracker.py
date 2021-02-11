@@ -35,14 +35,15 @@ class lidarUpdater:
     def clean_up_states(self):
         pass
 
-    def forward(self, x, P, dt):
-        xt = x[4:6]
+    def forward(self, xt, P, dt):
+        """Propagates forward all tracks 
+        based on current transition model"""
+
         F = self.calc_Fs(xt, dt)
         xt = F@xt #get index of xt's
         xt = xt.T
-        x[4:6] = xt
 
-        Q = calc_Q(xt, dt)
+        Q = self.calc_Qs(xt, dt)
 
         P = None#a bunch of stuff, gotta index stuff.
         
@@ -54,12 +55,31 @@ class lidarUpdater:
     def merge_tracks(self):
         pass
 
-    def update(self):
+    def update(self, x, P, dt, data):
+        xt  = x["xt"]
         self.clean_up_states()
-        self.forward()
-        self.associate_and_update()
+        xt, P = self.forward(xt, P, dt)
+        self.associate_and_update(xt, P, data)
         self.merge_tracks()
 
+    def associate_and_update(self, xt, P, data):
+        #DATA ASSOCIATION *IS* THE KALMAN MEASUREMENT UPDATE!
+        ### STEP 1: COURSE LEVEL ASSOCIATION
+        #1. Cluster: EMST-EGBIS
+        #2. assign to static and dynamic background recursively with ICP (iterative closest point?)
+        #   2a. clusters in C which contain measurements matched with boundary points in static background 
+            # are associated with static background, and used to update or initialize new boundary points at fine level for static background
+        #   2b. then, these clusters are removed from C, and similar process occurs recursively for each dynamic track (all other readings)
+        #   2c. Clusters that remain in C at end of process are not associated with any track and each cluster will initialize
+            # a tentative dynamic track.
+
+            #ICP good bc it's after prediction step-- points will be in their predicted areas.
+        
+        ### STEP 2: FINE LEVEL ASSOCIATION
+        #Assign to specific boundary points?
+        #JCBB
+
+        pass
 
 
     def calc_Fs(self, xt, dt):
@@ -73,7 +93,6 @@ class lidarUpdater:
 
     def calc_Qs(self, xt, dt):
         V = self.calc_V()
-
         Q = np.zeros((6,6))
         Q[0:3,0:3] = (dt**3/3)*V
         Q[0:3,3:] = (dt**2/2)*V
@@ -88,6 +107,10 @@ class lidarUpdater:
         #supposed to be found here: https://wiki.dmdevelopment.ru/wiki/Download/Books/Digitalimageprocessing/%D0%9D%D0%BE%D0%B2%D0%B0%D1%8F%20%D0%BF%D0%BE%D0%B4%D0%B1%D0%BE%D1%80%D0%BA%D0%B0%20%D0%BA%D0%BD%D0%B8%D0%B3%20%D0%BF%D0%BE%20%D1%86%D0%B8%D1%84%D1%80%D0%BE%D0%B2%D0%BE%D0%B9%20%D0%BE%D0%B1%D1%80%D0%B0%D0%B1%D0%BE%D1%82%D0%BA%D0%B5%20%D1%81%D0%B8%D0%B3%D0%BD%D0%B0%D0%BB%D0%BE%D0%B2/Estimation%20with%20Applications%20to%20Tracking%20and%20Navigation/booktext@id89013302placeboie.pdf
         #but I can't find it.
 
+        #I think it's a 3x3 diagonal...
+        sigma_a = 100
+        V = np.eye(3)*sigma_a
+
         return V
 
 
@@ -98,7 +121,7 @@ class OdomUpdater:
         self.dpsi = dpsi
         self.R = np.eye(2)
 
-    def update_sensor_mean_pose(self, prev_mean_pose, prev_sensor_mean_pose, control_input):
+    def update_sensor_mean_pose(self, prev_sensor_mean_pose, control_input):
         '''
         prev_pose is a 3x1 vector [alpha, beta, psi]        
         '''
@@ -111,10 +134,8 @@ class OdomUpdater:
         xs_new[0] = prev_sensor_mean_pose[0:2].T+self.R @ (delta_psi*np.array([[self.dbeta, -self.dalpha]]).T+np.array([[0, delta_l]]).T)
         xs_new[1] = psi-delta_psi
 
-        x_new = np.concatenate((xs_new, prev_mean_pose[2:,:]))
         
-
-        return x_new
+        return xs_new
 
     def calc_F(self, prev_sensor_mean_pose, control_input):
         Fs = np.zeros((3,3))
@@ -170,14 +191,16 @@ class OdomUpdater:
         return P_new
     
     
-    def update(self, prev_mean_pose, control_input, prev_P):
+    def update(self, x, control_input, prev_P):
 
-        prev_sensor_mean_pose = prev_mean_pose[0:2] #check index
+        prev_sensor_mean_pose = x["xs"] #check index
         
-        x_new = self.update_sensor_mean_pose(prev_mean_pose, prev_sensor_mean_pose, control_input)
+        xs_new = self.update_sensor_mean_pose(prev_sensor_mean_pose, control_input)
         P_new = self.update_covariance(prev_sensor_mean_pose, control_input, prev_P)
 
-        return x_new, P_new
+        x["xs"] = xs_new
+
+        return x, P_new
 
 class Tracker:
     lidarscan_topic = "/scan"
@@ -190,7 +213,7 @@ class Tracker:
         self.P = [] #large covariance matrix
 
         self.prev_Odom_callback_time = rospy.Time.Now()
-        L = 0.1 #dist between front and rear axles
+        self.L = 0.1 #dist between front and rear axles
         self.control_input = {"L": L}
 
         dalpha = None
@@ -199,7 +222,7 @@ class Tracker:
         self.odom_updater = OdomUpdater(dalpha, dbeta, dpsi)
         self.lidarUpdater = lidarUpdater()
 
-        self.x = None
+        self.x = {"xs": None, "xt": None, "xb": None, "xp": None, "xc": None}
         self.P = None
 
 
@@ -208,7 +231,8 @@ class Tracker:
         self.odom_sub = rospy.subscriber(self.odom_topic, Odometry, self.odom_callback, queue_size = 1)
 
     def lidar_callback(self, data):
-        self.lidarUpdater.update()
+        dt = data.header.stamp - self.prev_Odom_callback_time
+        self.lidarUpdater.update(self.x, dt, data)
 
     def odom_callback(self, data):
         """ void fx """
@@ -222,9 +246,9 @@ class Tracker:
         self.control_input["theta"] = theta
         self.control_input["v"] = data.twist.twist.linear.x
         self.control_input["delta_l"] = data.twist.twist.linear.x*dt
-        self.control_input["delta_psi"] = data.twist.twist.linear.x*dt*np.tan(theta)/L
+        self.control_input["delta_psi"] = data.twist.twist.linear.x*dt*np.tan(theta)/self.L
 
-        self.x, self.P = self.odom_updater.update(self.x, self.control_input, self.p)
+        self.x, self.P = self.odom_updater.update(self.x, self.control_input, self.P)
         
 
 
