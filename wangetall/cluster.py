@@ -4,6 +4,7 @@ import matplotlib.pyplot as plt
 from itertools import permutations
 from collections import defaultdict
 import random
+import time
 
 class Cluster:
     """Takes in nx2 list of Cartesian coordinates of LiDAR impingements"""
@@ -11,15 +12,24 @@ class Cluster:
         pass
 
     def cluster(self, points):
+
         tree = self.EMST(points)
+        starttime = time.time()
         clusters = self.EGBIS(tree, points)
+
+        endtime = time.time()
+        print(endtime-starttime)
+
         return clusters
     
     def EMST(self, points):
         #https://en.wikipedia.org/wiki/Euclidean_minimum_spanning_tree
         simplices = self.compute_delauney(points)
+
         graph = self.label_edge(simplices, points)
+
         tree = self.min_spanning_tree(graph, points)
+
         return tree
 
 
@@ -27,17 +37,16 @@ class Cluster:
         return Delaunay(points).simplices
 
     def label_edge(self, simplices, points):
-        graph = []
-        all_edges = set([tuple(edge) for item in simplices for edge in permutations(item,2)])
-
-        for edge in all_edges:
-            dist = np.linalg.norm(points[edge[0]]-points[edge[1]])
-            edgelist = list(edge)
-            edgelist.append(dist)
-            graph.append(edgelist)
-
-
         
+        all_edges = set([tuple(edge) for item in simplices for edge in permutations(item,2)])
+        edges_array = np.array(list(all_edges))
+        points_1 = points[edges_array[:,0]]
+        points_2 = points[edges_array[:,1]]
+
+        dist = np.linalg.norm(points_1- points_2, axis = 1)
+        dist = dist[..., np.newaxis]
+        graph = np.hstack((edges_array, dist)).astype(int)
+
         return graph
 
     def find_set(self, parent, point):
@@ -158,10 +167,12 @@ class Universe:
 
 
 if __name__ == "__main__":
-    points= np.array(random.sample(range(200), 200)).reshape((100,2))
+    points= np.array(random.sample(range(2000), 2000)).reshape((1000,2))
     cl = Cluster()
     clusters = cl.cluster(points)
-    print(clusters)
+    #Takes 0.09 seconds to run now--> at 40Hz LiDAR update rate, too long
+
+    # print(clusters)
     # cl = Cluster()
     # tri = cl.compute_delauney(points)
     # graph = cl.label_edge(tri, points)
