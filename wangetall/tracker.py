@@ -3,6 +3,11 @@ import rospy
 from scipy.sparse import block_diag
 from cluster import Cluster
 from icp import ICP
+
+
+cl = Cluster()
+
+
 class Helper:
     @staticmethod
     def compute_rot_matrix(angle):
@@ -70,7 +75,10 @@ class lidarUpdater:
         #   1c. Edge weights of EMST (euclidean distances between points) are taken directly
             #   as dissimilarity measure
 
-        clusters = Cluster.cluster(data)
+        points_x = ranges*cos(angles)
+        points_y = ranges*cos(angles)
+        points = np.vstack((points_x, points_y)).T
+        clusters = cl.cluster(data)
         #2. assign to static and dynamic background recursively with ICP (iterative closest point?)
         #   2a. clusters in C which contain measurements matched with boundary points in static background 
             # are associated with static background, and used to update or initialize new boundary points at fine level for static background
