@@ -14,22 +14,17 @@ class Cluster:
     def cluster(self, points):
 
         tree = self.EMST(points)
-        starttime = time.time()
+
         clusters = self.EGBIS(tree, points)
 
-        endtime = time.time()
-        print(endtime-starttime)
 
         return clusters
     
     def EMST(self, points):
         #https://en.wikipedia.org/wiki/Euclidean_minimum_spanning_tree
         simplices = self.compute_delauney(points)
-
         graph = self.label_edge(simplices, points)
-
         tree = self.min_spanning_tree(graph, points)
-
         return tree
 
 
@@ -38,7 +33,7 @@ class Cluster:
 
     def label_edge(self, simplices, points):
         
-        all_edges = set([tuple(edge) for item in simplices for edge in permutations(item,2)])
+        all_edges = set([tuple(edge) for group in simplices for edge in permutations(group,2)])
         edges_array = np.array(list(all_edges))
         points_1 = points[edges_array[:,0]]
         points_2 = points[edges_array[:,1]]
@@ -51,11 +46,10 @@ class Cluster:
 
     def find_set(self, parent, point):
         #https://en.wikipedia.org/wiki/Disjoint-set_data_structure
-        #could improve with path splitting
-        if parent[point] != point:
-            return self.find_set(parent, parent[point])
-        else:
-            return point
+
+        while parent[point] != point:
+            point, parent[point] = parent[point], parent[parent[point]]
+        return point
 
     def union(self, parent, rank, parent_origin, parent_dest):
         #from pseudocode listed here https://en.wikipedia.org/wiki/Disjoint-set_data_structure
@@ -82,7 +76,6 @@ class Cluster:
 
         parent = np.arange(len(points))
         rank = np.zeros((parent.shape))
-
         while edge_count < len(points)-1:
             origin, dest, weight = sorted_graph[i]
             i+=1
