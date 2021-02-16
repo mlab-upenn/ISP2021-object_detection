@@ -1,7 +1,6 @@
 import numpy as np
 import math
 from sklearn.neighbors import NearestNeighbors
-import matplotlib.pyplot as plt
 
 class ICP:
     """
@@ -13,18 +12,20 @@ class ICP:
         Testing out with the default params from  https://github.com/richardos/icp/blob/master/icp.py, probably
         needs to be adjusted later.
         """
-        self.reference_points = reference_points
-        self.points = points
         self.max_iterations=100
         self.distance_threshold=0.3
         self.convergence_translation_threshold=1e-3
         self.convergence_rotation_threshold=1e-4
         self.point_pairs_threshold=10
 
-    def run(self):
+    def run(self, reference_points, points):
+        self.reference_points = reference_points
+        self.points = points
         nbrs = NearestNeighbors(n_neighbors=1, algorithm='kd_tree').fit(self.reference_points)
 
         for iter_num in range(self.max_iterations):
+            #print('------ iteration', iter_num, '------')
+
             closest_point_pairs = []  # list of point correspondences for closest point rule
 
             distances, indices = nbrs.kneighbors(self.points)
@@ -33,12 +34,16 @@ class ICP:
                     closest_point_pairs.append((self.points[nn_index], self.reference_points[indices[nn_index][0]]))
 
             # if only few point pairs, stop process
+            #print('number of pairs found:', len(closest_point_pairs))
             if len(closest_point_pairs) < self.point_pairs_threshold:
+                print('No better solution can be found (very few point pairs)!')
                 break
 
             # compute translation and rotation using point correspondences
             closest_rot_angle, closest_translation_x, closest_translation_y = self.point_based_matching(closest_point_pairs)
+
             if closest_rot_angle is None or closest_translation_x is None or closest_translation_y is None:
+                #print('No better solution can be found!')
                 break
 
             # transform 'points' (using the calculated rotation and translation)
@@ -56,6 +61,7 @@ class ICP:
             if (abs(closest_rot_angle) < self.convergence_rotation_threshold) \
                     and (abs(closest_translation_x) < self.convergence_translation_threshold) \
                     and (abs(closest_translation_y) < self.convergence_translation_threshold):
+                print('Converged!')
                 break
 
         return self.points
