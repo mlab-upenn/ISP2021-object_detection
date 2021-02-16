@@ -1,6 +1,10 @@
 import numpy as np
 # from scipy.stats import chi2_contingency #want chi_d,alpha where d = 2
 from helper import Helper
+
+
+#DISCLAIMER: THIS IS SUPER DUPER ROUGH CODE. IT WOULDN'T RUN EVEN IF YOU PAID IT.
+#Note to engineer: DON'T FORGET TO IMPLEMENT THE JCBB-REFINE VERSION. THIS IS BASE JCBB.
 class JCBB:
     def __init__(self):
         self.chi_threshold = 5.991 #chi squared threshold for 0.05 alpha, 2 d
@@ -10,8 +14,8 @@ class JCBB:
     def run(self, H, P, R):
         H = self.calc_Jacobian_H(xs, point_matrix)
         S = self.calc_s()
-        C = self.calc_covariance(H, S, G, P, R)
-        D = self.calc_D(C)
+        # C = self.calc_covariance(H, S, G, P, R)
+        D = self.calc_D(h, S)
 
     def calc_g_and_G(self, xs, point_matrix,):
         """inputs: xs, measured laserpoint
@@ -56,19 +60,22 @@ class JCBB:
 
 
 
+    # def calc_covariance(self, H, S, G, P, R):
+    #     for something in something:
+    #         C = H@P@H.T + G@S@GG.T
+    #     #figure out indexing. 
+    #     return C
 
+    def calc_D(self, z, h, S):
+        #Generate n by m boolean, where n is the number of datapoints to be clustered,
+        #and m is the number of available targets. If boolean == True, then 
+        #point i,j are linked. Else, point i,j are not linked.
 
+        #zs is the collection of the measurements that are assigned to some 
+        # boundary point according to association s.
 
-
-    def calc_covariance(self, H, S, G, P, R):
-        for something in something:
-            C = H@P@H.T + G@S@GG.T
-        #figure out indexing. 
-        return C
-
-    def calc_D(self, h, C):
-
-        return h.T@np.linalg.inv(C)@h < self.chi_threshold
+        #what exactly is an "Association"??
+        return (z-h).T@np.linalg.inv(S)(z-h)
 
 
 
