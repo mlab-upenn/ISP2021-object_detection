@@ -19,9 +19,7 @@ class ICP:
     :param convergence_rotation_threshold: the threshold for the rotation angle (in rad) for the transformation
                                                to be considered converged
     :param point_pairs_threshold: the minimum number of point pairs the should exist
-    :param verbose: whether to print informative messages about the process (default: False)
-    :return: the transformation history as a list of numpy arrays containing the rotation (R) and translation (T)
-             transformation in each iteration in the format [R | T] and the aligned points as a numpy array M x 2
+    :return: aligned points as a numpy array M x 2
     """
     def __init__(self):
         """
