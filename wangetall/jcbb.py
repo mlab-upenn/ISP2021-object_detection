@@ -75,6 +75,8 @@ class JCBB:
         # boundary point according to association s.
 
         #what exactly is an "Association"??
+        #do we run the JCBB twice? once for static, once for dynamic? this q may be arising due
+        #to confusion about what exactly is meant by an association. is an association a 1-to-1 mapping?
         return (z-h).T@np.linalg.inv(S)(z-h)
 
 
