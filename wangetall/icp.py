@@ -5,11 +5,12 @@ import matplotlib.pyplot as plt
 
 class ICP:
     """
-    Class Based on the ICP implementation of https://github.com/richardos/icp/blob/master/icp.py
+    Class Based on the ICP implementation of https://github.com/richardos/icp/blob/master/icp.py and Besl and McKay, 1992 -
+    http://www-evasion.inrialpes.fr/people/Franck.Hetroy/Teaching/ProjetsImage/2007/Bib/besl_mckay-pami1992.pdf
     """
     def __init__(self, reference_points, points):
         """
-        Testing out with the default params from  https://github.com/richardos/icp/blob/master/icp.py, probabably
+        Testing out with the default params from  https://github.com/richardos/icp/blob/master/icp.py, probably
         needs to be adjusted later.
         """
         self.reference_points = reference_points
@@ -21,8 +22,6 @@ class ICP:
         self.point_pairs_threshold=10
 
     def run(self):
-        transformation_history = []
-
         nbrs = NearestNeighbors(n_neighbors=1, algorithm='kd_tree').fit(self.reference_points)
 
         for iter_num in range(self.max_iterations):
@@ -53,16 +52,13 @@ class ICP:
             # update 'points' for the next iteration
             self.points = aligned_points
 
-            # update transformation history
-            transformation_history.append(np.hstack((rot, np.array([[closest_translation_x], [closest_translation_y]]))))
-
             # check convergence
             if (abs(closest_rot_angle) < self.convergence_rotation_threshold) \
                     and (abs(closest_translation_x) < self.convergence_translation_threshold) \
                     and (abs(closest_translation_y) < self.convergence_translation_threshold):
                 break
 
-        return transformation_history, self.points
+        return self.points
 
 
     def point_based_matching(self, point_pairs):
