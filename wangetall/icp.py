@@ -7,7 +7,7 @@ class ICP:
     Class Based on the ICP implementation of https://github.com/richardos/icp/blob/master/icp.py and Besl and McKay, 1992 -
     http://www-evasion.inrialpes.fr/people/Franck.Hetroy/Teaching/ProjetsImage/2007/Bib/besl_mckay-pami1992.pdf
     """
-    def __init__(self, reference_points, points):
+    def __init__(self):
         """
         Testing out with the default params from  https://github.com/richardos/icp/blob/master/icp.py, probably
         needs to be adjusted later.
