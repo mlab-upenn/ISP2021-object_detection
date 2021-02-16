@@ -3,35 +3,11 @@ import rospy
 from scipy.sparse import block_diag
 from cluster import Cluster
 from icp import ICP
-
-
+from jcbb import JCBB
+from helper import Helper
 cl = Cluster()
+jcbb = JCBB()
 
-
-class Helper:
-    @staticmethod
-    def compute_rot_matrix(angle):
-        R = np.array([[np.cos(angle), -np.sin(angle)], 
-                        [np.sin(angle), np.cos(angle)]])
-        return R 
-
-    @staticmethod
-    def quat_to_rot(quat):
-        R = np.zeros((3,3))
-        R[0,0] = 2*(quat[0]**2+quat[1]**2)-1
-        R[1,0] = 2*(quat[1]*quat[2]+quat[0]*quat[3])
-        R[2,0] = 2*(quat[1]*quat[3]+quat[0]*quat[2])
-
-        R[0,1] = 2*(quat[1]*quat[2]-quat[0]*quat[3])
-        R[1,1] = 2*(quat[0]**2+quat[2]**2)-1
-        R[2,1] = 2*(quat[2]*quat[3]+quat[0]*quat[1])
-        R[0,2] = 2*quat(quat[1]*quat[3]+quat[0]*quat[2])
-        R[1,2] = 2*(quat[2]*quat[3]-quat[0]*quat[1])
-        R[2,2] = 2*(quat[0]**2+quat[3]**2)-1
-
-
-        #can probs ignore the cells on the bottom right edge bc 2D
-        return R
 
 class lidarUpdater:
     def __init__(self):
@@ -61,12 +37,13 @@ class lidarUpdater:
 
     def update(self, x, P, dt, data):
         xt  = x["xt"]
+        xs = x["xs"]
         self.clean_up_states()
         xt, P = self.forward(xt, P, dt)
-        self.associate_and_update(xt, P, data)
+        self.associate_and_update(xt, xs, P, data)
         self.merge_tracks()
 
-    def associate_and_update(self, xt, P, data):
+    def associate_and_update(self, xt, xs, P, data):
         #DATA ASSOCIATION *IS* THE KALMAN MEASUREMENT UPDATE!
         ### STEP 1: COURSE LEVEL ASSOCIATION
         #1. Cluster: EMST-EGBIS
@@ -90,9 +67,12 @@ class lidarUpdater:
         
         ### STEP 2: FINE LEVEL ASSOCIATION
         #Assign to specific boundary points?
-        #JCBB
-
+        #JCBB<-- 
+        
+        jcbb.run()
         pass
+        
+
 
 
     def calc_Fs(self, xt, dt):
@@ -138,7 +118,7 @@ class OdomUpdater:
         '''
         prev_pose is a 3x1 vector [alpha, beta, psi]        
         '''
-
+        #how do we think about psi when sensor is rotating???
         xs_new = np.zeros((2,1))
         psi = prev_sensor_mean_pose[2]
         self.R = Helper.compute_rot_matrix(psi-self.dpsi)

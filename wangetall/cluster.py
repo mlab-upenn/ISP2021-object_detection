@@ -5,6 +5,7 @@ from itertools import permutations
 from collections import defaultdict
 import random
 import time
+# from numba import jit
 
 class Cluster:
     """Takes in nx2 list of Cartesian coordinates of LiDAR impingements"""
@@ -12,12 +13,8 @@ class Cluster:
         pass
 
     def cluster(self, points):
-
         tree = self.EMST(points)
-
         clusters = self.EGBIS(tree, points)
-
-
         return clusters
     
     def EMST(self, points):
@@ -64,7 +61,6 @@ class Cluster:
         if rank[x] == rank[y]:
             rank[x] += 1
         
-
     def min_spanning_tree(self, graph, points):
         #Generate via Kruskal's algorithm.
         #https://en.wikipedia.org/wiki/Kruskal%27s_algorithm
@@ -160,21 +156,23 @@ class Universe:
 
 
 if __name__ == "__main__":
-    points= np.array(random.sample(range(2000), 2000)).reshape((1000,2))
+    points= np.array(random.sample(range(200), 200)).reshape((100,2))
+
     cl = Cluster()
-    clusters = cl.cluster(points)
-    #Takes 0.09 seconds to run now--> at 40Hz LiDAR update rate, too long
+
+    # clusters = cl.cluster(points)
+
 
     # print(clusters)
     # cl = Cluster()
-    # tri = cl.compute_delauney(points)
+    tri = cl.compute_delauney(points)
     # graph = cl.label_edge(tri, points)
     # tree = cl.min_spanning_tree(graph, points)
 
     # clusters = cl.EGBIS(tree, points)
     # print(clusters)
 
-    # plt.triplot(points[:,0], points[:,1], tri)
-    # plt.plot(points[:,0], points[:,1], 'o')
-    # plt.show()
+    plt.triplot(points[:,0], points[:,1], tri)
+    plt.plot(points[:,0], points[:,1], 'o')
+    plt.show()
 
