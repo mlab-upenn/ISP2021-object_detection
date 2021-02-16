@@ -4,8 +4,24 @@ from sklearn.neighbors import NearestNeighbors
 
 class ICP:
     """
-    Class Based on the ICP implementation of https://github.com/richardos/icp/blob/master/icp.py and Besl and McKay, 1992 -
+    Class Based on the ICP implementation of https://github.com/richardos/icp/blob/master/icp.py and Besl and
+    McKay, 1992 -
     http://www-evasion.inrialpes.fr/people/Franck.Hetroy/Teaching/ProjetsImage/2007/Bib/besl_mckay-pami1992.pdf
+
+    An implementation of the Iterative Closest Point algorithm that matches a set of M 2D points to another set
+    of N 2D (reference) points.
+    :param reference_points: the reference point set as a numpy array (N x 2)
+    :param points: the point that should be aligned to the reference_points set as a numpy array (M x 2)
+    :param max_iterations: the maximum number of iteration to be executed
+    :param distance_threshold: the distance threshold between two points in order to be considered as a pair
+    :param convergence_translation_threshold: the threshold for the translation parameters (x and y) for the
+                                              transformation to be considered converged
+    :param convergence_rotation_threshold: the threshold for the rotation angle (in rad) for the transformation
+                                               to be considered converged
+    :param point_pairs_threshold: the minimum number of point pairs the should exist
+    :param verbose: whether to print informative messages about the process (default: False)
+    :return: the transformation history as a list of numpy arrays containing the rotation (R) and translation (T)
+             transformation in each iteration in the format [R | T] and the aligned points as a numpy array M x 2
     """
     def __init__(self):
         """
