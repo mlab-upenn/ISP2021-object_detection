@@ -7,6 +7,9 @@ import random
 import time
 # from numba import jit
 
+#Numba help:
+#https://github.com/f1tenth/f1tenth_gym/blob/exp_py/gym/f110_gym/envs/laser_models.py
+
 class Cluster:
     """Takes in nx2 list of Cartesian coordinates of LiDAR impingements"""
     def __init__(self):
