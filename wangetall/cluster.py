@@ -116,7 +116,7 @@ class Cluster:
         return components
     
     def get_tau(self, size):
-        k = 500
+        k = 100
         return k/size
 
 class Universe:
@@ -151,31 +151,40 @@ class Universe:
     def get_components(self):
         components_dict = defaultdict(lambda:[])
         for i in range(self.num_vertices):
-            components_dict[self.elts[i,2]].append(i)
+            parent = self.find(i)
+            components_dict[parent].append(i)
         
         return components_dict
 
 
 
+# def get_cmap(n, name='hsv'):
+#     '''Returns a function that maps each index in 0, 1, ..., n-1 to a distinct 
+#     RGB color; the keyword argument name must be a standard mpl colormap name.'''
+#     return plt.cm.get_cmap(name, n)
 
 if __name__ == "__main__":
-    points= np.array(random.sample(range(200), 200)).reshape((100,2))
+    points= np.array(random.sample(range(2000), 2000)).reshape((1000,2))
 
     cl = Cluster()
 
-    # clusters = cl.cluster(points)
-
-
-    # print(clusters)
-    # cl = Cluster()
-    tri = cl.compute_delauney(points)
-    # graph = cl.label_edge(tri, points)
-    # tree = cl.min_spanning_tree(graph, points)
-
-    # clusters = cl.EGBIS(tree, points)
+    clusters = cl.cluster(points)
+    print(clusters.keys())
     # print(clusters)
 
-    plt.triplot(points[:,0], points[:,1], tri)
-    plt.plot(points[:,0], points[:,1], 'o')
+
+
+    # cmap = get_cmap(len(points))
+    plt.figure()
+    for key in clusters.keys():
+        selected_points = points[clusters[key]]
+        plt.scatter(selected_points[:,0], selected_points[:,1])
     plt.show()
+
+    # print(clusters)
+
+    # plt.triplot(points[:,0], points[:,1], tri)
+    # plt.figure()
+    # plt.plot(points[:,0], points[:,1], 'o')
+    # plt.show()
 
