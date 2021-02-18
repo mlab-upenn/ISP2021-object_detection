@@ -6,7 +6,7 @@ from helper import Helper
 import random
 import sys
 import time
-
+import matplotlib.pyplot as plt
 
 #https://github.com/Scarabrine/EECS568Project_Team2_iSAM/blob/master/JCBB_R.m
 
@@ -104,14 +104,14 @@ class JCBB:
 
                 #maybe for a more accurate JNIS calc, do I need to combine this association with the previous one?
                 JNIS = self.calc_JNIS(test_association, scan_data, xs, track, boundary_points, P)
-                joint_compat = self.check_compat(JNIS, DOF =np.count_nonzero(~np.isnan(test_association)*2))
-                print("======")
-                print("JNIS {}".format(JNIS))
-                print("Best JNIS {}".format(self.best_JNIS))
-                print("Joint Compat {}".format(joint_compat))
+                joint_compat = self.check_compat(JNIS, DOF =np.count_nonzero(~np.isnan(test_association[1])*2))
+                # print("======")
+                # print("JNIS {}".format(JNIS))
+                # print("Best JNIS {}".format(self.best_JNIS))
+                # print("Joint Compat {}".format(joint_compat))
                 num_associated = np.count_nonzero(~np.isnan(test_association[1]))
-                print("Num associations {}".format(num_associated))
-                print("======")
+                # print("Num associations {}".format(num_associated))
+                # print("======")
                 update = False
                 if joint_compat and num_associated >= self.best_num_associated:
                     if num_associated == self.best_num_associated:
@@ -122,7 +122,7 @@ class JCBB:
                         update = True
                 if update:
                         # want to prioritize getting more num_associated over 
-                    print("found a better one!")
+                    # print("found a better one!")
                     # print(test_association)
                     self.boundaries_taken.add(next_boundary)
                     self.best_num_associated = num_associated
@@ -207,7 +207,7 @@ class JCBB:
 
     def calc_R(self, associated_points, indiv):
         #https://dspace.mit.edu/handle/1721.1/32438#files-area
-        R_indiv = np.array([[200, 0], [0,20]])
+        R_indiv = np.array([[200, 0], [0,200]])
         if indiv:
             R_stacked = np.zeros((len(associated_points), 2,2))
             R_stacked[:] = R_indiv
@@ -274,7 +274,7 @@ class JCBB:
         alpha = xs["alpha"]
         beta = xs["beta"]
         R_pi_by_2 = Helper.compute_rot_matrix(np.pi/2)
-        phi = 15 ##random. fix!
+        phi = 30 ##random. fix!
         R_phi = Helper.compute_rot_matrix(phi)
         #naive way-- with for loops. need to think how to get rid of.
         for index, point in enumerate(associated_points):
@@ -313,6 +313,11 @@ class JCBB:
         # return np.tile(U_indiv, (num_tiles,1))
         return U
 
+
+def convert_scan_polar_euler(scan):
+    return np.cos(scan[:,0])*scan[:,1], np.sin(scan[:,0])*scan[:,1]
+
+
 if __name__ == "__main__":
     jc = JCBB()
     cluster = None
@@ -334,5 +339,26 @@ if __name__ == "__main__":
     starttime = time.time()
     asso = jc.run(cluster, initial_association, scan_data, xs, boundary_points, track, P)
     endtime = time.time()
-    print(asso)
+
+    pairings = asso[:,~np.isnan(asso[1])]
+    selected_bndr_pts = boundary_points[pairings[1].astype(int)]
+    selected_scan_pts = scan_data[pairings[0].astype(int)]
+
+    selected_scan_x, selected_scan_y = convert_scan_polar_euler(selected_scan_pts)
+    scan_x, scan_y = convert_scan_polar_euler(scan_data)
+    #plot!!
+
+
+    #scan data points plot
+    plt.scatter(scan_x, scan_y, c="b", marker="o", alpha = 0.5, label="Scan Data")
+    #boundary points plot
+    plt.scatter(boundary_points[:,0], boundary_points[:,1], c="orange", marker="o", alpha = 0.5, label="Boundary Points")
+
+
+    #SELECTED/PAIRED POINTS
+    plt.scatter(selected_scan_x, selected_scan_y, c="g", marker="v", alpha = 0.5, label="Paired Scan Points")
+    plt.scatter(selected_bndr_pts[:,0], selected_bndr_pts[:,1], c="r", marker="v", alpha = 0.5, label="Paired Boundary Points")
+    plt.legend()
+    plt.show()
+
     print(endtime-starttime)
