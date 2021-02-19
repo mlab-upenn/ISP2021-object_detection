@@ -33,9 +33,9 @@ class JCBB:
         # megacluster = self.combine_clusters(clusters) #
         individual_compatibilities = self.compute_compatibility(boundary_points)
         pruned_associations = self.prune_associations(initial_association, individual_compatibilities)
-        print("preWhile {}".format(pruned_associations[1]))
+        # print("preWhile {}".format(pruned_associations[1]))
         JNIS = self.calc_JNIS(pruned_associations, boundary_points)
-        print("Original JNIS {}".format(JNIS))
+        # print("Original JNIS {}".format(JNIS))
 
         #JNIS seems really large. Why??
         # print(pruned_associations)
@@ -44,7 +44,7 @@ class JCBB:
         JNIS_delta = 0
         dof = np.count_nonzero(~np.isnan(pruned_associations[1]))*2
         chi2 = stats.chi2.ppf(self.alpha, df=dof)
-        print("Original chi2 {}".format(chi2))
+        # print("Original chi2 {}".format(chi2))
         # sys.exit()
 
         while True:
@@ -101,9 +101,11 @@ class JCBB:
         for measurement in unassociated_measurements:
             # compat_boundaries[measurement] = np.append(individual_compatibilities[int(measurement),:],np.nan) #append null?
             boundary_idxs = np.where(individual_compatibilities[int(measurement),:] == 1)[0]
-            compat_boundaries[measurement] = np.append(boundary_idxs,np.nan) #what to do about nan?
-
-        
+            selected_boundaries = set(boundary_idxs)
+            selected_boundaries.add(np.nan)
+            selected_boundaries = selected_boundaries-set(minimal_association[1])
+            compat_boundaries[measurement] = list(selected_boundaries)
+        print("Min asso {}".format(minimal_association))
         assigned_associations = self.branch_and_bound(unassociated_measurements, minimal_association, compat_boundaries, boundary_points)
     
         return assigned_associations
@@ -118,34 +120,41 @@ class JCBB:
         # print("BEGIN DFS!")
         # print(minimal_association)
         self.unassociated_measurements = unassociated_measurements
-        self.DFS(1, None, minimal_association, compat_boundaries, boundary_points, boundaries_taken)
+        self.DFS(0, None, minimal_association, compat_boundaries, boundary_points, boundaries_taken)
         # print(assigned_association)
-        # print("best jnis {}, num assoc {}".format(self.best_JNIS, self.best_num_associated))
+        print("best jnis {}, num assoc {}".format(self.best_JNIS, self.best_num_associated))
         # print("best asso")
-        print(self.best_association)
+        jnis = self.calc_JNIS(self.best_association, boundary_points)
+        joint_compat = self.check_compat(jnis, DOF =np.count_nonzero(~np.isnan(self.best_association[1])*2))
+        if joint_compat:
+            print(self.best_association)
 
-        return self.best_association
+            return self.best_association
+        else:
+            return np.zeros((self.best_association.shape))
 
     def DFS(self, level, boundary_point, association, compat_boundaries, boundary_points, boundaries_taken):
+        # print("Boundaries taken {}".format(boundaries_taken))
+        boundaries_taken = boundaries_taken.copy()
         self.explored.add((level, boundary_point))
         avail_boundaries = compat_boundaries[self.unassociated_measurements[level]]
         for next_boundary in avail_boundaries:
             if (level+1, next_boundary) not in self.explored and\
                  next_boundary not in boundaries_taken and level+1 < self.unassociated_measurements.shape[0]:
-                
+                # print("next boundary {}, boundaries_taken {}".format(next_boundary, boundaries_taken))
                 test_association = association[:]
                 test_association[1,int(self.unassociated_measurements[level+1])] = next_boundary
 
                 #maybe for a more accurate JNIS calc, do I need to combine this association with the previous one?
                 JNIS = self.calc_JNIS(test_association, boundary_points)
-                print("======")
+                # print("======")
                 joint_compat = self.check_compat(JNIS, DOF =np.count_nonzero(~np.isnan(test_association[1])*2))
-                print("JNIS {}".format(JNIS))
-                print("Best JNIS {}".format(self.best_JNIS))
-                print("Joint Compat {}".format(joint_compat))
+                # print("JNIS {}".format(JNIS))
+                # print("Best JNIS {}".format(self.best_JNIS))
+                # print("Joint Compat {}".format(joint_compat))
                 num_associated = np.count_nonzero(~np.isnan(test_association[1]))
-                print("Num associations {}".format(num_associated))
-                print("======")
+                # print("Num associations {}".format(num_associated))
+                # print("======")
                 update = False
                 if joint_compat and num_associated >= self.best_num_associated:
                     if num_associated == self.best_num_associated:
@@ -164,7 +173,7 @@ class JCBB:
 
     def check_compat(self, JNIS, DOF):
         chi2 = stats.chi2.ppf(self.alpha, df=DOF)
-        print("chi2: {}".format(chi2))
+        # print("chi2: {}".format(chi2))
         return JNIS <= chi2
  
     def compute_compatibility(self, boundary_points):
@@ -251,17 +260,12 @@ class JCBB:
         else:
             z_hat = self.scan_data[z_hat_idx].flatten()
             h = h.flatten()
-
             # print("S {}".format(S))
-            # print("zhat {}".format(z_hat))
-            # print("h {}".format(h))
-            # print(z_hat.shape)
-            # print(h.shape)
-            # print(S.shape)
-            # sys.exit()
+            # print("Sub {}".format(np.sum(z_hat-h)))
 
             JNIS = (z_hat-h).T@np.linalg.inv(S)@(z_hat-h)
-            
+            # print("JNIS {}".format(JNIS))
+
         return JNIS
 
     def calc_R(self, associated_points, indiv):
@@ -295,22 +299,20 @@ class JCBB:
             S = np.einsum('ijk,ilk->ijl', temp, H)+R
         else:
             # print("P.shape {}".format(P.shape))
-            print("H shape")
-            print(H.shape)
+            # print("H shape")
+            # print(H.shape)
 
             # sys.exit()
-            P_matrices = tuple([self.P for i in range(H.shape[0]//2)])
-            P_block =  block_diag(*P_matrices)
-            print(P_block.shape)
+            # P_matrices = tuple([self.P for i in range(H.shape[0]//2)])
+            # P_block =  block_diag(*P_matrices)
             # print("H shape {}".format(H.shape))
-            # print("P shape {}".format(P_tile.shape))
             # print("R shape {}".format(R.shape))
-
+            # print("P block shape {}".format(P_block.shape))
+            # print("H {}".format(H))
             #ooh this may be wrong...
-            if P_block.shape != (1,0):
-                S = H@P_block@H.T + R
-            else:
-                S =0
+            S = H@P@H.T + R
+            # else:
+            #     S =0
         return S
 
     def calc_g_and_G(self, associated_points, indiv):
@@ -325,7 +327,8 @@ class JCBB:
         if indiv:
             G  = np.zeros((associated_points.shape[0], 2, 2))
         else:
-            G_matrices = []
+            G = np.zeros((associated_points.shape[0]*2, 2))
+            # G_matrices = []
 
         alpha = self.xs["alpha"]
         beta = self.xs["beta"]
@@ -350,10 +353,11 @@ class JCBB:
             if indiv:
                 G[index] = -R_psi.T-R_pi_by_2@g[index]
             else:
-                G_matrices.append(-R_psi.T-R_pi_by_2@g[index])
+                G[index*2:index*2+2] = -R_psi.T-R_pi_by_2@g[index]
+                # G_matrices.append(-R_psi.T-R_pi_by_2@g[index])
         
-        if not indiv:
-            G = block_diag(*tuple(G_matrices))
+        # if not indiv:
+        #     G = block_diag(*tuple(G_matrices))
         return g, G
 
 
@@ -380,36 +384,7 @@ def convert_scan_polar_euler(scan):
     return np.cos(scan[:,1])*scan[:,0], np.sin(scan[:,1])*scan[:,0]
 
 
-if __name__ == "__main__":
-    jc = JCBB()
-    cluster = None
-    xs = {"alpha":0, "beta":0}
-    n = 100
-    initial_association = np.zeros((2, n))
-    initial_association[0] = np.arange(n)
-    initial_association[1] = np.random.randint(0, 10, n)
-    scan_data = np.zeros((n,2))
-    scan_data[:,0] = np.random.uniform(26, 34, n)
-    scan_data[:,1] = np.linspace(0.6, 1.2, n)
-    boundary_points= np.zeros((10,2))
-    boundary_points[:,0] = np.random.uniform(-3, 3, 10)
-    boundary_points[:,1] = np.random.uniform(-3, 3, 10)
-    # boundary_points[:,2] = np.random.uniform(-1, 1, 10)
-
-
-    track = [20, 25, 0]
-    P = np.ones((2,2))*10
-    static = False
-    psi = 0.0
-    jc.assign_values(xs, scan_data, track, P, static, psi)
-
-
-
-    starttime = time.time()
-    asso = jc.run(cluster, initial_association, boundary_points)
-    endtime = time.time()
-    runtime = endtime-starttime
-
+def plot_association(asso):
     pairings = asso[:,~np.isnan(asso[1])]
     selected_bndr_pts = boundary_points[pairings[1].astype(int)]
     selected_scan_pts = scan_data[pairings[0].astype(int)]
@@ -437,4 +412,42 @@ if __name__ == "__main__":
     plt.legend()
     plt.title("Runtime: {}".format(runtime))
     plt.show()
+
+
+
+if __name__ == "__main__":
+    jc = JCBB()
+    cluster = None
+    xs = {"alpha":0, "beta":0}
+    n = 100
+    initial_association = np.zeros((2, n))
+    initial_association[0] = np.arange(n)
+    initial_association[1] = np.random.randint(0, 10, n)
+    scan_data = np.zeros((n,2))
+    scan_data[:,0] = np.random.uniform(26, 34, n) #1st row is ranges
+    scan_data[:,1] = np.linspace(0.6, 1.2, n) #2nd row is angles (radians)
+    boundary_points= np.zeros((10,2))
+    boundary_points[:,0] = np.random.uniform(-3, 3, 10) #x coord, relative to track coordinate
+    boundary_points[:,1] = np.random.uniform(-3, 3, 10) #y coord, relative to track coordinate
+    # boundary_points[:,2] = np.random.uniform(-1, 1, 10)
+
+
+    track = [20, 25, 0]
+    P = np.ones((2,2))*0.5
+    static = False
+    psi = 0.0
+    
+    jc.assign_values(xs, scan_data, track, P, static, psi)
+
+
+
+    starttime = time.time()
+    asso = jc.run(cluster, initial_association, boundary_points)
+    endtime = time.time()
+    runtime = endtime-starttime
+
+    if np.any(asso):
+        plot_association(asso)
+    else:
+        print("No associations found.")
 
