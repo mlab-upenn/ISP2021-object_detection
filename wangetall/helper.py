@@ -23,3 +23,11 @@ class Helper:
 
         #can probs ignore the cells on the bottom right edge bc 2D
         return R
+
+
+# if __name__ =="__main__":
+#     R = Helper.compute_rot_matrix(0.1)
+#     x = np.array([1,1])
+#     print(R)
+#     print(R@x)
+#     print(R@x.T)
