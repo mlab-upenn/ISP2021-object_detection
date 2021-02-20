@@ -8,11 +8,13 @@ import sys
 import time
 import matplotlib.pyplot as plt
 
+
+#Sample code:
 #https://github.com/Scarabrine/EECS568Project_Team2_iSAM/blob/master/JCBB_R.m
 
 class JCBB:
     def __init__(self):
-        self.alpha = 1-0.98
+        self.alpha = 1-0.95
     
     def assign_values(self, xs, scan_data, track, P, static, psi):
         self.xs = xs
@@ -108,6 +110,7 @@ class JCBB:
                 test_association[1,int(self.unassociated_measurements[level])] = next_boundary
                 self.explored.add((level, next_boundary))
                 JNIS = self.calc_JNIS(test_association, boundary_points)
+                print("JNIS {}".format(JNIS))
                 joint_compat = self.check_compat(JNIS, DOF =np.count_nonzero(~np.isnan(test_association[1]))*2)
                 num_associated = np.count_nonzero(~np.isnan(test_association[1]))
                 update = False
@@ -115,10 +118,10 @@ class JCBB:
                     if num_associated == self.best_num_associated:
                         if JNIS <= self.best_JNIS:
                             update = True
-                            self.best_JNIS = JNIS
                     else:
                         update = True
                 if update:
+                    self.best_JNIS = JNIS
                     self.best_num_associated = num_associated
                     self.best_association = np.copy(test_association)
                 if joint_compat and level+1 < len(self.unassociated_measurements):
@@ -329,7 +332,7 @@ def plot_association(asso):
 if __name__ == "__main__":
     jc = JCBB()
     cluster = None
-    # np.random.seed(0)
+    np.random.seed(113)
     # for i in range(100):
 
     xs = {"alpha":0, "beta":0}
