@@ -12,7 +12,7 @@ import matplotlib.pyplot as plt
 
 class JCBB:
     def __init__(self):
-        self.alpha = 0.95
+        self.alpha = 0.98
     
     def assign_values(self, xs, scan_data, track, P, static, psi):
         self.xs = xs
@@ -32,9 +32,12 @@ class JCBB:
 
         # megacluster = self.combine_clusters(clusters) #
         individual_compatibilities = self.compute_compatibility(boundary_points)
+
         pruned_associations = self.prune_associations(initial_association, individual_compatibilities)
+
         # print("preWhile {}".format(pruned_associations[1]))
         JNIS = self.calc_JNIS(pruned_associations, boundary_points)
+
         # print("Original JNIS {}".format(JNIS))
 
         #JNIS seems really large. Why??
@@ -44,7 +47,7 @@ class JCBB:
         JNIS_delta = 0
         dof = np.count_nonzero(~np.isnan(pruned_associations[1]))*2
         chi2 = stats.chi2.ppf(self.alpha, df=dof)
-        # print("Original chi2 {}".format(chi2))
+        print("Original chi2 {}".format(chi2))
         # sys.exit()
 
         while True:
@@ -60,10 +63,6 @@ class JCBB:
                 # print("JNIS New {}".format(JNIS_new))
                 JNIS_new_delta = JNIS-JNIS_new
                 # print("Old JNIS {}".format(JNIS))
-
-                dof = np.count_nonzero(~np.isnan(pruned_associations[1]))*2
-                chi2 = stats.chi2.ppf(self.alpha, df=dof)
-                # print("new chi2 {}".format(chi2))
                 # print("JNIS_new_delta {}".format(JNIS_new_delta))
                 # print("JNIS_delta {}".format(JNIS_delta))
 
@@ -76,23 +75,21 @@ class JCBB:
                     curr_association = np.copy(pruned_associations)
                     # print("JNIS proposed {}, Curr asso  {}".format(JNIS-JNIS_delta, curr_association[1]))
                 pruned_associations[1, index] = curr_pairing
-            # print("JNIS-JNIS_delta: {}".format(JNIS-JNIS_delta))
             # # print("JNIS {}".format(JNIS))
             # print("JNIS_delta {}".format(JNIS_delta))
-            # print("Chi2 {}".format(chi2))
             # time.sleep(1)
             # print("curr association {}".format(curr_association[1]))
+            dof = np.count_nonzero(~np.isnan(curr_association[1]))*2
+            chi2 = stats.chi2.ppf(self.alpha, df=dof)
+
             if JNIS-JNIS_delta <= chi2 or dof ==0:
-                # print("breaking while loop...")
+                print("breaking while loop...")
                 minimal_association = np.copy(curr_association)
-                # print(minimal_association[1])
                 # sys.exit()
                 JNIS = JNIS-JNIS_delta
                 break
             else:
-                # print("nope...")
                 pruned_associations = np.copy(curr_association)
-        # print("minimal association {}".format(minimal_association))
         unassociated_measurements = minimal_association[0, np.isnan(minimal_association[1])]
         # unassociated_matrix = np.zeros((2, unassociated_measurements.shape[0]))
         # unassociated_matrix[0] = unassociated_measurements
@@ -124,7 +121,7 @@ class JCBB:
         print("best jnis {}, num assoc {}".format(self.best_JNIS, self.best_num_associated))
         # print("best asso")
         jnis = self.calc_JNIS(self.best_association, boundary_points)
-        joint_compat = self.check_compat(jnis, DOF =np.count_nonzero(~np.isnan(self.best_association[1])*2))
+        joint_compat = self.check_compat(jnis, DOF =np.count_nonzero(~np.isnan(self.best_association[1]))*2)
         if joint_compat:
             # print(self.best_association)
 
@@ -135,7 +132,7 @@ class JCBB:
     def DFS(self, level, boundary_point, association, compat_boundaries, boundary_points, boundaries_taken):
         # print("Boundaries taken {}".format(boundaries_taken))
         boundaries_taken = boundaries_taken.copy()
-        self.explored.add((level, boundary_point))
+        
         avail_boundaries = compat_boundaries[self.unassociated_measurements[level]]
         for next_boundary in avail_boundaries:
             if (level, next_boundary) not in self.explored and\
@@ -143,17 +140,17 @@ class JCBB:
                 print("next boundary: {}, boundaries_taken: {}".format(next_boundary, boundaries_taken))
                 test_association = association[:]
                 test_association[1,int(self.unassociated_measurements[level])] = next_boundary
-
+                self.explored.add((level, next_boundary))
                 #maybe for a more accurate JNIS calc, do I need to combine this association with the previous one?
                 JNIS = self.calc_JNIS(test_association, boundary_points)
-                # print("======")
-                joint_compat = self.check_compat(JNIS, DOF =np.count_nonzero(~np.isnan(test_association[1])*2))
-                # print("JNIS {}".format(JNIS))
-                # print("Best JNIS {}".format(self.best_JNIS))
-                # print("Joint Compat {}".format(joint_compat))
+                print("======")
+                joint_compat = self.check_compat(JNIS, DOF =np.count_nonzero(~np.isnan(test_association[1]))*2)
+                print("JNIS {}".format(JNIS))
+                print("Best JNIS {}".format(self.best_JNIS))
+                print("Joint Compat {}".format(joint_compat))
                 num_associated = np.count_nonzero(~np.isnan(test_association[1]))
-                # print("Num associations {}".format(num_associated))
-                # print("======")
+                print("Num associations {}".format(num_associated))
+                print("======")
                 update = False
                 if joint_compat and num_associated >= self.best_num_associated:
                     if num_associated == self.best_num_associated:
@@ -174,7 +171,7 @@ class JCBB:
 
     def check_compat(self, JNIS, DOF):
         chi2 = stats.chi2.ppf(self.alpha, df=DOF)
-        # print("chi2: {}".format(chi2))
+        print("chi2_compat_check: {}".format(chi2))
         return JNIS <= chi2
  
     def compute_compatibility(self, boundary_points):
@@ -269,10 +266,9 @@ class JCBB:
             # sys.exit()
             # np.save("association_pre.npy", association)
 
-            np.save("h.npy", h)
-            np.save("z_hat.npy", z_hat)
-            np.save("S.npy", S)
-
+            # np.save("h.npy", h)
+            # np.save("z_hat.npy", z_hat)
+            # np.save("S.npy", S)
             # print("S {}".format(S))
             # print("Sub {}".format(np.sum(z_hat-h)))
 
@@ -284,7 +280,7 @@ class JCBB:
 
     def calc_R(self, associated_points, indiv):
         #https://dspace.mit.edu/handle/1721.1/32438#files-area
-        R_indiv = np.array([[2, 0], [0,2]])
+        R_indiv = np.array([[0.2, 0], [0,0.2]])
         if indiv:
             R_stacked = np.zeros((len(associated_points), 2,2))
             R_stacked[:] = R_indiv
