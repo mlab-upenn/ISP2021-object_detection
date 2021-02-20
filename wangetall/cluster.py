@@ -184,7 +184,7 @@ if __name__ == "__main__":
     # print(clusters)
 
     # plt.triplot(points[:,0], points[:,1], tri)
-    # plt.figure()
-    # plt.plot(points[:,0], points[:,1], 'o')
-    # plt.show()
+    plt.figure()
+    plt.plot(points[:,0], points[:,1], 'o')
+    plt.show()
 

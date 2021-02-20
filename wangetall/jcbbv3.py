@@ -105,7 +105,6 @@ class JCBB:
             selected_boundaries.add(np.nan)
             selected_boundaries = selected_boundaries-set(minimal_association[1])
             compat_boundaries[measurement] = list(selected_boundaries)
-        print("Min asso {}".format(minimal_association))
         assigned_associations = self.branch_and_bound(unassociated_measurements, minimal_association, compat_boundaries, boundary_points)
     
         return assigned_associations
@@ -127,7 +126,7 @@ class JCBB:
         jnis = self.calc_JNIS(self.best_association, boundary_points)
         joint_compat = self.check_compat(jnis, DOF =np.count_nonzero(~np.isnan(self.best_association[1])*2))
         if joint_compat:
-            print(self.best_association)
+            # print(self.best_association)
 
             return self.best_association
         else:
@@ -139,11 +138,11 @@ class JCBB:
         self.explored.add((level, boundary_point))
         avail_boundaries = compat_boundaries[self.unassociated_measurements[level]]
         for next_boundary in avail_boundaries:
-            if (level+1, next_boundary) not in self.explored and\
-                 next_boundary not in boundaries_taken and level+1 < self.unassociated_measurements.shape[0]:
-                # print("next boundary {}, boundaries_taken {}".format(next_boundary, boundaries_taken))
+            if (level, next_boundary) not in self.explored and\
+                 next_boundary not in boundaries_taken and level < self.unassociated_measurements.shape[0]:
+                print("next boundary: {}, boundaries_taken: {}".format(next_boundary, boundaries_taken))
                 test_association = association[:]
-                test_association[1,int(self.unassociated_measurements[level+1])] = next_boundary
+                test_association[1,int(self.unassociated_measurements[level])] = next_boundary
 
                 #maybe for a more accurate JNIS calc, do I need to combine this association with the previous one?
                 JNIS = self.calc_JNIS(test_association, boundary_points)
@@ -166,9 +165,11 @@ class JCBB:
                 if update:
                     print("found a better one!")
                     # print(test_association)
-                    boundaries_taken.add(next_boundary)
                     self.best_num_associated = num_associated
                     self.best_association = np.copy(test_association)
+                if level+1 <= self.unassociated_measurements.shape[0]:
+                    print("goin' forward.")
+                    boundaries_taken.add(next_boundary)
                     self.DFS(level+1, next_boundary, test_association, compat_boundaries, boundary_points, boundaries_taken)
 
     def check_compat(self, JNIS, DOF):
@@ -229,9 +230,13 @@ class JCBB:
     def calc_JNIS(self, association, boundary_points, indiv= False):
         #want JNIS to output vector of JNIS's if individual
         #want single JNIS if joint.
-        association_idx = association[1][~np.isnan(association[1])].astype(int)
-        associated_points = boundary_points[association_idx]
-        # print("Asso points: {}".format(associated_points))
+        bndry_points_idx = association[1][~np.isnan(association[1])].astype(int)
+        z_hat_idx = association[0][~np.isnan(association[1])].astype(int)
+
+        associated_points = boundary_points[bndry_points_idx]
+        if len(associated_points) == 0:
+            return np.inf
+
         g, G = self.calc_g_and_G(associated_points, indiv)
         h = self.calc_h(g)
 
@@ -242,7 +247,7 @@ class JCBB:
 
         # print("Asso points {}".format(associated_points))
         S = self.calc_S(H,R, indiv)
-        z_hat_idx = association[0, association_idx].astype(int)
+        # z_hat_idx = association[0, scan_points_idx].astype(int)
         # print("Association {}".format(association))
         # print("z_hat_idx {}".format(z_hat_idx))
         if indiv:
@@ -259,18 +264,27 @@ class JCBB:
             JNIS = np.einsum('ki,kij,kj->k', a, b, a)
         else:
             z_hat = self.scan_data[z_hat_idx].flatten()
+
             h = h.flatten()
+            # sys.exit()
+            # np.save("association_pre.npy", association)
+
+            np.save("h.npy", h)
+            np.save("z_hat.npy", z_hat)
+            np.save("S.npy", S)
+
             # print("S {}".format(S))
             # print("Sub {}".format(np.sum(z_hat-h)))
 
             JNIS = (z_hat-h).T@np.linalg.inv(S)@(z_hat-h)
+
             # print("JNIS {}".format(JNIS))
 
         return JNIS
 
     def calc_R(self, associated_points, indiv):
         #https://dspace.mit.edu/handle/1721.1/32438#files-area
-        R_indiv = np.array([[0.2, 0], [0,0.2]])
+        R_indiv = np.array([[2, 0], [0,2]])
         if indiv:
             R_stacked = np.zeros((len(associated_points), 2,2))
             R_stacked[:] = R_indiv
@@ -361,8 +375,6 @@ class JCBB:
         return g, G
 
 
-
-
     def calc_Jacobian_H(self, g, G, associated_points, indiv):
         U = self.calc_U(g, len(associated_points), indiv)
         H = U.T @ G
@@ -380,7 +392,7 @@ class JCBB:
         return U
 
 
-def convert_scan_polar_euler(scan):
+def convert_scan_polar_cartesian(scan):
     return np.cos(scan[:,1])*scan[:,0], np.sin(scan[:,1])*scan[:,0]
 
 
@@ -389,8 +401,8 @@ def plot_association(asso):
     selected_bndr_pts = boundary_points[pairings[1].astype(int)]
     selected_scan_pts = scan_data[pairings[0].astype(int)]
 
-    selected_scan_x, selected_scan_y = convert_scan_polar_euler(selected_scan_pts)
-    scan_x, scan_y = convert_scan_polar_euler(scan_data)
+    selected_scan_x, selected_scan_y = convert_scan_polar_cartesian(selected_scan_pts)
+    scan_x, scan_y = convert_scan_polar_cartesian(scan_data)
     #plot!!
 
 
@@ -418,27 +430,37 @@ def plot_association(asso):
 if __name__ == "__main__":
     jc = JCBB()
     cluster = None
+    # for i in range(100):
+
     xs = {"alpha":0, "beta":0}
     n = 100
     initial_association = np.zeros((2, n))
     initial_association[0] = np.arange(n)
     initial_association[1] = np.random.randint(0, 10, n)
     scan_data = np.zeros((n,2))
-    scan_data[:,0] = np.random.uniform(26, 34, n) #1st row is ranges
-    scan_data[:,1] = np.linspace(0.6, 1.2, n) #2nd row is angles (radians)
-    boundary_points= np.zeros((10,2))
-    boundary_points[:,0] = np.random.uniform(-3, 3, 10) #x coord, relative to track coordinate
-    boundary_points[:,1] = np.random.uniform(-3, 3, 10) #y coord, relative to track coordinate
+    sigma = 0.1
+    scan_data[:,0] = np.random.uniform(28, 38, n) #1st row is ranges
+    scan_data[:,1] = np.random.uniform(0.6, 1.1, n) #2nd row is angles (radians)
+
+    # scan_data[:,0] = np.random.normal(33,sigma, n) #1st row is ranges
+    # scan_data[:,1] =  np.random.normal(0.85,sigma, n) #1st row is ranges
+
+    n_boundary = 10
+    boundary_points= np.zeros((n_boundary,2))
+    # boundary_points[:,0] = np.random.uniform(-3, 3, n_boundary) #x coord, relative to track coordinate
+    # boundary_points[:,1] = np.random.uniform(-3, 3, n_boundary) #y coord, relative to track coordinate
+    boundary_points[:,0] = np.array([0,0,0,0,0,1,2,3,4,5]) #x coord, relative to track coordinate
+    boundary_points[:,1] = np.array([0,1,2,3,4,0,0,0,0,0]) #y coord, relative to track coordinate
+
     # boundary_points[:,2] = np.random.uniform(-1, 1, 10)
 
 
     track = [20, 25, 0]
-    P = np.ones((2,2))*0.5
+    P = np.eye(2)*0
     static = False
     psi = 0.0
     
     jc.assign_values(xs, scan_data, track, P, static, psi)
-
 
 
     starttime = time.time()
@@ -450,4 +472,5 @@ if __name__ == "__main__":
         plot_association(asso)
     else:
         print("No associations found.")
+        # plot_association(asso)
 
