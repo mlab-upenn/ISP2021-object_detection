@@ -1,26 +1,20 @@
-# import numpy as np
-# from scipy.sparse import block_diag
+import numpy as np
 
+z_hat = np.load("z_hat.npy")
+h = np.load("h.npy")
+S = np.load("S.npy")
 
-# G_indiv=np.array([[2,0],[0,2]])
-# G_matrices = tuple([G_indiv for i in range(9)])
-# Gs = block_diag(G_matrices)
-# print(Gs.shape)
+S_inv = np.linalg.inv(S)
+sub = z_hat - h
+test = sub.T@S_inv@sub
+print(test)
+print(z_hat)
+print(h)
 
-# v = np.zeros((18,2)) 
-# v[:] = np.ones((2,2))
-# print(v)
-# # v[1::2] = np.array([0,0])
-# print("new v")
-# print(v)
-# b=v.T@Gs
-# print(b.shape)
-# print(b.T[::2])
-# # print(b[::2])
+print("Scan Pos 1:")
+scanpos1 = (np.cos(z_hat[1])*z_hat[0], np.sin(z_hat[1])*z_hat[0])
+print(scanpos1)
 
-def test(P):
-    def test2():
-        print(P)
-    test2()
-
-test(2)
+print("Tgt Pos 1:")
+tgtpos1 = (np.cos(h[1])*h[0], np.sin(h[1])*h[0])
+print(tgtpos1)
