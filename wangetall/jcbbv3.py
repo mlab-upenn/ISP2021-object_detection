@@ -12,7 +12,7 @@ import matplotlib.pyplot as plt
 
 class JCBB:
     def __init__(self):
-        self.alpha = 0.98
+        self.alpha = 1-0.98
     
     def assign_values(self, xs, scan_data, track, P, static, psi):
         self.xs = xs
@@ -32,76 +32,49 @@ class JCBB:
 
         # megacluster = self.combine_clusters(clusters) #
         individual_compatibilities = self.compute_compatibility(boundary_points)
-
         pruned_associations = self.prune_associations(initial_association, individual_compatibilities)
-
-        # print("preWhile {}".format(pruned_associations[1]))
         JNIS = self.calc_JNIS(pruned_associations, boundary_points)
 
-        # print("Original JNIS {}".format(JNIS))
 
-        #JNIS seems really large. Why??
-        # print(pruned_associations)
-        # sys.exit(0)
-        # print(pruned_associations)
         JNIS_delta = 0
         dof = np.count_nonzero(~np.isnan(pruned_associations[1]))*2
         chi2 = stats.chi2.ppf(self.alpha, df=dof)
-        print("Original chi2 {}".format(chi2))
-        # sys.exit()
 
         while True:
             curr_association = np.copy(pruned_associations)
-            # print("Pruned asso {}".format(pruned_associations))
-            # print([~np.isnan(pruned_associations[1])])
-            # print(np.arange(pruned_associations.shape[1])[~np.isnan(pruned_associations[1])])
             for index in np.arange(pruned_associations.shape[1])[~np.isnan(pruned_associations[1])]:
-                # print(index)
                 curr_pairing = pruned_associations[1, index]
                 pruned_associations[1, index] = np.nan
                 JNIS_new = self.calc_JNIS(pruned_associations, boundary_points)
-                # print("JNIS New {}".format(JNIS_new))
                 JNIS_new_delta = JNIS-JNIS_new
-                # print("Old JNIS {}".format(JNIS))
-                # print("JNIS_new_delta {}".format(JNIS_new_delta))
-                # print("JNIS_delta {}".format(JNIS_delta))
 
                 if JNIS_new_delta > JNIS_delta:
-                    # print("bigger!")
                     JNIS_delta = JNIS_new_delta
-                    # print(JNIS_delta)
-                    # print("Chi2 {}".format(chi2))
 
                     curr_association = np.copy(pruned_associations)
-                    # print("JNIS proposed {}, Curr asso  {}".format(JNIS-JNIS_delta, curr_association[1]))
                 pruned_associations[1, index] = curr_pairing
-            # # print("JNIS {}".format(JNIS))
-            # print("JNIS_delta {}".format(JNIS_delta))
-            # time.sleep(1)
-            # print("curr association {}".format(curr_association[1]))
+
             dof = np.count_nonzero(~np.isnan(curr_association[1]))*2
             chi2 = stats.chi2.ppf(self.alpha, df=dof)
 
             if JNIS-JNIS_delta <= chi2 or dof ==0:
                 print("breaking while loop...")
                 minimal_association = np.copy(curr_association)
-                # sys.exit()
                 JNIS = JNIS-JNIS_delta
                 break
             else:
                 pruned_associations = np.copy(curr_association)
         unassociated_measurements = minimal_association[0, np.isnan(minimal_association[1])]
-        # unassociated_matrix = np.zeros((2, unassociated_measurements.shape[0]))
-        # unassociated_matrix[0] = unassociated_measurements
-        # unassociated_matrix[1] = np.nan
         compat_boundaries = {}
-        for measurement in unassociated_measurements:
-            # compat_boundaries[measurement] = np.append(individual_compatibilities[int(measurement),:],np.nan) #append null?
+        for idx, measurement in enumerate(unassociated_measurements):
             boundary_idxs = np.where(individual_compatibilities[int(measurement),:] == 1)[0]
             selected_boundaries = set(boundary_idxs)
+
             selected_boundaries.add(np.nan)
+
             selected_boundaries = selected_boundaries-set(minimal_association[1])
             compat_boundaries[measurement] = list(selected_boundaries)
+        
         assigned_associations = self.branch_and_bound(unassociated_measurements, minimal_association, compat_boundaries, boundary_points)
     
         return assigned_associations
@@ -110,47 +83,36 @@ class JCBB:
         self.best_JNIS = np.inf
         self.best_num_associated = np.count_nonzero(~np.isnan(minimal_association[1]))
         self.best_association = np.copy(minimal_association)
-        # print("min asso {}".format(self.best_association))
         boundaries_taken = set()
         self.explored = set() #consists of tuples of (level, boundary_point)
-        # print("BEGIN DFS!")
-        # print(minimal_association)
         self.unassociated_measurements = unassociated_measurements
-        self.DFS(0, None, minimal_association, compat_boundaries, boundary_points, boundaries_taken)
-        # print(assigned_association)
+        print("BEGIN DFS!!")
+        self.DFS(0, minimal_association, compat_boundaries, boundary_points, boundaries_taken)
         print("best jnis {}, num assoc {}".format(self.best_JNIS, self.best_num_associated))
-        # print("best asso")
         jnis = self.calc_JNIS(self.best_association, boundary_points)
         joint_compat = self.check_compat(jnis, DOF =np.count_nonzero(~np.isnan(self.best_association[1]))*2)
         if joint_compat:
-            # print(self.best_association)
+            print(self.best_association)
 
             return self.best_association
         else:
             return np.zeros((self.best_association.shape))
 
-    def DFS(self, level, boundary_point, association, compat_boundaries, boundary_points, boundaries_taken):
-        # print("Boundaries taken {}".format(boundaries_taken))
+    def DFS(self, level, association, compat_boundaries, boundary_points, boundaries_taken):
         boundaries_taken = boundaries_taken.copy()
-        
         avail_boundaries = compat_boundaries[self.unassociated_measurements[level]]
+        print("Level {}".format(level))
         for next_boundary in avail_boundaries:
+            isValidBoundary = next_boundary not in boundaries_taken or np.isnan(next_boundary)
             if (level, next_boundary) not in self.explored and\
-                 next_boundary not in boundaries_taken and level < self.unassociated_measurements.shape[0]:
-                print("next boundary: {}, boundaries_taken: {}".format(next_boundary, boundaries_taken))
-                test_association = association[:]
+                 isValidBoundary and level < len(self.unassociated_measurements):
+ 
+                test_association = np.copy(association)
                 test_association[1,int(self.unassociated_measurements[level])] = next_boundary
                 self.explored.add((level, next_boundary))
-                #maybe for a more accurate JNIS calc, do I need to combine this association with the previous one?
                 JNIS = self.calc_JNIS(test_association, boundary_points)
-                print("======")
                 joint_compat = self.check_compat(JNIS, DOF =np.count_nonzero(~np.isnan(test_association[1]))*2)
-                print("JNIS {}".format(JNIS))
-                print("Best JNIS {}".format(self.best_JNIS))
-                print("Joint Compat {}".format(joint_compat))
                 num_associated = np.count_nonzero(~np.isnan(test_association[1]))
-                print("Num associations {}".format(num_associated))
-                print("======")
                 update = False
                 if joint_compat and num_associated >= self.best_num_associated:
                     if num_associated == self.best_num_associated:
@@ -160,29 +122,29 @@ class JCBB:
                     else:
                         update = True
                 if update:
-                    print("found a better one!")
-                    # print(test_association)
                     self.best_num_associated = num_associated
                     self.best_association = np.copy(test_association)
-                if level+1 <= self.unassociated_measurements.shape[0]:
-                    print("goin' forward.")
+                if joint_compat and level+1 < len(self.unassociated_measurements):
                     boundaries_taken.add(next_boundary)
-                    self.DFS(level+1, next_boundary, test_association, compat_boundaries, boundary_points, boundaries_taken)
-
+                    self.DFS(level+1, test_association, compat_boundaries, boundary_points, boundaries_taken)
+                else:
+                    print("Rejected Level {}, Boundary {}".format(level, next_boundary))
     def check_compat(self, JNIS, DOF):
-        chi2 = stats.chi2.ppf(self.alpha, df=DOF)
-        print("chi2_compat_check: {}".format(chi2))
-        return JNIS <= chi2
+        if DOF == 0:
+            return np.inf
+        else:
+            chi2 = stats.chi2.ppf(self.alpha, df=DOF)
+            return JNIS <= chi2
  
     def compute_compatibility(self, boundary_points):
         #returns MxN matrix of compatibility boolean
         individual_compatabilities = np.zeros((self.scan_data.shape[0], boundary_points.shape[0]))
         chi2_val = stats.chi2.ppf(self.alpha, df=2)
         for i in range(self.scan_data.shape[0]):
+                
             association = np.zeros((2, boundary_points.shape[0]))
             association[0] = i
             association[1] = np.arange(boundary_points.shape[0])
-            # print(scan_data.shape)
             JNIS = self.calc_JNIS(association, boundary_points, indiv=True)
             individual_compatabilities[i, np.where(JNIS<=chi2_val)] = 1
         return individual_compatabilities
@@ -196,14 +158,6 @@ class JCBB:
         null_cols = np.where(~individual_compatibilies.any(axis=0))[0]
         for col in null_cols:
             associations[1][np.where(associations[1]==col)] = np.nan
-        #find duplicates
-
-        # count_horiz = np.count_nonzero(individual_compatibilies, axis = 1)
-        # rm_horiz_idx = count_horiz > 1
-        # associations[1, count_horiz > 1] = np.nan
-
-        # # print("indiv compat {}".format(individual_compatibilies))
-        # print(associations[1])
         u, c = np.unique(associations[1], return_counts=True)
         dup = u[c > 1]
         for item in dup:
@@ -211,16 +165,6 @@ class JCBB:
             if len(rm_idxs) >= 2:
                 rm_idxs = np.random.choice(rm_idxs, size = len(rm_idxs)-1, replace = False)
             associations[1][rm_idxs] = np.nan
-
-        # count_vert = np.count_nonzero(individual_compatibilies, axis = 0)
-        # rm_points = np.where(count_vert > 1)
-        # for point in rm_points[0]:
-        #     rm_idxs = np.where(associations[1] == point)[0]
-        #     if len(rm_idxs) > 2:
-        #         rm_idxs = np.random.choice(rm_idxs, size = len(rm_idxs)-1, replace = False)
-        #     associations[1][rm_idxs] = np.nan
-
-
         return associations
 
         
@@ -232,55 +176,35 @@ class JCBB:
 
         associated_points = boundary_points[bndry_points_idx]
         if len(associated_points) == 0:
-            return np.inf
+            return 0
 
         g, G = self.calc_g_and_G(associated_points, indiv)
         h = self.calc_h(g)
 
         R = self.calc_R(associated_points, indiv)
         H = self.calc_Jacobian_H(g, G, associated_points, indiv)
-        # print("association {}".format(association[1]))
-        # print("Asso idx {}".format(association_idx))
-
-        # print("Asso points {}".format(associated_points))
         S = self.calc_S(H,R, indiv)
-        # z_hat_idx = association[0, scan_points_idx].astype(int)
-        # print("Association {}".format(association))
-        # print("z_hat_idx {}".format(z_hat_idx))
         if indiv:
-            # print(~np.isnan(association[1]))
-            # print(association[0])
             z_hat = self.scan_data[z_hat_idx]
-            # print("zhat shape {}".format(z_hat.shape))
-            # print("h shape {}".format(h.shape))
 
-            a = (z_hat-h) #h is wrong shape!!
+            a = (z_hat-h)
             b = np.linalg.inv(S)
-            #b is supposed to be Nx2x2
-            #a is supposed to be Nx2. It's not currently :/
+
             JNIS = np.einsum('ki,kij,kj->k', a, b, a)
+
         else:
             z_hat = self.scan_data[z_hat_idx].flatten()
 
             h = h.flatten()
-            # sys.exit()
-            # np.save("association_pre.npy", association)
-
-            # np.save("h.npy", h)
-            # np.save("z_hat.npy", z_hat)
-            # np.save("S.npy", S)
-            # print("S {}".format(S))
-            # print("Sub {}".format(np.sum(z_hat-h)))
 
             JNIS = (z_hat-h).T@np.linalg.inv(S)@(z_hat-h)
 
-            # print("JNIS {}".format(JNIS))
 
         return JNIS
 
     def calc_R(self, associated_points, indiv):
         #https://dspace.mit.edu/handle/1721.1/32438#files-area
-        R_indiv = np.array([[0.2, 0], [0,0.2]])
+        R_indiv = np.array([[0.1, 0], [0,0.1]])
         if indiv:
             R_stacked = np.zeros((len(associated_points), 2,2))
             R_stacked[:] = R_indiv
@@ -308,21 +232,7 @@ class JCBB:
             temp = np.einsum('ijk,ikl->ijl', H, P_stacked)
             S = np.einsum('ijk,ilk->ijl', temp, H)+R
         else:
-            # print("P.shape {}".format(P.shape))
-            # print("H shape")
-            # print(H.shape)
-
-            # sys.exit()
-            # P_matrices = tuple([self.P for i in range(H.shape[0]//2)])
-            # P_block =  block_diag(*P_matrices)
-            # print("H shape {}".format(H.shape))
-            # print("R shape {}".format(R.shape))
-            # print("P block shape {}".format(P_block.shape))
-            # print("H {}".format(H))
-            #ooh this may be wrong...
             S = H@P@H.T + R
-            # else:
-            #     S =0
         return S
 
     def calc_g_and_G(self, associated_points, indiv):
@@ -338,7 +248,6 @@ class JCBB:
             G  = np.zeros((associated_points.shape[0], 2, 2))
         else:
             G = np.zeros((associated_points.shape[0]*2, 2))
-            # G_matrices = []
 
         alpha = self.xs["alpha"]
         beta = self.xs["beta"]
@@ -364,10 +273,6 @@ class JCBB:
                 G[index] = -R_psi.T-R_pi_by_2@g[index]
             else:
                 G[index*2:index*2+2] = -R_psi.T-R_pi_by_2@g[index]
-                # G_matrices.append(-R_psi.T-R_pi_by_2@g[index])
-        
-        # if not indiv:
-        #     G = block_diag(*tuple(G_matrices))
         return g, G
 
 
@@ -383,8 +288,6 @@ class JCBB:
         if not indiv:
             U_matrices = tuple([U[:,:,i] for i in range(U.shape[2])])
             U =  block_diag(*U_matrices)
-
-        # return np.tile(U_indiv, (num_tiles,1))
         return U
 
 
@@ -404,8 +307,13 @@ def plot_association(asso):
 
     #scan data points plot
     plt.scatter(scan_x, scan_y, c="b", marker="o", alpha = 0.5, label="Scan Data")
+    # for i in range(scan_x.shape[0]):
+    #     plt.text(scan_x[i], scan_y[i], str(i))
+
     #boundary points plot
     plt.scatter(boundary_points[:,0]+track[0], boundary_points[:,1]+track[1], c="orange", marker="o", alpha = 0.5, label="Boundary Points")
+    # for i in range(boundary_points.shape[0]):
+    #     plt.text(boundary_points[i,0]+track[0], boundary_points[i,1]+track[1], str(i))
 
 
     #SELECTED/PAIRED POINTS
@@ -426,6 +334,7 @@ def plot_association(asso):
 if __name__ == "__main__":
     jc = JCBB()
     cluster = None
+    np.random.seed(0)
     # for i in range(100):
 
     xs = {"alpha":0, "beta":0}
@@ -434,7 +343,6 @@ if __name__ == "__main__":
     initial_association[0] = np.arange(n)
     initial_association[1] = np.random.randint(0, 10, n)
     scan_data = np.zeros((n,2))
-    sigma = 0.1
     scan_data[:,0] = np.random.uniform(28, 38, n) #1st row is ranges
     scan_data[:,1] = np.random.uniform(0.6, 1.1, n) #2nd row is angles (radians)
 
@@ -447,8 +355,6 @@ if __name__ == "__main__":
     # boundary_points[:,1] = np.random.uniform(-3, 3, n_boundary) #y coord, relative to track coordinate
     boundary_points[:,0] = np.array([0,0,0,0,0,1,2,3,4,5]) #x coord, relative to track coordinate
     boundary_points[:,1] = np.array([0,1,2,3,4,0,0,0,0,0]) #y coord, relative to track coordinate
-
-    # boundary_points[:,2] = np.random.uniform(-1, 1, 10)
 
 
     track = [20, 25, 0]
@@ -469,4 +375,3 @@ if __name__ == "__main__":
     else:
         print("No associations found.")
         # plot_association(asso)
-
