@@ -58,7 +58,6 @@ class JCBB:
             chi2 = stats.chi2.ppf(self.alpha, df=dof)
 
             if JNIS-JNIS_delta <= chi2 or dof ==0:
-                print("breaking while loop...")
                 minimal_association = np.copy(curr_association)
                 JNIS = JNIS-JNIS_delta
                 break
@@ -66,7 +65,7 @@ class JCBB:
                 pruned_associations = np.copy(curr_association)
         unassociated_measurements = minimal_association[0, np.isnan(minimal_association[1])]
         compat_boundaries = {}
-        for idx, measurement in enumerate(unassociated_measurements):
+        for measurement in unassociated_measurements:
             boundary_idxs = np.where(individual_compatibilities[int(measurement),:] == 1)[0]
             selected_boundaries = set(boundary_idxs)
 
@@ -86,7 +85,6 @@ class JCBB:
         boundaries_taken = set()
         self.explored = set() #consists of tuples of (level, boundary_point)
         self.unassociated_measurements = unassociated_measurements
-        print("BEGIN DFS!!")
         self.DFS(0, minimal_association, compat_boundaries, boundary_points, boundaries_taken)
         print("best jnis {}, num assoc {}".format(self.best_JNIS, self.best_num_associated))
         jnis = self.calc_JNIS(self.best_association, boundary_points)
@@ -101,7 +99,6 @@ class JCBB:
     def DFS(self, level, association, compat_boundaries, boundary_points, boundaries_taken):
         boundaries_taken = boundaries_taken.copy()
         avail_boundaries = compat_boundaries[self.unassociated_measurements[level]]
-        print("Level {}".format(level))
         for next_boundary in avail_boundaries:
             isValidBoundary = next_boundary not in boundaries_taken or np.isnan(next_boundary)
             if (level, next_boundary) not in self.explored and\
@@ -127,8 +124,6 @@ class JCBB:
                 if joint_compat and level+1 < len(self.unassociated_measurements):
                     boundaries_taken.add(next_boundary)
                     self.DFS(level+1, test_association, compat_boundaries, boundary_points, boundaries_taken)
-                else:
-                    print("Rejected Level {}, Boundary {}".format(level, next_boundary))
     def check_compat(self, JNIS, DOF):
         if DOF == 0:
             return np.inf
@@ -334,7 +329,7 @@ def plot_association(asso):
 if __name__ == "__main__":
     jc = JCBB()
     cluster = None
-    np.random.seed(0)
+    # np.random.seed(0)
     # for i in range(100):
 
     xs = {"alpha":0, "beta":0}
