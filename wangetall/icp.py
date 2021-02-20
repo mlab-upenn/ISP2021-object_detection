@@ -42,9 +42,11 @@ class ICP:
             closest_point_pairs = []  # list of point correspondences for closest point rule
 
             distances, indices = nbrs.kneighbors(self.points)
+            # Step 1: A point in P is associated to its nearest neighbour in Q if their distance is within a certain threshold,
             for nn_index in range(len(distances)):
                 if distances[nn_index][0] < self.distance_threshold: # ELSE OUTLIER?
                     closest_point_pairs.append((self.points[nn_index], self.reference_points[indices[nn_index][0]]))
+                    # otherwise it is discarded as an outlier for this iteration and become unassociated to any point in Q.
 
             # if only few point pairs, stop process
             print('number of pairs found:', len(closest_point_pairs))
@@ -52,14 +54,14 @@ class ICP:
                 print('No better solution can be found (very few point pairs)!')
                 break
 
-            # compute translation and rotation using point correspondences
+            # All associations obtained in this way are used to estimate a transform that aligns the point set P to Q.
             closest_rot_angle, closest_translation_x, closest_translation_y = self.point_based_matching(closest_point_pairs)
 
             if closest_rot_angle is None or closest_translation_x is None or closest_translation_y is None:
                 print('No better solution can be found!')
                 break
 
-            # transform 'points' (using the calculated rotation and translation)
+            #T he points in P are then updated to their new positions with the estimated transform
             c, s = math.cos(closest_rot_angle), math.sin(closest_rot_angle)
             rot = np.array([[c, -s],
                             [s, c]])
@@ -67,16 +69,16 @@ class ICP:
             aligned_points[:, 0] += closest_translation_x
             aligned_points[:, 1] += closest_translation_y
 
-            # update 'points' for the next iteration
             self.points = aligned_points
 
-            # check convergence
+            # and the loop continues until convergence
             if (abs(closest_rot_angle) < self.convergence_rotation_threshold) \
                     and (abs(closest_translation_x) < self.convergence_translation_threshold) \
                     and (abs(closest_translation_y) < self.convergence_translation_threshold):
                 print('Converged!')
                 break
-
+        #The association upon convergence is taken as the final association, with outlier rejection from P to Q.
+        # -- outliers not in points now
         return self.points
 
 
