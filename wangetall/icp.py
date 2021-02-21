@@ -38,6 +38,7 @@ class ICP:
 
         for iter_num in range(self.max_iterations):
             print('------ iteration', iter_num, '------')
+            static=  False
 
             closest_point_pairs = []  # list of point correspondences for closest point rule
 
@@ -76,10 +77,11 @@ class ICP:
                     and (abs(closest_translation_x) < self.convergence_translation_threshold) \
                     and (abs(closest_translation_y) < self.convergence_translation_threshold):
                 print('Converged!')
+                static= True
                 break
         #The association upon convergence is taken as the final association, with outlier rejection from P to Q.
         # -- outliers not in points now
-        return self.points
+        return static
 
 
     def point_based_matching(self, point_pairs):
