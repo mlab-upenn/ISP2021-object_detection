@@ -34,9 +34,9 @@ class JCBB:
 
         # megacluster = self.combine_clusters(clusters) #
         individual_compatibilities = self.compute_compatibility(boundary_points)
+        print(individual_compatibilities)
         pruned_associations = self.prune_associations(initial_association, individual_compatibilities)
         JNIS = self.calc_JNIS(pruned_associations, boundary_points)
-
 
         JNIS_delta = 0
         dof = np.count_nonzero(~np.isnan(pruned_associations[1]))*2
@@ -85,15 +85,13 @@ class JCBB:
         self.best_num_associated = np.count_nonzero(~np.isnan(minimal_association[1]))
         self.best_association = np.copy(minimal_association)
         boundaries_taken = set()
-        self.explored = set() #consists of tuples of (level, boundary_point)
         self.unassociated_measurements = unassociated_measurements
         self.DFS(0, minimal_association, compat_boundaries, boundary_points, boundaries_taken)
         print("best jnis {}, num assoc {}".format(self.best_JNIS, self.best_num_associated))
         jnis = self.calc_JNIS(self.best_association, boundary_points)
         joint_compat = self.check_compat(jnis, DOF =np.count_nonzero(~np.isnan(self.best_association[1]))*2)
         if joint_compat:
-            print(self.best_association)
-
+            # print(self.best_association)
             return self.best_association
         else:
             return np.zeros((self.best_association.shape))
@@ -103,16 +101,20 @@ class JCBB:
         avail_boundaries = compat_boundaries[self.unassociated_measurements[level]]
         for next_boundary in avail_boundaries:
             isValidBoundary = next_boundary not in boundaries_taken or np.isnan(next_boundary)
-            if (level, next_boundary) not in self.explored and\
-                 isValidBoundary and level < len(self.unassociated_measurements):
- 
+            if isValidBoundary and level < len(self.unassociated_measurements):
                 test_association = np.copy(association)
                 test_association[1,int(self.unassociated_measurements[level])] = next_boundary
-                self.explored.add((level, next_boundary))
                 JNIS = self.calc_JNIS(test_association, boundary_points)
-                print("JNIS {}".format(JNIS))
                 joint_compat = self.check_compat(JNIS, DOF =np.count_nonzero(~np.isnan(test_association[1]))*2)
                 num_associated = np.count_nonzero(~np.isnan(test_association[1]))
+                # if not np.isnan(next_boundary):
+                #     print("=======")
+                #     print("Level: {}".format(level))
+                #     print("num_associated {}".format(num_associated))
+                #     print("Boundary: {}".format(next_boundary))
+                #     print("joint compat? {}".format(joint_compat))
+                #     print("Prev count {}".format(np.count_nonzero(~np.isnan(association[1]))))
+
                 update = False
                 if joint_compat and num_associated >= self.best_num_associated:
                     if num_associated == self.best_num_associated:
@@ -126,10 +128,10 @@ class JCBB:
                     self.best_association = np.copy(test_association)
                 if joint_compat and level+1 < len(self.unassociated_measurements):
                     boundaries_taken.add(next_boundary)
-                    self.DFS(level+1, test_association, compat_boundaries, boundary_points, boundaries_taken)
+                    self.DFS(level+1, np.copy(test_association), compat_boundaries, boundary_points, boundaries_taken)
     def check_compat(self, JNIS, DOF):
         if DOF == 0:
-            return np.inf
+            return True
         else:
             chi2 = stats.chi2.ppf(self.alpha, df=DOF)
             return JNIS <= chi2
@@ -298,8 +300,10 @@ def plot_association(asso):
     selected_bndr_pts = boundary_points[pairings[1].astype(int)]
     selected_scan_pts = scan_data[pairings[0].astype(int)]
 
+
     selected_scan_x, selected_scan_y = convert_scan_polar_cartesian(selected_scan_pts)
     scan_x, scan_y = convert_scan_polar_cartesian(scan_data)
+
     #plot!!
 
 
@@ -332,9 +336,8 @@ def plot_association(asso):
 if __name__ == "__main__":
     jc = JCBB()
     cluster = None
-    np.random.seed(113)
     # for i in range(100):
-
+    np.random.seed(2003)
     xs = {"alpha":0, "beta":0}
     n = 100
     initial_association = np.zeros((2, n))
@@ -358,7 +361,8 @@ if __name__ == "__main__":
     track = [20, 25, 0]
     P = np.eye(2)*0
     static = False
-    psi = 0.0
+    psi = 0 #sensor angle. Will work if adjusted for JCBB running purposes, but 
+            #don't change-- need to refactor a bit to make the plot look nice too.
     
     jc.assign_values(xs, scan_data, track, P, static, psi)
 
