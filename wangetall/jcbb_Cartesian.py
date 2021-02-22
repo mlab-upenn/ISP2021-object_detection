@@ -14,7 +14,7 @@ import matplotlib.pyplot as plt
 
 class JCBB:
     def __init__(self):
-        self.alpha = 1-0.95
+        self.alpha = 1-0.90
     
     def assign_values(self, xs, scan_data, track, P, static, psi):
         self.xs = xs
@@ -34,6 +34,8 @@ class JCBB:
 
         # megacluster = self.combine_clusters(clusters) #
         individual_compatibilities = self.compute_compatibility(boundary_points)
+        # print(individual_compatibilities)
+        np.save("indiv_compat.npy", individual_compatibilities)
         pruned_associations = self.prune_associations(initial_association, individual_compatibilities)
         JNIS = self.calc_JNIS(pruned_associations, boundary_points)
 
@@ -188,10 +190,12 @@ class JCBB:
 
             a = (z_hat-h)
             b = np.linalg.inv(S)
-
-            JNIS = np.einsum('ki,kij,kj->k', a, b, a)
-            # if i == 28:
+            JNIS = np.einsum('ki,kij,kj->k', a, b, a)*0.04
+            # if i == 73:
             #     print("a: {}".format(a))
+            #     print("z_hat {}".format(z_hat))
+            #     print("h {}".format(h))
+
             #     # print("b: {}".format(b))
             #     print("JNIS: {}".format(JNIS))
             #     chi2_val = stats.chi2.ppf(self.alpha, df=2)
@@ -204,7 +208,7 @@ class JCBB:
 
             h = h.flatten()
 
-            JNIS = (z_hat-h).T@np.linalg.inv(S)@(z_hat-h)
+            JNIS = (z_hat-h).T@np.linalg.inv(S)@(z_hat-h)*0.04
 
 
         return JNIS
@@ -228,7 +232,8 @@ class JCBB:
         return np.array([r,theta]).T
 
     def calc_h(self, g):
-        h = self.calc_u(g)
+        # h = self.calc_u(g)
+        h = g
         return h
 
     def calc_S(self, H, R, indiv):
@@ -285,7 +290,8 @@ class JCBB:
 
     def calc_Jacobian_H(self, g, G, associated_points, indiv):
         U = self.calc_U(g, len(associated_points), indiv)
-        H = U.T @ G
+        # H = U.T @ G
+        H = G
         return H
 
     def calc_U(self, g, num_tiles, indiv):
@@ -313,13 +319,13 @@ def plot_association(asso, polar):
     selected_scan_pts = scan_data[pairings[0].astype(int)]
 
     if not polar:
-        selected_scan_x, selected_scan_y = convert_scan_polar_cartesian(selected_scan_pts)
-        scan_x, scan_y = convert_scan_polar_cartesian(scan_data)
+        # selected_scan_x, selected_scan_y = convert_scan_polar_cartesian(selected_scan_pts)
+        # scan_x, scan_y = convert_scan_polar_cartesian(scan_data)
 
         #scan data points plot
-        plt.scatter(scan_x, scan_y, c="b", marker="o", alpha = 0.5, label="Scan Data")
+        plt.scatter(scan_data[:,0], scan_data[:,1], c="b", marker="o", alpha = 0.5, label="Scan Data")
         # for i in range(scan_x.shape[0]):
-        #     plt.text(scan_x[i], scan_y[i], str(i), size = "xx-small")
+        #     plt.text(scan_data[:,0][i], scan_data[:,1][i], str(i), size = "xx-small")
 
         #boundary points plot
         plt.scatter(boundary_points[:,0]+track[0], boundary_points[:,1]+track[1], c="orange", marker="o", alpha = 0.5, label="Boundary Points")
@@ -328,9 +334,9 @@ def plot_association(asso, polar):
 
 
         #SELECTED/PAIRED POINTS
-        plt.scatter(selected_scan_x, selected_scan_y, c="red", marker="v", label="Paired Scan Points")
-        for i in range(selected_scan_x.shape[0]):
-            plt.text(selected_scan_x[i], selected_scan_y[i], str(i))
+        plt.scatter(selected_scan_pts[:,0], selected_scan_pts[:,1], c="red", marker="v", label="Paired Scan Points")
+        for i in range(selected_scan_pts[:,0].shape[0]):
+            plt.text(selected_scan_pts[:,0][i], selected_scan_pts[:,1][i], str(i))
 
         plt.scatter(selected_bndr_pts[:,0]+track[0], selected_bndr_pts[:,1]+track[1], c="black", marker="v", label="Paired Boundary Points")
         for i in range(selected_bndr_pts.shape[0]):
@@ -346,25 +352,30 @@ def plot_association(asso, polar):
         boundary_points[:,1] += track[1]
 
         selected_boundary_r, selected_boundary_phi = convert_cartesian_to_polar(selected_bndr_pts)
+        selected_scan_r, selected_scan_phi = convert_cartesian_to_polar(selected_scan_pts)
+
         boundary_r, boundary_phi = convert_cartesian_to_polar(boundary_points)
+        scan_r, scan_phi = convert_cartesian_to_polar(scan_data)
+
         fig = plt.figure()
         ax = fig.add_subplot(111, projection='polar')
         c = ax.scatter(boundary_phi, boundary_r, c="orange",marker = "o", alpha=0.5, label="Boundary Points")
-        c = ax.scatter(scan_data[:,1], scan_data[:,0], c="b", marker="o", alpha=0.5,label="Scan Data")
+        c = ax.scatter(scan_phi, scan_r, c="b", marker="o", alpha=0.5,label="Scan Data")
 
         c = ax.scatter(selected_boundary_phi, selected_boundary_r, c="black",marker = "v", alpha=0.5)
         for i in range(selected_boundary_phi.shape[0]):
             plt.text(selected_boundary_phi[i], selected_boundary_r[i], str(i))
 
-        c = ax.scatter(selected_scan_pts[:,1], selected_scan_pts[:,0], c="red", marker = "v",label="Paired Scan Points")
-        for i in range(selected_scan_pts[:,1].shape[0]):
-            plt.text(selected_scan_pts[:,1][i], selected_scan_pts[:,0][i], str(i))
+        c = ax.scatter(selected_scan_phi, selected_scan_r, c="red", marker = "v",label="Paired Scan Points")
+        for i in range(selected_scan_r.shape[0]):
+            plt.text(selected_scan_phi[i], selected_scan_r[i], str(i))
 
         ax.set_xlim(0.18*np.pi, 0.35*np.pi)
         ax.set_ylim(27, 38)
 
         plt.title("Runtime: {}".format(runtime))
         plt.show()
+
 
 
 
@@ -384,7 +395,7 @@ if __name__ == "__main__":
     scan_data[:,1] = np.random.uniform(0.6, 1.1, n) #2nd row is angles (radians)
 
 
-    # scan_data[:,0], scan_data[:,1] = convert_scan_polar_cartesian(scan_data)
+    scan_data[:,0], scan_data[:,1] = convert_scan_polar_cartesian(scan_data)
     # scan_data[:,0] = np.random.normal(33,sigma, n) #1st row is ranges
     # scan_data[:,1] =  np.random.normal(0.85,sigma, n) #1st row is ranges
 
@@ -411,7 +422,7 @@ if __name__ == "__main__":
     runtime = endtime-starttime
 
     if np.any(asso):
-        plot_association(asso, polar=False)
+        plot_association(asso, polar = False)
     else:
         print("No associations found.")
         # plot_association(asso)
