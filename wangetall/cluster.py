@@ -116,7 +116,7 @@ class Cluster:
         return components
     
     def get_tau(self, size):
-        k = 100
+        k = 25
         return k/size
 
 class Universe:
@@ -164,8 +164,8 @@ class Universe:
 #     return plt.cm.get_cmap(name, n)
 
 if __name__ == "__main__":
-    points= np.array(random.sample(range(2000), 2000)).reshape((1000,2))
-
+    # points= np.array(random.sample(range(2000), 2000)).reshape((1000,2))
+    points = np.array((0 + np.random.random((1000,2)) * (100 - 0)))
     cl = Cluster()
 
     clusters = cl.cluster(points)

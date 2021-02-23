@@ -3,13 +3,14 @@ import yaml
 import gym
 import numpy as np
 from argparse import Namespace
-from numba import njit
 from scipy.sparse import block_diag
 
 ##CUSTOM IMPORTS
 from helper import Helper
 from odomUpdater import OdomUpdater
 from lidarUpdater import lidarUpdater
+
+from pure_pursuit_planner import PurePursuitPlanner
 
 class Tracker:
     lidarscan_topic = "/scan"
@@ -73,23 +74,21 @@ if __name__ == '__main__':
     conf = Namespace(**conf_dict)
 
     env = gym.make('f110_gym:f110-v0', map=conf.map_path, map_ext=conf.map_ext, num_agents=3)
-    obs, step_reward, done, info = env.reset(np.array([[conf.sx, conf.sy, conf.stheta],[conf.sx2, conf.sy2, conf.stheta2],[conf.sx3, conf.sy3, conf.stheta3]]))
+    obs, step_reward, done, info = env.reset(np.array([[conf.sx, conf.sy, conf.stheta],[conf.sx2, conf.sy2, conf.stheta2]]))
     env.render()
+    tracker = Tracker(0)
     planner = PurePursuitPlanner(conf, 0.17145+0.15875)
-    planner2 = PurePursuitPlanner(conf, 0.17145+0.15875)
-    planner3 = PurePursuitPlanner(conf, 0.17145+0.15875)
 
 
     laptime = 0.0
     start = time.time()
 
     while not done:
-        speed, steer = planner.plan(obs['poses_x'][0], obs['poses_y'][0], obs['poses_theta'][0], work['tlad'], work['vgain'])
-        speed2, steer2 = planner2.plan(obs['poses_x'][1], obs['poses_y'][1], obs['poses_theta'][1], work['tlad'], work['vgain'])
-        speed3, steer3 = planner3.plan(obs['poses_x'][2], obs['poses_y'][2], obs['poses_theta'][2], work['tlad'],work['vgain'])
+        speed, steer = 0,0 #ego vehicle with tracker
+        speed2, steer2 = planner.plan(obs['poses_x'][1], obs['poses_y'][1], obs['poses_theta'][1], work['tlad'], work['vgain']) #target vehicle
 
 
-        obs, step_reward, done, info = env.step(np.array([[steer, speed],[steer2, speed2],[steer3, speed3]]))
+        obs, step_reward, done, info = env.step(np.array([[steer, speed],[steer2, speed2]]))
         laptime += step_reward
         env.render(mode='human_fast')
     print('Sim elapsed time:', laptime, 'Real elapsed time:', time.time()-start)

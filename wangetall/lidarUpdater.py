@@ -67,8 +67,8 @@ class lidarUpdater:
         ### STEP 2: FINE LEVEL ASSOCIATION
         #Assign to specific boundary points?
         #JCBB<-- 
-        
-        jcbb.run()
+        self.jcbb.assign_values(xs, scan_data, track, P, static, psi)
+        association = self.jcbb.run(cluster, initial_association, boundary_points)
         pass
         
 
