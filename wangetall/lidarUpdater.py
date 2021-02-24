@@ -12,6 +12,7 @@ class lidarUpdater:
         self.cl = Cluster()
         self.jcbb = JCBB()
         self.ICP = ICP()
+        self.Updater = Updater()
 
     def clean_up_states(self):
         pass
@@ -37,12 +38,13 @@ class lidarUpdater:
     def update(self, x, P, dt, data):
         xt  = x["xt"]
         xs = x["xs"]
+        xp = x["xp"]
         self.clean_up_states()
         xt, P = self.forward(xt, P, dt)
-        self.associate_and_update(xt, xs, P, data)
+        self.associate_and_update(xp, xt, xs, P, data)
         self.merge_tracks()
 
-    def associate_and_update(self, xt, xs, P, data):
+    def associate_and_update(self, xp, xt, xs, P, data):
         #DATA ASSOCIATION *IS* THE KALMAN MEASUREMENT UPDATE!
         ### STEP 1: COURSE LEVEL ASSOCIATION
         #1. Cluster: EMST-EGBIS
@@ -55,24 +57,52 @@ class lidarUpdater:
         points_y = ranges*cos(angles)
         points = np.vstack((points_x, points_y)).T
         clusters = cl.cluster(data)
-        #2. assign to static and dynamic background recursively with ICP (iterative closest point?)
-        #   2a. clusters in C which contain measurements matched with boundary points in static background 
-            # are associated with static background, and used to update or initialize new boundary points at fine level for static background
-        #   2b. then, these clusters are removed from C, and similar process occurs recursively for each dynamic track (all other readings)
-        #   2c. Clusters that remain in C at end of process are not associated with any track and each cluster will initialize
-            # a tentative dynamic track.
 
-            #ICP good bc it's after prediction step-- points will be in their predicted areas.
-        
-        ### STEP 2: FINE LEVEL ASSOCIATION
-        #Assign to specific boundary points?
-        #JCBB<-- 
-        self.jcbb.assign_values(xs, scan_data, track, P, static, psi)
+        #First, do the static points.
+        P_static_sub = ?? #grab appropriate submatrix from P
+        initial_association = #output of ICP that's associated with static map
+        boundary_points = ??
+        self.jcbb.assign_values(xs, static_cluster, track, P_static_sub, True, psi)
         association = self.jcbb.run(cluster, initial_association, boundary_points)
-        pass
+
+        self.updater.assign_values(xp, P_static_sub, xs, association, static=True)
+        xp_updated, P_static_sub = self.updater.run()
+        
+        #
+        P = ?? #update P with updated static submatrix
+        xp = #some function of xp_updated (updated xp), and all xp points that weren't associated
+            #these points are used to extend xp.
+        #
+
+
+        #then, do dynamic tracks
+        for idx, track in enumerate(dynamic_tracks):
+            xt_sub =xt[idx]  #grab appropriate submatrix from xt
+            P_sub = ?? #grab appropriate submatrix from P
+            initial_association = #output of ICP that's associated with this track
+            boundary_points = ??
+
+            self.jcbb.assign_values(xs, static_cluster, xt_sub, P_sub, False, psi)
+            association = self.jcbb.run(cluster, initial_association, boundary_points)
+
+            self.updater.assign_values(xt_sub, P_sub, xs, association, static=False)
+            
+            xt_updated, P_sub = self.updater.run()
+
+            #
+            P = ?? #update P with updated dynamic submatrix
+
+            xt[idx] = #some function of xt_updated, and all xt points that weren't associated
+                        #these points are used to extend xt[idx].
+            #
+
+
+        return xp, xt, P, remaining_clusters #need to feed remaining clusters into initialize and update 
         
 
 
+    def compute_H(self):
+        pass
 
     def calc_Fs(self, xt, dt):
         F = np.zeros((6,6))
@@ -104,3 +134,108 @@ class lidarUpdater:
         V = np.eye(3)*sigma_a
 
         return V
+
+
+class Updater:
+    """Can I do this in one calculation for all objects? At least
+    all dynamic objects at a time?"""
+    """Maybe. Explore using 3D block diagonals?"""
+    
+
+    """Takes in associated output boundary points. What do we do about
+    boundary points that don't have association?
+    
+    Returns updated state and covariance per object (static and dynamic)"""
+
+    def __init__(self):
+        pass
+    def assign_values(self, x, P, xs, associated_points, static):
+        self.x = x
+        self.P = P
+        self.xs = xs
+        self.associated_points = associated_points
+        self.static = static
+
+    def run(self):
+        R = self.calc_R(self.associated_points)
+        g, G = self.calc_g_and_G(self.associated_points)
+        H = self.calc_Jacobian_H(g, G, self.associated_points)
+        K = self.compute_Kalman_gain(H, self.P, R)
+
+        temp = np.eye(??)-K@H
+        P = temp@P@temp.T+K@R@K.T
+        x = x+K@(y-H)
+
+        return x, P
+
+    def calc_R(self, associated_points):
+        #https://dspace.mit.edu/handle/1721.1/32438#files-area
+        R_indiv = np.array([[0.1, 0], [0,0.1]])
+        R_matrices = tuple([R_indiv for i in range(len(associated_points))])
+        Rs = block_diag(*R_matrices)
+
+        ###Make 3D? Stack Rs on top of each other for every dynamic object
+        return Rs
+
+    def compute_Kalman_gain(self, H, P, R):
+        K = P@H.T@ np.linalg.inv(H@P@H.T + R)
+        ##Make 3D? Stack K's on top of each other for every dynamic object.
+        return K
+
+    def calc_Jacobian_H(self, g, G, associated_points):
+        U = self.calc_U(g, len(associated_points))
+        H = U.T @ G
+        return H
+
+    def calc_U(self, g, num_tiles):
+        r = np.sqrt(g[:,0]**2+g[:,1]**2)
+        U = (np.array([[r*g[:,0], r*g[:,1]],[-g[:,1], g[:,0]]]))/r**2
+            
+        U_matrices = tuple([U[:,:,i] for i in range(U.shape[2])])
+        U =  block_diag(*U_matrices)
+        ###Make 3D? Stack U's on top of each other for every dynamic object.
+        return U
+
+
+    def calc_g_and_G(self, associated_points):
+        """inputs: xs, measured laserpoint
+        
+        xs is dict of measurements with xs["alpha"] = const, xs["beta"] = const maybe?
+        
+        measured_laserpoint is 2d matrix with one col of angles, one col of x coords, one col of y coords 
+        where psi is the current rotation angle
+        """
+
+
+        """How to generalize to compute all objects at once, if
+        the length of associated_points is not the same per object?"""
+        g = np.zeros((associated_points.shape[0], 2))
+        #make 3d?
+        G = np.zeros((associated_points.shape[0]*2, 2))
+        #make 3d?
+
+        alpha = self.xs["alpha"]
+        beta = self.xs["beta"]
+        alpha_beta_arr = np.array([alpha, beta])
+        phi = self.xt[??]
+        gamma = self.xt[??]
+        delta = self.xt[??]
+
+        ##Make 2D? have phi, gamma, delta be 2D matrices for every object
+
+        R_pi_by_2 = Helper.compute_rot_matrix(np.pi/2)
+        R_psi = Helper.compute_rot_matrix(self.psi)
+        R_phi = Helper.compute_rot_matrix(phi)
+        #naive way-- with for loops. need to think how to get rid of.
+        for index, point in enumerate(associated_points):
+            x = point[0]
+            y = point[1]
+
+            if self.static:
+                g[index] = R_psi.T @ np.array(np.array([x, y])- alpha_beta_arr).T
+            else:
+                g[index] = R_psi.T@(R_phi@np.array([x, y])+np.array([gamma, delta])-alpha_beta_arr)
+            
+            G[index*2:index*2+2] = -R_psi.T-R_pi_by_2@g[index]
+        return g, G
+
