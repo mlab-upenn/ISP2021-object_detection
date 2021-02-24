@@ -6,6 +6,22 @@ import cluster
 
 class Coarse_Association():
     def __init__(self, C):
+        """
+        An implementation of the Coarse Association to differentiate between static background and dynamic track.
+        :param C: The cluster dictonary of key value pair as num. of cluster and indexes of the points
+                                                    belonging to that cluster
+        :param Z: All points from LiDAR scan (todo dims)
+        :param Q_s: Reference static object  (todo dims)
+        :param Q_d: reference dynamic objects (todo dims)
+        :param dynamic_tracks_dict: Dictonary of key value pair as num. of objects and indexes of the points
+                                                    belonging to that object
+        :return: A: Dictonary of key value pair as num. of clusters for static background and indexes of the points
+                                                  belonging to that clusters
+                 A_d: Dictonary of key value pair as num. of clusters for dynamic track and indexes of the points
+                                                           belonging to that tracks
+                 new_tracks: Dictonary of key value pair as num. of clusters for new tentative dynamic track and indexes
+                                                    of the points belonging to that tracks
+        """
         self.C = C
         print("clusters:", len(self.C))
 
@@ -32,7 +48,14 @@ class Coarse_Association():
                 del self.C[key]
 
             print("cluster-static-dynamic clusters:", len(self.C))
+        #9. for all C do
+        new_tracks = {}
+        for key in self.C.keys():
+            #10. (x, P) INITIALISENEWTRACK(x, P, C)
+            P = Z[self.C[key]]
+            new_tracks[key] = self.C[key]
 
+        return A, A_d, new_tracks
 
     def associateAndUpdateWithStatic(self, Z, Q):
         icp_obj = icp.ICP()
@@ -53,9 +76,6 @@ class Coarse_Association():
             if dynamic:
                 dynamic_C[key] = self.C[key]
         return dynamic_C
-
-
-
 
 
 
