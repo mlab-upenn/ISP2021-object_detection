@@ -37,7 +37,7 @@ class ICP:
         nbrs = NearestNeighbors(n_neighbors=1, algorithm='kd_tree').fit(self.reference_points)
 
         for iter_num in range(self.max_iterations):
-            print('------ iteration', iter_num, '------')
+            #print('------ iteration', iter_num, '------')
             static=  False
 
             closest_point_pairs = []  # list of point correspondences for closest point rule
@@ -50,16 +50,16 @@ class ICP:
                     # otherwise it is discarded as an outlier for this iteration and become unassociated to any point in Q.
 
             # if only few point pairs, stop process
-            print('number of pairs found:', len(closest_point_pairs))
+            #print('number of pairs found:', len(closest_point_pairs))
             if len(closest_point_pairs) < self.point_pairs_threshold:
-                print('No better solution can be found (very few point pairs)!')
+                #print('No better solution can be found (very few point pairs)!')
                 break
 
             # All associations obtained in this way are used to estimate a transform that aligns the point set P to Q.
             closest_rot_angle, closest_translation_x, closest_translation_y = self.point_based_matching(closest_point_pairs)
 
             if closest_rot_angle is None or closest_translation_x is None or closest_translation_y is None:
-                print('No better solution can be found!')
+                #print('No better solution can be found!')
                 break
 
             #T he points in P are then updated to their new positions with the estimated transform

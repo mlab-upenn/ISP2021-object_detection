@@ -1,52 +1,115 @@
-import icp
-import cluster
 import random
 import numpy as np
 import matplotlib.pyplot as plt
+import icp
+import cluster
 
-def associateAndUpdateWithStatic(C, Z, Q):
-    icp_obj = icp.ICP()
-    static_C = {}
-    for key in C.keys():
-        P = Z[C[key]]
-        static = icp_obj.run(Q, P)
-        if static:
-            static_C[key] = C[key]
-    return static_C
+class Coarse_Association():
+    def __init__(self, C):
+        self.C = C
+        print("clusters:", len(self.C))
 
-if __name__ == "__main__":
-    cl = cluster.Cluster()
+    def run(self, Z, Q_s, Q_d, dynamic_tracks_dict):
+        #3.: (x, P, A) <- ASSOCIATEANDUPDATEWITHSTATIC(x, P, C)
+        A = self.associateAndUpdateWithStatic(Z, Q_s)
+        print("static clusters:", len(A))
 
-    # set seed for reproducible results
-    random.seed(123)
+        #4. C <- C/A
+        for key in A.keys():
+            del self.C[key]
 
+        print("cluster-static clusters:", len(self.C))
 
-    Z = np.array(random.sample(range(100), 100)).reshape((50,2))
-    C = cl.cluster(Z)
+        #5. for i = 1,2,.,Nt do
+        for key in dynamic_tracks_dict.keys():
+            dynanmic_P = Q_d[dynamic_tracks_dict[key]]
+            #6. (x, P, A) <- ASSOCIATEANDUPDATEWITHDYNAMIC(x, P, C, i)
+            A_d = self.associateAndUpdateWithDynamic(Z, dynanmic_P)
+            print("dynamic clusters:", len(A_d))
 
-    n_boundary = 10
-    # create a set of points to be the reference for ICP
-    Q = np.zeros((n_boundary,2))
-    Q[:,0] = np.array([10,20,30,40,50,60,60,60,60,60])
-    Q[:,1] = np.array([60,60,60,60,60,50,40,30,20,10])
+            #7. C <- C/A
+            for key in A_d.keys():
+                del self.C[key]
 
-    static_C = associateAndUpdateWithStatic(C, Z, Q)
-    print("clusters:", len(C))
-    print("static clusters:", len(static_C))
-
-    for key in C.keys():
-        P = Z[C[key]]
-        plt.scatter(P[:,0], P[:,1])
-    plt.show()
-
-    data = plt.scatter(Z[:,0],Z[:,1])
+            print("cluster-static-dynamic clusters:", len(self.C))
 
 
-    for key in static_C.keys():
-        static_P = Z[static_C[key]]
-        static_cloud = plt.scatter(static_P[:,0],static_P[:,1], marker='D')
-        border = plt.scatter(Q[:,0],Q[:,1], marker='x')
-        plt.legend((data, static_cloud, border),
-                    ("laser scan data", "static cloud", "boundary points"))
+    def associateAndUpdateWithStatic(self, Z, Q):
+        icp_obj = icp.ICP()
+        static_C = {}
+        for key in self.C.keys():
+            P = Z[self.C[key]]
+            static = icp_obj.run(Q, P)
+            if static:
+                static_C[key] = self.C[key]
+        return static_C
 
-    plt.show()
+    def associateAndUpdateWithDynamic(self, Z, Q):
+        icp_obj = icp.ICP()
+        dynamic_C = {}
+        for key in self.C.keys():
+            P = Z[self.C[key]]
+            dynamic = icp_obj.run(Q, P)
+            if dynamic:
+                dynamic_C[key] = self.C[key]
+        return dynamic_C
+
+
+
+
+
+
+
+    #testing
+#     for key in C.keys():
+#         P = Z[C[key]]
+#         plt.scatter(P[:,0], P[:,1])
+#     plt.show()
+
+
+
+    #testing
+#     data = plt.scatter(Z[:,0],Z[:,1])
+
+#     for key in A.keys():
+#         static_P = Z[A[key]]
+#         static_cloud = plt.scatter(static_P[:,0],static_P[:,1], marker='D')
+#         border = plt.scatter(Q[:,0],Q[:,1], marker='x')
+#         plt.legend((data, static_cloud, border),
+#                     ("laser scan data", "static cloud", "boundary points"))
+
+
+#     plt.show()
+
+
+    #testing
+#     for key in C.keys():
+#         P = Z[C[key]]
+#         plt.scatter(P[:,0], P[:,1])
+#     plt.show()
+
+
+    #retrun as well clusters for each dynamic track
+
+
+#         for key in C.keys():
+#             P = Z[C[key]]
+#             data = plt.scatter(P[:,0],P[:,1])
+
+        #testing
+#         for key in A_d.keys():
+#             dynanmic_P = Z[A_d[key]]
+#             dynamic_cloud = plt.scatter(dynanmic_P[:,0],dynanmic_P[:,1], marker='D')
+#             border = plt.scatter(Q[:,0],Q[:,1], marker='x')
+#             plt.legend((data, dynamic_cloud, border),
+#                         ("laser scan data", "dynamic cloud", "boundary points"))
+
+#         plt.show()
+
+
+
+        #testing
+#         for key in C.keys():
+#             P = Z[C[key]]
+#             plt.scatter(P[:,0], P[:,1])
+#         plt.show()
