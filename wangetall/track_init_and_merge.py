@@ -105,6 +105,7 @@ class InitAndMerge:
 
 
         #merge. how? Either way, remove from self.x_tentative once merged.
+        #perhaps the merge is simply a set addition of the currently tracked boundary points with the incoming ones?
 
         max_idx = sorted(self.xt.keys())[-1]
         idx = max_idx
