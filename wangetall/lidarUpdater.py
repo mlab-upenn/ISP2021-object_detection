@@ -32,7 +32,9 @@ class lidarUpdater:
         return xt, P
 
 
-    def merge_tracks(self):
+    def merge_tracks(self, clusters):
+        centroids = self.compute_centroids(clusters)
+        
         pass
 
     def update(self, x, P, dt, data):
@@ -42,7 +44,7 @@ class lidarUpdater:
         self.clean_up_states()
         xt, P = self.forward(xt, P, dt)
         self.associate_and_update(xp, xt, xs, P, data)
-        self.merge_tracks()
+        self.init_and_merge_tracks()
 
     def associate_and_update(self, xp, xt, xs, P, data):
         #DATA ASSOCIATION *IS* THE KALMAN MEASUREMENT UPDATE!
