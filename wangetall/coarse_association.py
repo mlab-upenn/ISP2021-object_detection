@@ -25,10 +25,10 @@ class Coarse_Association():
         self.C = C
         print("clusters:", len(self.C))
 
-    def run(self, Z, Q_s, Q_d, dynamic_tracks_dict):
+    def run(self, Z, Q_s): #Q_d, dynamic_tracks_dict):
         #3.: (x, P, A) <- ASSOCIATEANDUPDATEWITHSTATIC(x, P, C)
         A = self.associateAndUpdateWithStatic(Z, Q_s)
-        print("static clusters:", len(A))
+        #print("static clusters:", len(A))
 
         #4. C <- C/A
         for key in A.keys():
@@ -37,27 +37,31 @@ class Coarse_Association():
         print("cluster-static clusters:", len(self.C))
 
         #5. for i = 1,2,.,Nt do
-        for key in dynamic_tracks_dict.keys():
-            dynanmic_P = Q_d[dynamic_tracks_dict[key]]
-            #6. (x, P, A) <- ASSOCIATEANDUPDATEWITHDYNAMIC(x, P, C, i)
-            A_d = self.associateAndUpdateWithDynamic(Z, dynanmic_P)
-            print("dynamic clusters:", len(A_d))
-
-            #7. C <- C/A
-            for key in A_d.keys():
-                del self.C[key]
-
-            print("cluster-static-dynamic clusters:", len(self.C))
+        # for key in dynamic_tracks_dict.keys():
+        #     dynanmic_P = Q_d[dynamic_tracks_dict[key]]
+        #     #6. (x, P, A) <- ASSOCIATEANDUPDATEWITHDYNAMIC(x, P, C, i)
+        #     A_d = self.associateAndUpdateWithDynamic(Z, dynanmic_P)
+        #     print("dynamic clusters:", len(A_d))
+        #
+        #     #7. C <- C/A
+        #     for key in A_d.keys():
+        #         del self.C[key]
+        #
+        #     print("cluster-static-dynamic clusters:", len(self.C))
         #9. for all C do
-        new_tracks = {}
-        for key in self.C.keys():
-            #10. (x, P) INITIALISENEWTRACK(x, P, C)
-            P = Z[self.C[key]]
-            new_tracks[key] = self.C[key]
-
-        return A, A_d, new_tracks
+        # new_tracks = {}
+        # for key in self.C.keys():
+        #     #10. (x, P) INITIALISENEWTRACK(x, P, C)
+        #     P = Z[self.C[key]]
+        #     new_tracks[key] = self.C[key]
+        for key in A.keys():
+            P = Z[A[key]]
+            plt.scatter(P[:,0], P[:,1])
+        plt.show()
+        return A #A_d, new_tracks
 
     def associateAndUpdateWithStatic(self, Z, Q):
+        #print(Q)
         icp_obj = icp.ICP()
         static_C = {}
         for key in self.C.keys():

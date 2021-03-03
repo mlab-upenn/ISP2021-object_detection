@@ -76,7 +76,7 @@ class ICP:
             if (abs(closest_rot_angle) < self.convergence_rotation_threshold) \
                     and (abs(closest_translation_x) < self.convergence_translation_threshold) \
                     and (abs(closest_translation_y) < self.convergence_translation_threshold):
-                print('Converged!')
+                #print('Converged!')
                 static= True
                 break
         #The association upon convergence is taken as the final association, with outlier rejection from P to Q.
