@@ -19,7 +19,7 @@ class Cluster:
         tree = self.EMST(points)
         clusters = self.EGBIS(tree, points)
         return clusters
-    
+
     def EMST(self, points):
         #https://en.wikipedia.org/wiki/Euclidean_minimum_spanning_tree
         simplices = self.compute_delauney(points)
@@ -32,7 +32,7 @@ class Cluster:
         return Delaunay(points).simplices
 
     def label_edge(self, simplices, points):
-        
+
         all_edges = set([tuple(edge) for group in simplices for edge in permutations(group,2)])
         edges_array = np.array(list(all_edges))
         points_1 = points[edges_array[:,0]]
@@ -63,7 +63,7 @@ class Cluster:
         parent[y] = x
         if rank[x] == rank[y]:
             rank[x] += 1
-        
+
     def min_spanning_tree(self, graph, points):
         #Generate via Kruskal's algorithm.
         #https://en.wikipedia.org/wiki/Kruskal%27s_algorithm
@@ -84,13 +84,13 @@ class Cluster:
                 edge_count += 1
                 tree.append([origin, dest, weight])
                 self.union(parent, rank, parent_origin, parent_dest)
-        
+
         return tree
 
 
-            
+
     def EGBIS(self, tree, points):
-        """Python implementation based on author C++ implementation 
+        """Python implementation based on author C++ implementation
         found here: http://cs.brown.edu/people/pfelzens/segment/"""
 
         sorted_tree = sorted(tree, key= lambda i:i[2])
@@ -110,24 +110,24 @@ class Cluster:
                     segmentation.join(component_i, component_j)
                     component_i = segmentation.find(component_i)
                     thresholds[component_i] = w + self.get_tau(segmentation.size(component_i))
-        
+
         components = segmentation.get_components()
 
         return components
-    
+
     def get_tau(self, size):
         k = 100
         return k/size
 
 class Universe:
-    """Python implementation based on author C++ implementation 
+    """Python implementation based on author C++ implementation
     found here: http://cs.brown.edu/people/pfelzens/segment/"""
     def __init__(self, num_vertices):
         self.num_vertices = num_vertices
         self.elts = np.zeros((num_vertices, 3), dtype = int)
         self.elts[:,1] =  1
         self.elts[:,2] = np.arange(num_vertices)
-    
+
     def find(self, x):
         y = int(x)
         while (y != self.elts[y, 2]):
@@ -144,16 +144,15 @@ class Universe:
             self.elts[y,1] += self.elts[x,1]
             if self.elts[x, 0] == self.elts[y,0]:
                 self.elts[y,0] += 1
-        
+
     def size(self, x):
         return self.elts[x,1]
-        
+
     def get_components(self):
         components_dict = defaultdict(lambda:[])
         for i in range(self.num_vertices):
             parent = self.find(i)
             components_dict[parent].append(i)
-        
         return components_dict
 
 
@@ -187,4 +186,3 @@ if __name__ == "__main__":
     plt.figure()
     plt.plot(points[:,0], points[:,1], 'o')
     plt.show()
-
