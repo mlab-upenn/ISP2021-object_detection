@@ -2,28 +2,28 @@ import numpy as np
 from scipy.sparse import block_diag
 
 from cluster import Cluster
-from icp import ICP
+from coarse_association import Coarse_Association
 from jcbb_Cartesian import JCBB
 from helper import Helper
 from init_and_merge import InitAndMerge
-
+from cleanupstates import CleanUpStates
 class lidarUpdater:
     def __init__(self):
         self.cl = Cluster()
         self.jcbb = JCBB()
-        self.ICP = ICP()
         self.Updater = Updater()
         self.InitAndMerge = InitAndMerge()
+        self.clean_up_states = CleanUpStates(Q_s_cart, agent_x, agent_y, lidar_range=30.0)
 
     def update(self, dt, data, state):
         self.state = state
-        self.clean_up_states()
+        self.clean_up_states.run()
         self.forward(dt)
 
-        remaining_clusters = self.associate_and_update(data)
-        for cluster in remaining_clusters:
+        new_tracks = self.associate_and_update(data)
+        for cluster in new_tracks:
             self.state.create_new_track(data, cluster)
-        self.InitAndMerge.run(remaining_clusters, self.state)
+        self.InitAndMerge.run(new_tracks, self.state)
 
     def clean_up_states(self):
         pass
@@ -49,31 +49,31 @@ class lidarUpdater:
         points_x = ranges*cos(angles)
         points_y = ranges*cos(angles)
         points = np.vstack((points_x, points_y)).T
-        clusters = cl.cluster(data)
+        clusters = self.cl.cluster(data)
 
         #First, do the static points.
-        
+        static_association, dynamic_association, new_tracks = Coarse_Association(clusters).run(points, state)
         P_static_sub = self.state.static_background.kf.P
-        initial_association = #output of ICP that's associated with static map
-        self.jcbb.assign_values(self.state.xs, static_cluster, track, P_static_sub, True, psi)
-        association = self.jcbb.run(cluster, initial_association, self.state.static_background.xb)
+        static_cluster = ??
+        self.jcbb.assign_values(self.state.xs, static_cluster, self.state.static_background.xs, P_static_sub, True, psi)
+        association = self.jcbb.run(static_association, self.state.static_background.xb)
 
-        self.updater.assign_values(xp, P_static_sub, self.state.xs, association, static=True)
+        self.updater.assign_values(self.state.static_background.kf.xt, P_static_sub, self.state.xs, association, static=True)
         self.updater.run()
         
 
         #then, do dynamic tracks
         for idx, track in self.state.dynamic_tracks.items():
-            initial_association = #output of ICP that's associated with this track
-
+            initial_association = dynamic_association[idx]#output of ICP that's associated with this track
+            cluster = ??
             self.jcbb.assign_values(self.state.xs, cluster, track.kf.xt, track.kf.P, False, psi)
-            association = self.jcbb.run(cluster, initial_association, track.xp)
+            association = self.jcbb.run(initial_association, track.xp)
 
             self.updater.assign_values(track.kf.xt, track.kf.P, association, static=False)
             self.updater.run()
 
 
-        return remaining_clusters #need to feed remaining clusters into initialize and update 
+        return new_tracks #need to feed remaining clusters into initialize and update 
         
 
 

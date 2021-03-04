@@ -25,7 +25,7 @@ class JCBB:
         self.psi = psi
 
 
-    def run(self, cluster, initial_association, boundary_points):
+    def run(self, initial_association, boundary_points):
         # track is vector [gamma_i, delta_i, phi_i, gamma_dot_i, delta_dot_i, phi_dot_i]
         #initial association as 1D vector. Indices of 
         # vector correspond to indices of lidar scan datapoints, 
@@ -356,7 +356,6 @@ def plot_association(asso, polar):
 
 if __name__ == "__main__":
     jc = JCBB()
-    cluster = None
     # for i in range(100):
     np.random.seed(2003)
     xs = {"alpha":0, "beta":0}
@@ -391,7 +390,7 @@ if __name__ == "__main__":
 
 
     starttime = time.time()
-    asso = jc.run(cluster, initial_association, boundary_points)
+    asso = jc.run(initial_association, boundary_points)
     endtime = time.time()
     runtime = endtime-starttime
 
