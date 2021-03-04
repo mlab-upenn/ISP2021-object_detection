@@ -28,6 +28,8 @@ class lidarUpdater:
             self.state.create_new_track(data, cluster)
         self.InitAndMerge.run(new_tracks, self.state)
 
+        #Make repeatedly seen tracks mature?
+
     def clean_up_states(self):
         pass
 
@@ -81,6 +83,7 @@ class lidarUpdater:
         
         #then, do dynamic tracks
         for idx, track in self.state.dynamic_tracks.items():
+            track.update_num_viewings()
             initial_association = dynamic_association[idx]#output of ICP that's associated with this track
             cluster = ??
             self.jcbb.assign_values(self.state.xs, cluster, track.kf.xt, track.kf.P, False, psi)

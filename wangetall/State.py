@@ -4,7 +4,7 @@ from filterpy.kalman import ExtendedKalmanFilter
 class State:
     def __init__(self):
         self.dynamic_tracks = {}
-        self.static_background = Track(0, kind=1, status="confirmed")
+        self.static_background = Track(0, kind=1, status=1)
 
         self.laserpoints = [] #if in ROS, laserpoints will be published.
         self.xs = None
@@ -15,7 +15,7 @@ class State:
         idx = highest_id + 1
 
         boundary_points = laserpoints[clusterIds] #want boundarypoints to be in cartesian
-        track = Track(idx, kind=None, status = "tentative")
+        track = Track(idx, kind=None, status =0)
 
         track.kf.xt = np.array([np.mean(boundary_points[0]),
                             np.mean(boundary_points[1]), 
@@ -60,6 +60,16 @@ class Track:
         self.xp = None
         self.xb = np.array([])
         self.kf = ExtendedKalmanFilter(dim_x=6, dim_z=2)
-        self.status = status #Status: Tentative, Confirmed
+        self.status = status #Status: 0, 1 --> tentative, confirmed
         self.num_viewings = 0
+
+        ##Private attributes:
+        self.mature_threshold = 3
+    
+    def update_num_viewings(self):
+        self.num_viewings += 1
+
+        if self.status == 0:
+            if self.num_viewings >= self.mature_threshold:
+                self.status = not self.status #mark as confirmed
         
