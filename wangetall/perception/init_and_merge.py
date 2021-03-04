@@ -67,20 +67,20 @@ class InitAndMerge:
         for idx, track in self.state.dynamic_tracks.items():
             #generate a bunch of stacked matrices to run all of this 
             # for all the tentative tracks at once.
-            vel_e[:] = np.array([[track[3], track[4]]]).T
-            pos_e[:] = np.array([[track[0], track[1]]]).T
+            vel_e[:] = np.array([[track.kf.x[3], track.kf.x[4]]]).T
+            pos_e[:] = np.array([[track.kf.x[0], track.kf.x[1]]]).T
 
-            R_phi_e[:] = Helper.compute_rot_matrix(-track[2])
-            R_phi_rot_e[:] = Helper.compute_rot_matrix(np.pi/2- track[2])
+            R_phi_e[:] = Helper.compute_rot_matrix(-track.kf.x[2])
+            R_phi_rot_e[:] = Helper.compute_rot_matrix(np.pi/2- track.kf.x[2])
 
-            h2[:, 0:2] = R_phi_e @ (vel_t-vel_e)-track[5]*R_phi_rot_e @ (pos_t-pos_e)#need to adjust this with einsum later.
+            h2[:, 0:2] = R_phi_e @ (vel_t-vel_e)-track.kf.x[5]*R_phi_rot_e @ (pos_t-pos_e)#need to adjust this with einsum later.
             h2[:, 2] = 0
 
-            HT[:,0:2, 0:2] = -track[5]*R_phi_rot_e
+            HT[:,0:2, 0:2] = -track.kf.x[5]*R_phi_rot_e
             HT[:,0:2, 3:5] = R_phi_e
             HT[:,2,5] = 1
 
-            HE[:,0:2, 0:2] = track[5]*R_phi_rot_e
+            HE[:,0:2, 0:2] = track.kf.x[5]*R_phi_rot_e
             HE[:,0:2, 2] = D@h2
             HE[:,0:2, 3:5] = -R_phi_e
             HE[:,0:2, 5] = R_phi_rot_e @ (pos_t - pos_e)

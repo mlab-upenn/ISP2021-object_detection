@@ -62,18 +62,18 @@ class lidarUpdater:
        
         if len(association) >= 3:
             pairings = association[:,~np.isnan(asso[1])]
-            selected_bndr_pts = tracker.xp[pairings[1].astype(int)]
+            selected_bndr_pts = track.xb[pairings[1].astype(int)]
             selected_scan_pts = data[pairings[0].astype(int)]
             M = cv2.estimateRigidTransform(selected_bndr_pts, selected_scan_pts, fullAffine=False)
             angle= np.atan2(M[1,0], M[0,0])
             measurement = np.zeros((6))
-            measurement[0] = tracker.kf.xt[0]+M[0,2]
-            measurement[1] = tracker.kf.xt[1]+M[1,2]
-            measurement[2] = tracker.kf.xt[1]+angle
+            measurement[0] = track.kf.x[0]+M[0,2]
+            measurement[1] = track.kf.x[1]+M[1,2]
+            measurement[2] = track.kf.x[1]+angle
             measurement[3] = M[0,2]/dt
             measurement[4] = M[1,2]/dt
             measurement[5] = angle/dt
-            self.updater.assign_values(self.state.static_background.kf.xt, P_static_sub, self.state.xs, association, static=True)
+            self.updater.assign_values(self.state.static_background.kf.x, P_static_sub, self.state.xs, association, static=True)
             self.updater.run(measurement)
         
         self.state.static_background.xb = np.append(self.state.static_background.xb, unassociated_boundarypts = ??) 
@@ -82,12 +82,12 @@ class lidarUpdater:
         for idx, track in self.state.dynamic_tracks.items():
             track.update_num_viewings()
             initial_association = dynamic_association[idx]#output of ICP that's associated with this track
-            self.jcbb.assign_values(self.state.xs, track.xp, track.kf.xt, track.kf.P, False, psi)
+            self.jcbb.assign_values(self.state.xs, track.xp, track.kf.x, track.kf.P, False, psi)
             association = self.jcbb.run(initial_association, track.xp)
 
 
             if len(association) >= 3: #need 3 points to compute rigid transformation
-                self.updater.assign_values(track.kf.xt, track.kf.P, association, static=False)
+                self.updater.assign_values(track.kf.x, track.kf.P, association, static=False)
                 
                 pairings = association[:,~np.isnan(asso[1])]
                 selected_bndr_pts = tracker.xp[pairings[1].astype(int)]
@@ -97,9 +97,9 @@ class lidarUpdater:
                 M = cv2.estimateRigidTransform(selected_bndr_pts, selected_scan_pts, fullAffine=False)
                 angle= np.atan2(M[1,0], M[0,0])
                 measurement = np.zeros((6))
-                measurement[0] = tracker.kf.xt[0]+M[0,2]
-                measurement[1] = tracker.kf.xt[1]+M[1,2]
-                measurement[2] = tracker.kf.xt[1]+angle
+                measurement[0] = track.kf.x[0]+M[0,2]
+                measurement[1] = track.kf.x[1]+M[1,2]
+                measurement[2] = track.kf.x[1]+angle
                 measurement[3] = M[0,2]/dt
                 measurement[4] = M[1,2]/dt
                 measurement[5] = angle/dt
@@ -219,9 +219,9 @@ class Updater:
         alpha = self.xs["alpha"]
         beta = self.xs["beta"]
         alpha_beta_arr = np.array([alpha, beta])
-        phi = self.track.kf.xt[0]
-        gamma = self.track.kf.xt[2]
-        delta = self.track.kf.xt[1]
+        phi = self.track.kf.x[0]
+        gamma = self.track.kf.x[2]
+        delta = self.track.kf.x[1]
 
         ##Make 2D? have phi, gamma, delta be 2D matrices for every object
 
