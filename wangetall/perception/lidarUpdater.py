@@ -7,6 +7,9 @@ from jcbb_Cartesian import JCBB
 from helper import Helper
 from init_and_merge import InitAndMerge
 from cleanupstates import CleanUpStates
+
+import cv2
+
 class lidarUpdater:
     def __init__(self):
         self.cl = Cluster()
@@ -20,7 +23,7 @@ class lidarUpdater:
         self.clean_up_states.run()
         self.forward(dt)
 
-        new_tracks = self.associate_and_update(data)
+        new_tracks = self.associate_and_update(data, dt)
         for cluster in new_tracks:
             self.state.create_new_track(data, cluster)
         self.InitAndMerge.run(new_tracks, self.state)
@@ -44,7 +47,7 @@ class lidarUpdater:
         self.state.static_background.kf.predict()        
 
 
-    def associate_and_update(self, data):
+    def associate_and_update(self, data, dt):
 
         points_x = ranges*cos(angles)
         points_y = ranges*cos(angles)
@@ -57,11 +60,25 @@ class lidarUpdater:
         static_cluster = ??
         self.jcbb.assign_values(self.state.xs, static_cluster, self.state.static_background.xs, P_static_sub, True, psi)
         association = self.jcbb.run(static_association, self.state.static_background.xb)
-
-        self.updater.assign_values(self.state.static_background.kf.xt, P_static_sub, self.state.xs, association, static=True)
-        self.updater.run()
+       
+        if len(association) >= 3:
+            pairings = association[:,~np.isnan(asso[1])]
+            selected_bndr_pts = tracker.xp[pairings[1].astype(int)]
+            selected_scan_pts = data[pairings[0].astype(int)]
+            M = cv2.estimateRigidTransform(selected_bndr_pts, selected_scan_pts, fullAffine=False)
+            angle= np.atan2(M[1,0], M[0,0])
+            measurement = np.zeros((6))
+            measurement[0] = tracker.kf.xt[0]+M[0,2]
+            measurement[1] = tracker.kf.xt[1]+M[1,2]
+            measurement[2] = tracker.kf.xt[1]+angle
+            measurement[3] = M[0,2]/dt
+            measurement[4] = M[1,2]/dt
+            measurement[5] = angle/dt
+            self.updater.assign_values(self.state.static_background.kf.xt, P_static_sub, self.state.xs, association, static=True)
+            self.updater.run(measurement)
         
-
+        self.state.static_background.xb = np.append(self.state.static_background.xb, unassociated_boundarypts = ??) 
+        
         #then, do dynamic tracks
         for idx, track in self.state.dynamic_tracks.items():
             initial_association = dynamic_association[idx]#output of ICP that's associated with this track
@@ -69,9 +86,28 @@ class lidarUpdater:
             self.jcbb.assign_values(self.state.xs, cluster, track.kf.xt, track.kf.P, False, psi)
             association = self.jcbb.run(initial_association, track.xp)
 
-            self.updater.assign_values(track.kf.xt, track.kf.P, association, static=False)
-            self.updater.run()
 
+            if len(association) >= 3: #need 3 points to compute rigid transformation
+                self.updater.assign_values(track.kf.xt, track.kf.P, association, static=False)
+                
+                pairings = association[:,~np.isnan(asso[1])]
+                selected_bndr_pts = tracker.xp[pairings[1].astype(int)]
+                selected_scan_pts = data[pairings[0].astype(int)]
+
+                selected_scan_cartesian = Helper.convert_scan_polar_cartesian(selected_scan_pts)
+                M = cv2.estimateRigidTransform(selected_bndr_pts, selected_scan_pts, fullAffine=False)
+                angle= np.atan2(M[1,0], M[0,0])
+                measurement = np.zeros((6))
+                measurement[0] = tracker.kf.xt[0]+M[0,2]
+                measurement[1] = tracker.kf.xt[1]+M[1,2]
+                measurement[2] = tracker.kf.xt[1]+angle
+                measurement[3] = M[0,2]/dt
+                measurement[4] = M[1,2]/dt
+                measurement[5] = angle/dt
+
+                self.updater.run(measurement)
+            
+            track.xp = np.append(track.xp, unassociated_boundarypts = ??) #add to track
 
         return new_tracks #need to feed remaining clusters into initialize and update 
         

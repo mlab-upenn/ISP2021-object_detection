@@ -20,7 +20,7 @@ class State:
         track.kf.xt = np.array([np.mean(boundary_points[0]),
                             np.mean(boundary_points[1]), 
                             0,
-                            0])
+                            0,0,0])
         track.xp = np.array([[boundary_points[0]-track.kf.xt[0]],
                             [boundary_points[1]-track.kf.xt[1]]])
         self.dynamic_tracks[idx] = track
@@ -52,14 +52,14 @@ class Track:
     def __init__(self, idx, kind, status):
         """kind: Static: 0; Dynamic: 1"""
         """
-        xt: [X,Y, Xdot, Ydot] #world coordinates
+        xt: [X,Y, Phi, Xdot, Ydot, Phidot] #world coordinates
         xp: [[X,Y]] #List of boundary points in local coords
         """
         self.id = idx
         self.kind = kind
         self.xp = None
         self.xb = np.array([])
-        self.kf = ExtendedKalmanFilter(dim_x=4, dim_z=2)
+        self.kf = ExtendedKalmanFilter(dim_x=6, dim_z=2)
         self.status = status #Status: Tentative, Confirmed
         self.num_viewings = 0
         
