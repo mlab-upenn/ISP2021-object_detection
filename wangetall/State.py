@@ -50,51 +50,43 @@ class State:
     def num_dynamic_tracks(self):
         return len(self.dynamic_tracks)
 
+class Track:
+    def __init__(self,idx, status):
+        self.num_viewings = 0
+        self.status = status #Status: 0, 1 --> tentative, confirmed
+        ##Private attributes:
+        self.mature_threshold = 3
+        self.id = idx
 
-class DynamicTrack:
+    def update_num_viewings(self):
+        self.num_viewings += 1
+        if self.status == 0:
+            if self.num_viewings >= self.mature_threshold:
+                self.status = not self.status #mark as confirmed
+        
+
+class DynamicTrack(Track):
     def __init__(self, idx, status):
+        super().__init__(idx, status)
+
         """kind: Static: 0; Dynamic: 1"""
         """
         xt: [X,Y, Phi, Xdot, Ydot, Phidot] #world coordinates
         xp: [[X,Y]] #List of boundary points in local coords
         """
-        self.id = idx
         self.kind = 1
         self.xp = None
         self.kf = ExtendedKalmanFilter(dim_x=6, dim_z=6)
-        self.status = status #Status: 0, 1 --> tentative, confirmed
-        self.num_viewings = 0
 
-        ##Private attributes:
-        self.mature_threshold = 3
-    
-    def update_num_viewings(self):
-        self.num_viewings += 1
-        if self.status == 0:
-            if self.num_viewings >= self.mature_threshold:
-                self.status = not self.status #mark as confirmed
-        
 
-class StaticTrack:
+class StaticTrack(Track):
     def __init__(self, idx, status):
+        super().__init__(idx, status)
         """kind: Static: 0; Dynamic: 1"""
         """
         xt: [X,Y, Phi, Xdot, Ydot, Phidot] #world coordinates
         xp: [[X,Y]] #List of boundary points in local coords
         """
-        self.id = idx
         self.kind = 0
         self.xb = np.array([])
         self.kf = ExtendedKalmanFilter(dim_x=2, dim_z=2)
-        self.status = status #Status: 0, 1 --> tentative, confirmed
-        self.num_viewings = 0
-
-        ##Private attributes:
-        self.mature_threshold = 3
-    
-    def update_num_viewings(self):
-        self.num_viewings += 1
-        if self.status == 0:
-            if self.num_viewings >= self.mature_threshold:
-                self.status = not self.status #mark as confirmed
-        
