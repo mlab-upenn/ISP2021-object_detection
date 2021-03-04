@@ -5,7 +5,7 @@ from cluster import Cluster
 from icp import ICP
 from jcbb_Cartesian import JCBB
 from helper import Helper
-
+from init_and_merge import InitAndMerge
 
 class lidarUpdater:
     def __init__(self):
@@ -13,47 +13,38 @@ class lidarUpdater:
         self.jcbb = JCBB()
         self.ICP = ICP()
         self.Updater = Updater()
+        self.InitAndMerge = InitAndMerge()
+
+    def update(self, dt, data, state):
+        self.state = state
+        self.clean_up_states()
+        self.forward(dt)
+
+        remaining_clusters = self.associate_and_update(data)
+        for cluster in remaining_clusters:
+            self.state.create_new_track(data, cluster)
+        self.InitAndMerge.run(remaining_clusters, self.state)
 
     def clean_up_states(self):
         pass
 
-    def forward(self, xt, P, dt):
+    def forward(self, dt):
         """Propagates forward all tracks 
         based on current transition model"""
+        F = self.calc_F(dt)
+        Q = self.calc_Q(dt)
 
-        F = self.calc_Fs(xt, dt)
-        xt = F@xt #get index of xt's
-        xt = xt.T
+        for id, track in self.state.dynamic_tracks.items():
+            track.kf.F = F
+            track.kf.Q = Q
+            track.kf.predict()
 
-        Q = self.calc_Qs(xt, dt)
-
-        P = None#a bunch of stuff, gotta index stuff.
-        
-        return xt, P
+        self.state.static_background.kf.F = F
+        self.state.static_background.kf.Q = Q
+        self.state.static_background.kf.predict()        
 
 
-    def merge_tracks(self, clusters):
-        centroids = self.compute_centroids(clusters)
-        
-        pass
-
-    def update(self, x, P, dt, data):
-        xt  = x["xt"]
-        xs = x["xs"]
-        xp = x["xp"]
-        self.clean_up_states()
-        xt, P = self.forward(xt, P, dt)
-        self.associate_and_update(xp, xt, xs, P, data)
-        self.init_and_merge_tracks()
-
-    def associate_and_update(self, xp, xt, xs, P, data):
-        #DATA ASSOCIATION *IS* THE KALMAN MEASUREMENT UPDATE!
-        ### STEP 1: COURSE LEVEL ASSOCIATION
-        #1. Cluster: EMST-EGBIS
-        #   1a. Compute EMST over collection of points
-        #   1b. Throw the EMST as input graph structure to EGBIS to compute clusters
-        #   1c. Edge weights of EMST (euclidean distances between points) are taken directly
-            #   as dissimilarity measure
+    def associate_and_update(self, data):
 
         points_x = ranges*cos(angles)
         points_y = ranges*cos(angles)
@@ -61,70 +52,49 @@ class lidarUpdater:
         clusters = cl.cluster(data)
 
         #First, do the static points.
-        P_static_sub = ?? #grab appropriate submatrix from P
-        initial_association = #output of ICP that's associated with static map
-        boundary_points = ??
-        self.jcbb.assign_values(xs, static_cluster, track, P_static_sub, True, psi)
-        association = self.jcbb.run(cluster, initial_association, boundary_points)
-
-        self.updater.assign_values(xp, P_static_sub, xs, association, static=True)
-        xp_updated, P_static_sub = self.updater.run()
         
-        #
-        P = ?? #update P with updated static submatrix
-        xp = #some function of xp_updated (updated xp), and all xp points that weren't associated
-            #these points are used to extend xp.
-        #
+        P_static_sub = self.state.static_background.kf.P
+        initial_association = #output of ICP that's associated with static map
+        self.jcbb.assign_values(self.state.xs, static_cluster, track, P_static_sub, True, psi)
+        association = self.jcbb.run(cluster, initial_association, self.state.static_background.xb)
 
+        self.updater.assign_values(xp, P_static_sub, self.state.xs, association, static=True)
+        self.updater.run()
+        
 
         #then, do dynamic tracks
-        for idx, track in enumerate(dynamic_tracks):
-            xt_sub =xt[idx]  #grab appropriate submatrix from xt
-            P_sub = ?? #grab appropriate submatrix from P
+        for idx, track in self.state.dynamic_tracks.items():
             initial_association = #output of ICP that's associated with this track
-            boundary_points = ??
 
-            self.jcbb.assign_values(xs, static_cluster, xt_sub, P_sub, False, psi)
-            association = self.jcbb.run(cluster, initial_association, boundary_points)
+            self.jcbb.assign_values(self.state.xs, cluster, track.kf.xt, track.kf.P, False, psi)
+            association = self.jcbb.run(cluster, initial_association, track.xp)
 
-            self.updater.assign_values(xt_sub, P_sub, xs, association, static=False)
-            
-            xt_updated, P_sub = self.updater.run()
-
-            #
-            P = ?? #update P with updated dynamic submatrix
-
-            xt[idx] = #some function of xt_updated, and all xt points that weren't associated
-                        #these points are used to extend xt[idx].
-            #
+            self.updater.assign_values(track.kf.xt, track.kf.P, association, static=False)
+            self.updater.run()
 
 
-        return xp, xt, P, remaining_clusters #need to feed remaining clusters into initialize and update 
+        return remaining_clusters #need to feed remaining clusters into initialize and update 
         
 
 
     def compute_H(self):
         pass
 
-    def calc_Fs(self, xt, dt):
+    def calc_F(self, dt):
         F = np.zeros((6,6))
         F[0:3,0:3] = np.eye(3)
         F[0:3,3:] = dt*np.eye(3)
         F[3:, 3:] = np.eye(3)
-        matrices = tuple([F for i in range(len(xt))])
-        Fs = block_diag(matrices)
-        return Fs
+        return F
 
-    def calc_Qs(self, xt, dt):
+    def calc_Q(self, dt):
         V = self.calc_V()
         Q = np.zeros((6,6))
         Q[0:3,0:3] = (dt**3/3)*V
         Q[0:3,3:] = (dt**2/2)*V
         Q[3:,0:3] = (dt**2/2)*V
         Q[3:,3:] = dt*V
-        matrices = tuple([Q for i in range(len(xt))])
-        Qs = block_diag(matrices)
-        return Qs
+        return Q
 
     def calc_V(self):
         #supposed to be a 3x3 covariance matrix for the zero mean continuous linear and angular white noise acceleration
@@ -151,33 +121,28 @@ class Updater:
 
     def __init__(self):
         pass
-    def assign_values(self, x, P, xs, associated_points, static):
-        self.x = x
-        self.P = P
-        self.xs = xs
+    def assign_values(self, track,associated_points, static):
+        self.track = track
+        self.xs = self.state.xs
         self.associated_points = associated_points
+        #HOW DO WE USE ASSOCIATED POINTS AS MEASUREMENT?
         self.static = static
 
     def run(self):
         R = self.calc_R(self.associated_points)
         g, G = self.calc_g_and_G(self.associated_points)
         H = self.calc_Jacobian_H(g, G, self.associated_points)
-        K = self.compute_Kalman_gain(H, self.P, R)
 
-        temp = np.eye(??)-K@H
-        P = temp@P@temp.T+K@R@K.T
-        x = x+K@(y-H)
+        self.track.kf.R = R
+        self.track.kf.H = R
+        self.track.kf.update() #what do we pass in as measurement??
 
-        return x, P
 
     def calc_R(self, associated_points):
         #https://dspace.mit.edu/handle/1721.1/32438#files-area
         R_indiv = np.array([[0.1, 0], [0,0.1]])
-        R_matrices = tuple([R_indiv for i in range(len(associated_points))])
-        Rs = block_diag(*R_matrices)
 
-        ###Make 3D? Stack Rs on top of each other for every dynamic object
-        return Rs
+        return R
 
     def compute_Kalman_gain(self, H, P, R):
         K = P@H.T@ np.linalg.inv(H@P@H.T + R)
@@ -219,9 +184,9 @@ class Updater:
         alpha = self.xs["alpha"]
         beta = self.xs["beta"]
         alpha_beta_arr = np.array([alpha, beta])
-        phi = self.xt[??]
-        gamma = self.xt[??]
-        delta = self.xt[??]
+        phi = self.track.kf.xt[0]
+        gamma = self.track.kf.xt[2]
+        delta = self.track.kf.xt[1]
 
         ##Make 2D? have phi, gamma, delta be 2D matrices for every object
 

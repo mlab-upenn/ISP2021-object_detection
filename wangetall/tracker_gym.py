@@ -6,49 +6,43 @@ from argparse import Namespace
 from scipy.sparse import block_diag
 
 ##CUSTOM IMPORTS
-from helper import Helper
-from odomUpdater import OdomUpdater
-from lidarUpdater import lidarUpdater
+from perception.helper import Helper
+from perception.odomUpdater import OdomUpdater
+from perception.lidarUpdater import lidarUpdater
 
 from pure_pursuit_planner import PurePursuitPlanner
+from State import State
 
 class Tracker:
-    lidarscan_topic = "/scan"
-    odom_topic = "/odom"
-
-    def __init__(self, id):
-
-        self.mean_state = [] #large state matrix
-        self.P = [] #large covariance matrix
+    def __init__(self, idx):
 
         self.prev_Odom_callback_time = time.time()
         self.prev_Lidar_callback_time = time.time()
         self.L = 0.1 #dist between front and rear axles
         self.control_input = {"L": L}
 
-        dalpha = None
-        dbeta = None
-        dpsi = None
+        dalpha = 0
+        dbeta = 0
+        dpsi = 0
         self.odom_updater = OdomUpdater(dalpha, dbeta, dpsi)
         self.lidarUpdater = lidarUpdater()
 
-        self.x = {"xs": None, "xt": None, "xb": None, "xp": None, "xc": None}
-        self.P = None
-        self.id = id
-
-
+        self.id = idx
+        self.state = State()
+        self.state.xs = np.array([0,0])
+        
     def update(self, obs, time):
         if obs["LiDAR"]:
             self.lidar_callback(obs["scans"][self.id], time)
         if obs["Odom"]:
             self.odom_callback(obs, time)
+    
     def lidar_callback(self, data, time):
         dt = time - self.prev_Lidar_callback_time
         self.prev_Lidar_callback_time = time
-        self.lidarUpdater.update(self.x, dt, data)
+        self.lidarUpdater.update(dt, data, self.state)
 
     def odom_callback(self, data, time):
-        """ void fx """
         dt = time - self.prev_Odom_callback_time
         self.prev_Odom_callback_time = time
 
@@ -61,7 +55,7 @@ class Tracker:
         self.control_input["delta_l"] = data["linear_vels_x"][self.id]*dt
         self.control_input["delta_psi"] = data["linear_vels_x"][self.id]*dt*np.tan(theta)/self.L
 
-        self.x, self.P = self.odom_updater.update(self.x, self.control_input, self.P)
+        self.odom_updater.update(self.control_input, self.state)
 
 
 

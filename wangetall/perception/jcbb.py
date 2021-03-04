@@ -86,7 +86,6 @@ class JCBB:
         boundaries_taken = set()
         self.unassociated_measurements = unassociated_measurements
         self.DFS(0, minimal_association, compat_boundaries, boundary_points, boundaries_taken)
-        print("best jnis {}, num assoc {}".format(self.best_JNIS, self.best_num_associated))
         jnis = self.calc_JNIS(self.best_association, boundary_points)
         joint_compat = self.check_compat(jnis, DOF =np.count_nonzero(~np.isnan(self.best_association[1]))*2)
         if joint_compat:
@@ -106,13 +105,6 @@ class JCBB:
                 JNIS = self.calc_JNIS(test_association, boundary_points)
                 joint_compat = self.check_compat(JNIS, DOF =np.count_nonzero(~np.isnan(test_association[1]))*2)
                 num_associated = np.count_nonzero(~np.isnan(test_association[1]))
-                # if not np.isnan(next_boundary):
-                #     print("=======")
-                #     print("Level: {}".format(level))
-                #     print("num_associated {}".format(num_associated))
-                #     print("Boundary: {}".format(next_boundary))
-                #     print("joint compat? {}".format(joint_compat))
-                #     print("Prev count {}".format(np.count_nonzero(~np.isnan(association[1]))))
 
                 update = False
                 if joint_compat and num_associated >= self.best_num_associated:
@@ -190,13 +182,6 @@ class JCBB:
             b = np.linalg.inv(S)
 
             JNIS = np.einsum('ki,kij,kj->k', a, b, a)
-            # if i == 28:
-            #     print("a: {}".format(a))
-            #     # print("b: {}".format(b))
-            #     print("JNIS: {}".format(JNIS))
-            #     chi2_val = stats.chi2.ppf(self.alpha, df=2)
-            #     print("chi2: {}".format(chi2_val))
-            #     sys.exit()
 
 
         else:

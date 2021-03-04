@@ -1,5 +1,5 @@
 import numpy as np
-from helper import Helper
+from perception.helper import Helper
 
 class OdomUpdater:
     def __init__(self, dalpha, dbeta, dpsi):
@@ -61,30 +61,30 @@ class OdomUpdater:
         return Q
 
 
-    def update_covariance(self, prev_sensor_mean_pose, control_input, P):
+    def update_covariance(self, prev_sensor_mean_pose, control_input, state):
         F = self.calc_F(prev_sensor_mean_pose, control_input)
         G = self.calc_G()
         Q = self.calc_Q()
 
-        P_new = np.zeros((P.shape))
 
-        ##CHECK INDEXES FOR THE BELOW. THEY'RE ARBITRARY RN.
-        P_new[0:2, 0:2] = F @ P[0:2,0:2]@ F.T + G @ Q @ G.T
-        P_new[0:2, 2] = F @ P[0:2, 0:1]
+        for _, track in self.state.dynamic_tracks.items():
+            track.kf.G = G #there is no G. What to do about G?
+            track.kf.F = F #there is no G. What to do about G?
+            track.kf.Q = Q #there is no G. What to do about G?
 
-        P_new[2,0:2] = P[0:1, 0:2] @ F.T
-        P_new[2,2] = P[0:1, 0:1]
+            track.kf.predict()
+        
+        self.state.static_background.kf.F = F
+        self.state.static_background.kf.Q = Q
+        self.state.static_background.kf.Q = G
+        self.state.static_background.kf.predict()        
 
-        return P_new
     
     
-    def update(self, x, control_input, prev_P):
-
-        prev_sensor_mean_pose = x["xs"] #check index
+    def update(self, control_input, state):
+        self.state = state
+        prev_sensor_mean_pose = self.state.xs #check index
         
         xs_new = self.update_sensor_mean_pose(prev_sensor_mean_pose, control_input)
-        P_new = self.update_covariance(prev_sensor_mean_pose, control_input, prev_P)
-
-        x["xs"] = xs_new
-
-        return x, P_new
+        self.state.xs = xs_new
+        self.update_covariance(prev_sensor_mean_pose, control_input, self.state)

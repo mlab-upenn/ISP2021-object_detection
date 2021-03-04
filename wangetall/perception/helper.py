@@ -23,6 +23,9 @@ class Helper:
 
         #can probs ignore the cells on the bottom right edge bc 2D
         return R
+    @staticmethod
+    def convert_scan_polar_cartesian(scan, angle):
+        return np.sin(angle)*scan, np.cos(angle)*scan
 
 
 # if __name__ =="__main__":
