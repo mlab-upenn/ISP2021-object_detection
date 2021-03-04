@@ -1,20 +1,32 @@
+import sys
+import time
+import gc
+import os, psutil
 import numpy as np
+import copy
+class Test:
+    def __init__(self, idx):
+        self.id = idx
+        self.nums = np.arange(10000000)
+    def del_nums(self):
+        del self.nums
+    def __del__(self):
+        print("Destructor called!")
+state = {}
+def add_to_state():
+    t = Test(0)
+    state[0] = t
 
-z_hat = np.load("z_hat.npy")
-h = np.load("h.npy")
-S = np.load("S.npy")
 
-S_inv = np.linalg.inv(S)
-sub = z_hat - h
-test = sub.T@S_inv@sub
-print(test)
-print(z_hat)
-print(h)
+if __name__ == "__main__":
+    add_to_state()
+    state.pop(0)
+    b = copy.deepcopy(state)
+    del state
+    gc.collect()
+    process = psutil.Process(os.getpid())
+    print(process.memory_info().rss)  # in bytes 
 
-print("Scan Pos 1:")
-scanpos1 = (np.cos(z_hat[1])*z_hat[0], np.sin(z_hat[1])*z_hat[0])
-print(scanpos1)
+    time.sleep(5)
 
-print("Tgt Pos 1:")
-tgtpos1 = (np.cos(h[1])*h[0], np.sin(h[1])*h[0])
-print(tgtpos1)
+
