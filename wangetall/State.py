@@ -11,8 +11,11 @@ class State:
         self.xc = None
             
     def create_new_track(self, laserpoints, clusterIds):
-        highest_id = max(self.dynamic_tracks.keys())
-        idx = highest_id + 1
+        if len(self.dynamic_tracks) == 0:
+            idx = 1
+        else:
+            highest_id = max(self.dynamic_tracks.keys())
+            idx = highest_id + 1
 
         boundary_points = laserpoints[clusterIds] #want boundarypoints to be in cartesian
         track = Track(idx, kind=None, status =0)
@@ -68,7 +71,6 @@ class Track:
     
     def update_num_viewings(self):
         self.num_viewings += 1
-
         if self.status == 0:
             if self.num_viewings >= self.mature_threshold:
                 self.status = not self.status #mark as confirmed

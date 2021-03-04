@@ -28,8 +28,6 @@ class lidarUpdater:
             self.state.create_new_track(data, cluster)
         self.InitAndMerge.run(new_tracks, self.state)
 
-        #Make repeatedly seen tracks mature?
-
     def clean_up_states(self):
         pass
 
@@ -59,8 +57,7 @@ class lidarUpdater:
         #First, do the static points.
         static_association, dynamic_association, new_tracks = Coarse_Association(clusters).run(points, state)
         P_static_sub = self.state.static_background.kf.P
-        static_cluster = ??
-        self.jcbb.assign_values(self.state.xs, static_cluster, self.state.static_background.xs, P_static_sub, True, psi)
+        self.jcbb.assign_values(self.state.xs, self.state.static_background.xb, self.state.static_background.xs, P_static_sub, True, psi)
         association = self.jcbb.run(static_association, self.state.static_background.xb)
        
         if len(association) >= 3:
@@ -85,8 +82,7 @@ class lidarUpdater:
         for idx, track in self.state.dynamic_tracks.items():
             track.update_num_viewings()
             initial_association = dynamic_association[idx]#output of ICP that's associated with this track
-            cluster = ??
-            self.jcbb.assign_values(self.state.xs, cluster, track.kf.xt, track.kf.P, False, psi)
+            self.jcbb.assign_values(self.state.xs, track.xp, track.kf.xt, track.kf.P, False, psi)
             association = self.jcbb.run(initial_association, track.xp)
 
 
@@ -167,14 +163,14 @@ class Updater:
         #HOW DO WE USE ASSOCIATED POINTS AS MEASUREMENT?
         self.static = static
 
-    def run(self):
+    def run(self, measurement):
         R = self.calc_R(self.associated_points)
         g, G = self.calc_g_and_G(self.associated_points)
         H = self.calc_Jacobian_H(g, G, self.associated_points)
 
         self.track.kf.R = R
         self.track.kf.H = R
-        self.track.kf.update() #what do we pass in as measurement??
+        self.track.kf.update(measurement) #what do we pass in as measurement??
 
 
     def calc_R(self, associated_points):
