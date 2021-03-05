@@ -40,7 +40,7 @@ class Cluster:
 
         dist = np.linalg.norm(points_1- points_2, axis = 1)
         dist = dist[..., np.newaxis]
-        graph = np.hstack((edges_array, dist)).astype(int)
+        graph = np.hstack((edges_array, dist))
 
         return graph
 
@@ -77,6 +77,8 @@ class Cluster:
         rank = np.zeros((parent.shape))
         while edge_count < len(points)-1:
             origin, dest, weight = sorted_graph[i]
+            origin = int(origin)
+            dest = int(dest)
             i+=1
             parent_origin = self.find_set(parent, origin)
             parent_dest = self.find_set(parent, dest)
