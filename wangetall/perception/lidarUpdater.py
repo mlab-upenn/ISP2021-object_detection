@@ -17,7 +17,8 @@ class lidarUpdater:
         self.Updater = Updater()
         self.InitAndMerge = InitAndMerge()
         self.clean_up_states = CleanUpStates(Q_s_cart, agent_x, agent_y, lidar_range=30.0)
-
+        self.i = 0
+        
     def update(self, dt, data, state):
         self.state = state
         self.clean_up_states.run()
@@ -26,6 +27,7 @@ class lidarUpdater:
         new_tracks = self.associate_and_update(data, dt)
         for cluster in new_tracks:
             self.state.create_new_track(data, cluster)
+            #hold off on init and merge until we've seen many times...
         self.InitAndMerge.run(new_tracks, self.state)
 
     def clean_up_states(self):
@@ -53,7 +55,7 @@ class lidarUpdater:
         points_y = ranges*cos(angles)
         points = np.vstack((points_x, points_y)).T
         clusters = self.cl.cluster(data)
-
+        #for below code, wait till it's second observation
         #First, do the static points.
         static_association, dynamic_association, new_tracks = Coarse_Association(clusters).run(points, state)
         P_static_sub = self.state.static_background.kf.P

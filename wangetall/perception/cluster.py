@@ -5,6 +5,7 @@ from itertools import permutations
 from collections import defaultdict
 import random
 import time
+import sys
 # from numba import jit
 
 #Numba help:
@@ -40,7 +41,7 @@ class Cluster:
 
         dist = np.linalg.norm(points_1- points_2, axis = 1)
         dist = dist[..., np.newaxis]
-        graph = np.hstack((edges_array, dist)).astype(int)
+        graph = np.hstack((edges_array.astype(int), dist))
 
         return graph
 
@@ -77,6 +78,8 @@ class Cluster:
         rank = np.zeros((parent.shape))
         while edge_count < len(points)-1:
             origin, dest, weight = sorted_graph[i]
+            origin = int(origin)
+            dest = int(dest)
             i+=1
             parent_origin = self.find_set(parent, origin)
             parent_dest = self.find_set(parent, dest)
@@ -100,13 +103,14 @@ class Cluster:
 
         for i in range(len(points)-1):
             vi, vj, w = sorted_tree[i]
-
+            # print("W {}".format(w))
             component_i = segmentation.find(vi)
             component_j = segmentation.find(vj)
 
 
             if component_i != component_j:
                 if w <= thresholds[component_i] and w <= thresholds[component_j]:
+                    # print("aha!")
                     segmentation.join(component_i, component_j)
                     component_i = segmentation.find(component_i)
                     thresholds[component_i] = w + self.get_tau(segmentation.size(component_i))
@@ -116,7 +120,7 @@ class Cluster:
         return components
 
     def get_tau(self, size):
-        k = 25
+        k = 50
         return k/size
 
 class Universe:
@@ -164,25 +168,28 @@ class Universe:
 
 if __name__ == "__main__":
     # points= np.array(random.sample(range(2000), 2000)).reshape((1000,2))
-    points = np.array((0 + np.random.random((1000,2)) * (100 - 0)))
+    # points = np.array((0 + np.random.random((1000,2)) * (100 - 0)))
+    points = np.load("cleaned_with_noise.npy")
     cl = Cluster()
 
     clusters = cl.cluster(points)
-    print(clusters.keys())
+    print(len(clusters.keys()))
     # print(clusters)
 
 
 
-    # cmap = get_cmap(len(points))
+    # # cmap = get_cmap(len(points))
     plt.figure()
     for key in clusters.keys():
         selected_points = points[clusters[key]]
+        # print("Key {}".format(key))
+        # print("Pts {}".format(clusters[key]))
         plt.scatter(selected_points[:,0], selected_points[:,1])
+        # for i in range(selected_points.shape[0]):
+        #     plt.text(selected_points[i,0], selected_points[i,1], str(i), size = "xx-small")
+
     plt.show()
 
-    # print(clusters)
-
-    # plt.triplot(points[:,0], points[:,1], tri)
-    plt.figure()
-    plt.plot(points[:,0], points[:,1], 'o')
-    plt.show()
+    # plt.figure()
+    # plt.plot(points[:,0], points[:,1], 'o')
+    # plt.show()

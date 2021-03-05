@@ -76,7 +76,7 @@ class OdomUpdater:
         
         self.state.static_background.kf.F = F
         self.state.static_background.kf.Q = Q
-        self.state.static_background.kf.Q = G
+        # self.state.static_background.kf.Q = G
         self.state.static_background.kf.predict()        
 
     

@@ -8,7 +8,7 @@ class InitAndMerge:
         self.alpha = 1-0.95
 
     def run(self, tentative, state):
-        self.tentative = tentative #xt is a 1D list where each element corresponds with the id of
+        self.tentative = tentative  #=== new tracks #xt is a 1D list where each element corresponds with the id of
                     #new tentative track T. 
         self.state = state
         self.static_check()
