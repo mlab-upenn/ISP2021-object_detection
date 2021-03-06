@@ -127,3 +127,10 @@ dmypy.json
 
 # Pyre type checker
 .pyre/
+
+#gym
+f1tenthgym/
+Melbourne/
+
+#iOS file
+.DS_Store
