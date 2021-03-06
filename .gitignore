@@ -128,7 +128,7 @@ dmypy.json
 # Pyre type checker
 .pyre/
 
-<<<<<<< HEAD
+
 #gym
 f1tenthgym/
 Melbourne/
@@ -142,6 +142,7 @@ Melbourne/
 #.vscode
 ./vscode
 
-.DS_Store
-
->>>>>>> a0d4e2c62cadac401df4a69b6220b67cabfabb3e
+#testing files
+test_ca.py
+test.py
+waypoint_follow.py
