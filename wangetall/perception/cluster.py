@@ -118,11 +118,7 @@ class Cluster:
         return components
 
     def get_tau(self, size):
-<<<<<<< HEAD:wangetall/cluster.py
         k = 10
-=======
-        k = 25
->>>>>>> a0d4e2c62cadac401df4a69b6220b67cabfabb3e:wangetall/perception/cluster.py
         return k/size
 
 class Universe:
