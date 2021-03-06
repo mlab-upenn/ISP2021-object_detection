@@ -9,6 +9,17 @@ import coarse_association
 import cluster
 
 import cleanupstates
+from tempfile import TemporaryFile
+outfile = TemporaryFile()
+from collections import defaultdict
+
+dynamic_tracks_dict = defaultdict(lambda:[])
+def createDictDynamicTrack(no_tracks, Q):
+    for track in range(no_tracks):
+        for i in range(len(Q)):
+            dynamic_tracks_dict[track].append(i)
+
+    return dynamic_tracks_dict
 
 """
 Planner Helpers
@@ -196,26 +207,28 @@ if __name__ == '__main__':
         conf_dict = yaml.load(file, Loader=yaml.FullLoader)
     conf = Namespace(**conf_dict)
 
-    env = gym.make('f110_gym:f110-v0', map=conf.map_path, map_ext=conf.map_ext, num_agents=1)
-    obs, step_reward, done, info = env.reset(np.array([[conf.sx, conf.sy, conf.stheta]]))
+    env = gym.make('f110_gym:f110-v0', map=conf.map_path, map_ext=conf.map_ext, num_agents=2)
+    obs, step_reward, done, info = env.reset(np.array([[conf.sx, conf.sy, conf.stheta],[conf.sx2, conf.sy2, conf.stheta2]]))
     env.render()
     planner = PurePursuitPlanner(conf, 0.17145+0.15875)
+    planner2 = PurePursuitPlanner(conf, 0.17145+0.15875)
 
     laptime = 0.0
     start = time.time()
     cl = cluster.Cluster()
     while not done:
         speed, steer = planner.plan(obs['poses_x'][0], obs['poses_y'][0], obs['poses_theta'][0], work['tlad'], work['vgain'])
+        speed2, steer2 = planner2.plan(obs['poses_x'][1], obs['poses_y'][1], obs['poses_theta'][1], work['tlad'], work['vgain'])
 
         num_beams = 1080
         fov = 4.7
-        lidar_data, agent_x, agent_y = obs['scans'],obs['poses_x'], obs['poses_y']
+        lidar_data, agent_x, agent_y = obs['scans'][0],obs['poses_x'][0], obs['poses_y'][0]
         theta = np.linspace(-fov/2., fov/2., num=num_beams)
 
         seed=123
         rng = np.random.default_rng(seed=seed)
         current_scan = lidar_data
-        noise = rng.normal(0., 0.1, size=num_beams)
+        noise = rng.normal(0., 0.09, size=num_beams)
         Q_s = current_scan
         current_scan = current_scan + noise
         # print("Qs", Q_s[0])
@@ -227,30 +240,63 @@ if __name__ == '__main__':
         # print(theta, current_scan)
         #
         #plt.show()
-        Q_s_cart = np.stack((x, y), axis=-1)
+        Q_s_cart = np.stack((x_s, y_s), axis=-1)
         # plt.scatter(agent_x, agent_y)
         # plt.scatter(x_s, y_s)
         #plt.scatter(Q_s_cart[0][:,0],Q_s_cart[0][:,1])
-        #Q_s_ = np.stack((x, y), axis=-1)
+        Q_s_cart_noise = np.stack((x, y), axis=-1)
 
         cleanup = cleanupstates.CleanUpStates(Q_s_cart, agent_x, agent_y, lidar_range=30.0)
         cleaned = cleanup.run()
-        #print(cleaned)
-        # plt.scatter(cleaned[:,0],cleaned[:,1])
-        # plt.show()
+        cleanup_noise = cleanupstates.CleanUpStates(Q_s_cart_noise, agent_x, agent_y, lidar_range=30.0)
+        cleaned_noise = cleanup_noise.run()
+
+
+        dynamic = cleaned[np.where(np.logical_and(cleaned[:,1]>=1.16, cleaned[:,1]<=1.91))]
+        dynamic = dynamic[np.where(np.logical_and(dynamic[:,0]>=3, dynamic[:,0]<=5))]
+        #print(dynamic)
+        #plt.scatter(dynamic[:,0],dynamic[:,1])
+        static_background = np.delete(cleaned,np.where(np.logical_and(np.logical_and(cleaned[:,1]>=1.16, cleaned[:,1]<=1.91),np.logical_and(cleaned[:,0]>=3, cleaned[:,0]<=5))),0)
+        #print(cleaned_wihtout_dyn)
+        #plt.scatter(cleaned_wihtout_dyn[:,0],cleaned_wihtout_dyn[:,1])
+        # plt.scatter(cleaned_noise[:,0],cleaned_noise[:,1])
+        #plt.scatter(static_background[:,0],static_background[:,1])
+        #plt.show()
         #print(lidar_data, agent_x, agent_y, obs['poses_theta'])
         #print(np.sin( obs['poses_theta']) * lidar_data)
 
         #2.: C <- CLUSTERMEASUREMENTS(Z)
-        C = cl.cluster(cleaned)
+        # plt.scatter(cleaned_noise[:,0],cleaned_noise[:,1])
+        # plt.show()
+        # with open('cleaned_with_noise.npy', 'wb') as f:
+        #     np.save(f, cleaned_noise)
+        # with open('cleaned_with_noise.npy', 'rb') as f:
+        #     a = np.load(f)
+        plt.scatter(static_background[:,0],static_background[:,1])
+        plt.scatter(dynamic[:,0],dynamic[:,1])
+        plt.show()
+        C = cl.cluster(cleaned_noise)
         # for key in C.keys():
-        #     P = cleaned[C[key]]
+        #     P = cleaned_noise[C[key]]
         #     plt.scatter(P[:,0], P[:,1])
         # plt.show()
         ca = coarse_association.Coarse_Association(C)
-        ca.run(cleaned, Q_s_cart[0])#, Q_d, dynamic_tracks_dict)
-
-        obs, step_reward, done, info = env.step(np.array([[steer, speed]]))
+        dynamic_tracks_dict = createDictDynamicTrack(1, dynamic)
+        #print(dynamic_tracks_dict)
+        A, A_d, new_tracks = ca.run(cleaned_noise, static_background, dynamic, dynamic_tracks_dict)
+        for key in A.keys():
+            P = cleaned_noise[A[key]]
+            clusters_s = plt.scatter(P[:,0], P[:,1], marker = 'x')
+        for key in A_d.keys():
+            P_d = cleaned_noise[A_d[key]]
+            clusters_d = plt.scatter(P_d[:,0], P_d[:,1], marker = '+')
+        for key in new_tracks.keys():
+            P_new = cleaned_noise[new_tracks[key]]
+            clusters_new = plt.scatter(P_new[:,0], P_new[:,1], marker = 'o')
+        car = plt.scatter(agent_x, agent_y)
+        plt.legend((car, clusters_s, clusters_d, clusters_new),("car", "assigned static background", "assigned dynamic tracks", "new tracks"))
+        plt.show()
+        obs, step_reward, done, info = env.step(np.array([[0, 0],[steer2, speed2]]))
         laptime += step_reward
         env.render(mode='human')
     print('Sim elapsed time:', laptime, 'Real elapsed time:', time.time()-start)

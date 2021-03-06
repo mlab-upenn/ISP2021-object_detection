@@ -26,10 +26,10 @@ class ICP:
         Testing out with the params
         """
         self.max_iterations=30
-        self.distance_threshold=5
+        self.distance_threshold=0.5
         self.convergence_translation_threshold=1e-3
         self.convergence_rotation_threshold=1e-4
-        self.point_pairs_threshold=0
+        self.point_pairs_threshold=2
 
     def run(self, reference_points, points):
         self.reference_points = reference_points

@@ -40,7 +40,7 @@ class Cluster:
 
         dist = np.linalg.norm(points_1- points_2, axis = 1)
         dist = dist[..., np.newaxis]
-        graph = np.hstack((edges_array, dist)).astype(int)
+        graph = np.hstack((edges_array, dist))
 
         return graph
 
@@ -77,6 +77,8 @@ class Cluster:
         rank = np.zeros((parent.shape))
         while edge_count < len(points)-1:
             origin, dest, weight = sorted_graph[i]
+            origin = int(origin)
+            dest = int(dest)
             i+=1
             parent_origin = self.find_set(parent, origin)
             parent_dest = self.find_set(parent, dest)
@@ -116,7 +118,7 @@ class Cluster:
         return components
 
     def get_tau(self, size):
-        k = 100
+        k = 10
         return k/size
 
 class Universe:
@@ -158,13 +160,13 @@ class Universe:
 
 
 # def get_cmap(n, name='hsv'):
-#     '''Returns a function that maps each index in 0, 1, ..., n-1 to a distinct 
+#     '''Returns a function that maps each index in 0, 1, ..., n-1 to a distinct
 #     RGB color; the keyword argument name must be a standard mpl colormap name.'''
 #     return plt.cm.get_cmap(name, n)
 
 if __name__ == "__main__":
-    points= np.array(random.sample(range(2000), 2000)).reshape((1000,2))
-
+    # points= np.array(random.sample(range(2000), 2000)).reshape((1000,2))
+    points = np.array((0 + np.random.random((1000,2)) * (100 - 0)))
     cl = Cluster()
 
     clusters = cl.cluster(points)
