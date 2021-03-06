@@ -143,7 +143,7 @@ Melbourne/
 ./vscode
 
 #testing files
-test_ca.py
-test.py
-cleaned_with_noise.npy
-waypoint_follow.py
+#test_ca.py
+#test.py
+#cleaned_with_noise.npy
+#waypoint_follow.py
