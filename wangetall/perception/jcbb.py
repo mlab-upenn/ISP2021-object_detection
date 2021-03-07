@@ -2,7 +2,7 @@ import numpy as np
 import scipy as sp
 from scipy.linalg import block_diag
 from scipy import stats
-from helper import Helper
+from perception.helper import Helper
 import random
 import sys
 import time
@@ -244,9 +244,10 @@ class JCBB:
         alpha = self.xs["alpha"]
         beta = self.xs["beta"]
         alpha_beta_arr = np.array([alpha, beta])
-        phi = self.track[2]
-        gamma = self.track[0]
-        delta = self.track[1]
+        if not self.static:
+            phi = self.track[2]
+            gamma = self.track[0]
+            delta = self.track[1]
 
         R_pi_by_2 = Helper.compute_rot_matrix(np.pi/2)
         R_psi = Helper.compute_rot_matrix(self.psi)

@@ -1,6 +1,6 @@
 import numpy as np
 from scipy import stats
-from helper import Helper
+from perception.helper import Helper
 
 
 class InitAndMerge:
@@ -16,10 +16,14 @@ class InitAndMerge:
 
 
     def static_check(self):
-        static_check = np.zeros((self.tentative.shape[0]))
+        static_check = len(self.tentative)
         chi2 = stats.chi2.ppf(self.alpha, df=3)
 
-        h = self.tentative[:, 3:6] #fictious measurement model
+        h = np.zeros((len(self.tentative), 3))
+        for idx, track_id in enumerate(self.tentative):
+            h[idx] = [self.state.dynamic_tracks[track_id].x[3], self.state.dynamic_tracks[track_id].x[4], self.state.dynamic_tracks[track_id].x[5]]        
+        
+        #fictious measurement model
         h = np.reshape(h, (h.shape[0],1,-1)) #reshape into 3D matrix, where vectors of 3 are stacked on top of each other
         #optimization: move creation of H and z_hat into init to avoid calling every time.
         H= np.zeros((h.shape[0], 3, 6))

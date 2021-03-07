@@ -1,7 +1,7 @@
 import numpy as np
 import math
 from sklearn.neighbors import NearestNeighbors
-
+import sys
 class ICP:
     """
     Class Based on the ICP implementation of https://github.com/richardos/icp/blob/master/icp.py and Besl and
@@ -32,7 +32,7 @@ class ICP:
         self.point_pairs_threshold=0
 
     def run(self, reference_points, points):
-        self.reference_points = reference_points
+        self.reference_points = reference_points.T
         self.points = points
         nbrs = NearestNeighbors(n_neighbors=1, algorithm='kd_tree').fit(self.reference_points)
 
@@ -41,7 +41,6 @@ class ICP:
             static=  False
 
             closest_point_pairs = []  # list of point correspondences for closest point rule
-
             distances, indices = nbrs.kneighbors(self.points)
             # Step 1: A point in P is associated to its nearest neighbour in Q if their distance is within a certain threshold,
             for nn_index in range(len(distances)):
@@ -76,12 +75,12 @@ class ICP:
             if (abs(closest_rot_angle) < self.convergence_rotation_threshold) \
                     and (abs(closest_translation_x) < self.convergence_translation_threshold) \
                     and (abs(closest_translation_y) < self.convergence_translation_threshold):
-                #print('Converged!')
+                print('Converged!')
                 static= True
                 break
         #The association upon convergence is taken as the final association, with outlier rejection from P to Q.
         # -- outliers not in points now
-        return static
+        return static, closest_point_pairs
 
 
     def point_based_matching(self, point_pairs):

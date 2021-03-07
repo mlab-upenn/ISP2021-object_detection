@@ -1,8 +1,8 @@
 import random
 import numpy as np
 import matplotlib.pyplot as plt
-import icp
-import cluster
+import perception.icp
+import perception.cluster
 
 class Coarse_Association():
     def __init__(self, C):
@@ -23,60 +23,72 @@ class Coarse_Association():
                                                     of the points belonging to that tracks
         """
         self.C = C
-        print("clusters:", len(self.C))
 
-    def run(self, Z, Q_s): #Q_d, dynamic_tracks_dict):
+    def run(self, Z, state): #Q_d, dynamic_tracks_dict):
         #3.: (x, P, A) <- ASSOCIATEANDUPDATEWITHSTATIC(x, P, C)
-        A = self.associateAndUpdateWithStatic(Z, Q_s)
-        #print("static clusters:", len(A))
+        self.state=state
+        if self.state.static_background.xb.size != 0:
+            A, static_point_pairs = self.associateAndUpdateWithStatic(Z)
+            #4. C <- C/A
+            for key in A.keys():
+                del self.C[key]
+        else:
+            A = {}
+            static_point_pairs = np.zeros((2,0))
 
-        #4. C <- C/A
-        for key in A.keys():
-            del self.C[key]
 
-        print("cluster-static clusters:", len(self.C))
 
         #5. for i = 1,2,.,Nt do
-        # for key in dynamic_tracks_dict.keys():
-        #     dynanmic_P = Q_d[dynamic_tracks_dict[key]]
-        #     #6. (x, P, A) <- ASSOCIATEANDUPDATEWITHDYNAMIC(x, P, C, i)
-        #     A_d = self.associateAndUpdateWithDynamic(Z, dynanmic_P)
-        #     print("dynamic clusters:", len(A_d))
-        #
-        #     #7. C <- C/A
-        #     for key in A_d.keys():
-        #         del self.C[key]
-        #
-        #     print("cluster-static-dynamic clusters:", len(self.C))
+        if len(self.state.dynamic_tracks) != 0:
+            dynamic_point_pairs = []
+            dynamic_associations = []
+            for key, track in self.state.dynamic_tracks.items():
+                dynanmic_P = track.xp
+                #6. (x, P, A) <- ASSOCIATEANDUPDATEWITHDYNAMIC(x, P, C, i)
+                A_d, dynamic_point_pairs = self.associateAndUpdateWithDynamic(Z, dynanmic_P)
+                dynamic_associations.append(A_d)
+
+                #7. C <- C/A
+                for key in A_d.keys():
+                    del self.C[key]
+        else:
+            dynamic_associations = []
+            dynamic_point_pairs = np.zeros((2,0))
+            # print("cluster-static-dynamic clusters:", len(self.C))
         #9. for all C do
-        # new_tracks = {}
-        # for key in self.C.keys():
-        #     #10. (x, P) INITIALISENEWTRACK(x, P, C)
-        #     P = Z[self.C[key]]
-        #     new_tracks[key] = self.C[key]
-        for key in A.keys():
-            P = Z[A[key]]
-            plt.scatter(P[:,0], P[:,1])
-        plt.show()
-        return A #A_d, new_tracks
+        new_tracks = {}
+        for key in self.C.keys():
+            #10. (x, P) INITIALISENEWTRACK(x, P, C)
+            # P = Z[self.C[key]]
+            new_tracks[key] = self.C[key]
+        # for key in A.keys():
+        #     P = Z[A[key]]
+        #     plt.scatter(P[:,0], P[:,1])
+        # plt.show()
+        # print("Ad {}".format(A_d))
 
-    def associateAndUpdateWithStatic(self, Z, Q):
+        return A, static_point_pairs, dynamic_associations, dynamic_point_pairs, new_tracks #A_d, new_tracks
+
+    def associateAndUpdateWithStatic(self, Z):
         #print(Q)
-        icp_obj = icp.ICP()
+        icp_obj = perception.icp.ICP()
         static_C = {}
-        for key in self.C.keys():
-            P = Z[self.C[key]]
-            static = icp_obj.run(Q, P)
-            if static:
-                static_C[key] = self.C[key]
-        return static_C
+        point_pairs = []
+        if self.state.static_background.xb.size != 0:
+            for key in self.C.keys():
+                P = Z[self.C[key]]
+                static, point_pairs = icp_obj.run(self.state.static_background.xb, P)
+                if static:
+                    static_C[key] = self.C[key]
+        return static_C, point_pairs
 
-    def associateAndUpdateWithDynamic(self, Z, Q):
-        icp_obj = icp.ICP()
+    def associateAndUpdateWithDynamic(self, Z, points):
+        icp_obj = perception.icp.ICP()
         dynamic_C = {}
+        point_pairs = []
         for key in self.C.keys():
             P = Z[self.C[key]]
-            dynamic = icp_obj.run(Q, P)
+            dynamic, point_pairs = icp_obj.run(points, P)
             if dynamic:
                 dynamic_C[key] = self.C[key]
-        return dynamic_C
+        return dynamic_C, point_pairs

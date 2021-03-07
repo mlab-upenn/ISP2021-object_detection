@@ -6,9 +6,11 @@ class State:
         self.dynamic_tracks = {}
         self.static_background = StaticTrack(0, status=1)
 
-        self.laserpoints = [] #if in ROS, laserpoints will be published.
-        self.xs = None
-        self.xc = None
+        # self.laserpoints = [] #if in ROS, laserpoints will be published.
+        self.xs = np.zeros((3))
+        self.Pxs = np.eye(3)
+        self.xc = np.zeros((3))
+        self.Pxc = np.eye(3)
             
     def create_new_track(self, laserpoints, clusterIds):
         if len(self.dynamic_tracks) == 0:
@@ -27,6 +29,7 @@ class State:
         track.xp = np.array([[boundary_points[0]-track.kf.x[0]],
                             [boundary_points[1]-track.kf.x[1]]])
         self.dynamic_tracks[idx] = track
+        return idx
 
 
     def cull_dynamic_track(self, idx):
@@ -51,11 +54,11 @@ class State:
         return len(self.dynamic_tracks)
 
 class Track:
+    mature_threshold = 3
     def __init__(self,idx, status):
         self.num_viewings = 0
         self.status = status #Status: 0, 1 --> tentative, confirmed
         ##Private attributes:
-        self.mature_threshold = 3
         self.id = idx
 
     def update_num_viewings(self):
@@ -68,7 +71,6 @@ class Track:
 class DynamicTrack(Track):
     def __init__(self, idx, status):
         super().__init__(idx, status)
-
         """kind: Static: 0; Dynamic: 1"""
         """
         xt: [X,Y, Phi, Xdot, Ydot, Phidot] #world coordinates
@@ -85,8 +87,8 @@ class StaticTrack(Track):
         """kind: Static: 0; Dynamic: 1"""
         """
         xt: [X,Y, Phi, Xdot, Ydot, Phidot] #world coordinates
-        xp: [[X,Y]] #List of boundary points in local coords
+        xb: [[X,Y]] #List of boundary points in local coords
         """
         self.kind = 0
-        self.xb = np.array([])
+        self.xb = np.zeros((0,2))
         self.kf = ExtendedKalmanFilter(dim_x=2, dim_z=2)
