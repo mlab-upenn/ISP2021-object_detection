@@ -81,9 +81,9 @@ def main():
     start = time.time()
 
     tracker = Tracker(0)
-    # fig, ax = plt.subplots(figsize=(6, 6))
-    # ax.set_xlim([-10, 10])
-    # ax.set_ylim([-10,10])
+    fig, ax = plt.subplots(figsize=(6, 6))
+    ax.set_xlim([-100, 100])
+    ax.set_ylim([-100,100])
     count = 0
     while not done:
         speed, steer = planner.plan(obs['poses_x'][0], obs['poses_y'][0], obs['poses_theta'][0], work['tlad'], work['vgain'])
@@ -96,8 +96,16 @@ def main():
 
         time_now = time.time()
         tracker.update(obs, time_now)
-        # ax.scatter(tracker.state.xs[0], tracker.state.xs[1], color="blue")
-        # plt.pause(0.0001)
+        ax.scatter(tracker.state.xs[0], tracker.state.xs[1], color="blue")
+        static_background_state = tracker.state.static_background
+        ax.scatter(static_background_state.xb[:,0], static_background_state.xb[:,1], color="orange", label="Static Background")
+        for track in tracker.state.dynamic_tracks.values():
+            ax.scatter(track.kf.x[0], track.kf.x[1], color="purple", label="Dynamic Centroid")
+            ax.scatter(track.xp[0]+track.kf.x[0], track.xp[1]+track.kf.x[1], color="red", label="Dynamic B Points")
+            ax.text(track.kf.x[0], track.kf.x[1], str(i), size = "xx-small")
+
+
+        plt.pause(0.0001)
         # plt.clf()
 
 

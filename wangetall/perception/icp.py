@@ -32,7 +32,7 @@ class ICP:
         self.point_pairs_threshold=0
 
     def run(self, reference_points, points):
-        self.reference_points = reference_points.T
+        self.reference_points = reference_points
         self.points = points
         nbrs = NearestNeighbors(n_neighbors=1, algorithm='kd_tree').fit(self.reference_points)
 
@@ -75,7 +75,6 @@ class ICP:
             if (abs(closest_rot_angle) < self.convergence_rotation_threshold) \
                     and (abs(closest_translation_x) < self.convergence_translation_threshold) \
                     and (abs(closest_translation_y) < self.convergence_translation_threshold):
-                print('Converged!')
                 static= True
                 break
         #The association upon convergence is taken as the final association, with outlier rejection from P to Q.

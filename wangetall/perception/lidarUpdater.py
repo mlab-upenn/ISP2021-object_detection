@@ -24,6 +24,9 @@ class lidarUpdater:
 
 
     def update(self, dt, data, state):
+        self.polar_laser_points = np.zeros((len(data), 2))
+        self.polar_laser_points[:,0] = data
+        self.polar_laser_points[:,1] = self.theta
         self.state = state
         # self.clean_up_states.run()
         self.forward(dt)
@@ -31,11 +34,13 @@ class lidarUpdater:
         self.laserpoints= np.vstack((x, y)).T
         # self.state.laserpoints = laserpoints
         new_tracks = self.associate_and_update(data, dt)
-        for points, cluster in new_tracks.items():
+        for key, points in new_tracks.items():
             idx = self.state.create_new_track(self.laserpoints, points)
         
         tracks_to_init_and_merge = []
+        print("to init: {}".format(tracks_to_init_and_merge))
         for track_id, track in self.state.dynamic_tracks.items():
+            print("Track id {}, num_viewings {}".format(track_id, track.num_viewings))
             if track.num_viewings == track.mature_threshold:
                 tracks_to_init_and_merge.append(track_id)
         if len(tracks_to_init_and_merge) > 0:
@@ -61,8 +66,6 @@ class lidarUpdater:
 
 
     def associate_and_update(self, data, dt):
-
-
         clusters = self.cl.cluster(self.laserpoints)
 
         #First, do the static points.
@@ -71,28 +74,33 @@ class lidarUpdater:
         #check how the dynamic point pairs is working... don't want just rough associations for all the dynamic tracks.
             
         if static_point_pairs.size > 0:
-            print("Stat point pairs {}".format(static_point_pairs.size))
+            # print("Stat point pairs {}".format(static_point_pairs.size))
             static_assoc_arr = np.array([*static_point_pairs]).T
             P_static_sub = self.state.static_background.kf.P
             self.jcbb.assign_values(self.state.xs, self.state.static_background.xb, None, P_static_sub, True, self.state.xs[2])
             association = self.jcbb.run(static_assoc_arr, self.state.static_background.xb)
         
         for key in static_association.keys():
-            print("Stat asso {}".format(static_association))
+            # print("Stat asso {}".format(static_association))
             new_pts_idxs = clusters[key]
             self.state.static_background.xb = np.concatenate(self.state.static_background.xb, self.laserpoints[new_pts_idxs]) 
         #then, do dynamic tracks
-        # print("Dyn association {}".format(dynamic_association))
-        for track_id, dyn_association in enumerate(dynamic_association):
+        for track_id, dyn_association in dynamic_association.items():
+            # print("aiya")
             if dyn_association != {}:
-                print(self.state.dynamic_tracks)
                 track = self.state.dynamic_tracks[track_id]
                 track.update_num_viewings()
-                initial_association = dynamic_association[track_id]#output of ICP that's associated with this track
-                self.jcbb.assign_values(self.state.xs, track.xp, track.kf.x, track.kf.P, False, self.state.xs[2])
+                initial_association = dyn_association#output of ICP that's associated with this track
+                tgt_points = []
+                for key, value in dyn_association.items():
+                    tgt_points = tgt_points+value
+                initial_association = np.zeros((2, len(tgt_points)))
+                initial_association[0] = np.arange(len(tgt_points))
+                initial_association[1] = 0 #temp
+
+                self.jcbb.assign_values(xs = self.state.xs, scan_data = self.polar_laser_points[tgt_points], track = track.kf.x, P = track.kf.P[0:2,0:2], static=False, psi=self.state.xs[2])
                 association = self.jcbb.run(initial_association, track.xp)
-
-
+                association[0] = tgt_points
                 if len(association) >= 3: #need 3 points to compute rigid transformation
                     self.Updater.assign_values(track.kf.x, association, static=False)
                     

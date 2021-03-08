@@ -41,18 +41,18 @@ class Coarse_Association():
         #5. for i = 1,2,.,Nt do
         if len(self.state.dynamic_tracks) != 0:
             dynamic_point_pairs = []
-            dynamic_associations = []
+            dynamic_associations = {}
             for key, track in self.state.dynamic_tracks.items():
                 dynanmic_P = track.xp
                 #6. (x, P, A) <- ASSOCIATEANDUPDATEWITHDYNAMIC(x, P, C, i)
                 A_d, dynamic_point_pairs = self.associateAndUpdateWithDynamic(Z, dynanmic_P)
-                dynamic_associations.append(A_d)
+                dynamic_associations[key] = A_d
 
                 #7. C <- C/A
                 for key in A_d.keys():
                     del self.C[key]
         else:
-            dynamic_associations = []
+            dynamic_associations = {}
             dynamic_point_pairs = np.zeros((2,0))
             # print("cluster-static-dynamic clusters:", len(self.C))
         #9. for all C do

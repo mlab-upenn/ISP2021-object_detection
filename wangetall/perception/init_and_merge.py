@@ -28,7 +28,7 @@ class InitAndMerge:
         #optimization: move creation of H and z_hat into init to avoid calling every time.
         H= np.zeros((h.shape[0], 3, 6))
         H[:] = np.hstack((np.eye(3), np.ones((3,3))))
-        S = self.state.static_background.kf.P #do I need to reshape P to make S into a 3D matrix?
+        S = self.state.static_background.kf.P[3:6][3:6]
         z_hat = np.zeros((h.shape[0], 3, 1))
         z_hat[:] = np.zeros((3,1))
 
@@ -92,7 +92,7 @@ class InitAndMerge:
 
             H = HT-HE
 
-            S = H.T@track.kf.P@H #R = 0
+            S = H.T@track.kf.P[3:6][3:6]@H #R = 0
 
 
             a = z_hat - h2

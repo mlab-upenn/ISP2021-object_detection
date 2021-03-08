@@ -11,11 +11,13 @@ import matplotlib.pyplot as plt
 
 #Sample code:
 #https://github.com/Scarabrine/EECS568Project_Team2_iSAM/blob/master/JCBB_R.m
+class RecursionStop(Exception):
+    pass
 
 class JCBB:
     def __init__(self):
-        self.alpha = 1-0.95
-    
+        self.alpha = 1-0.99
+
     def assign_values(self, xs, scan_data, track, P, static, psi):
         self.xs = xs
         self.scan_data = scan_data
@@ -23,6 +25,7 @@ class JCBB:
         self.P = P
         self.static = static
         self.psi = psi
+        self.recursion = 0
 
 
     def run(self, initial_association, boundary_points):
@@ -33,7 +36,16 @@ class JCBB:
         #unassociated datapoints are replaced with NaN maybe?
 
         # megacluster = self.combine_clusters(clusters) #
+        assert initial_association.shape[0] == 2
+        assert boundary_points.shape[1] == 2
+        assert self.scan_data.shape[1] == 2
+        print("Boundary points shape {}".format(boundary_points.shape))
+        print("bound points {}".format(boundary_points))
+
         individual_compatibilities = self.compute_compatibility(boundary_points)
+        print("Indiv compat shape {}".format(individual_compatibilities.shape))
+        print("Scan data shape {}".format(self.scan_data.shape))
+
         pruned_associations = self.prune_associations(initial_association, individual_compatibilities)
         JNIS = self.calc_JNIS(pruned_associations, boundary_points)
 
@@ -61,6 +73,8 @@ class JCBB:
             if JNIS-JNIS_delta <= chi2 or dof ==0:
                 minimal_association = np.copy(curr_association)
                 JNIS = JNIS-JNIS_delta
+                print("Breaking while loop.")
+                # print("MIN ASSO {}".format(minimal_association))
                 break
             else:
                 pruned_associations = np.copy(curr_association)
@@ -74,7 +88,6 @@ class JCBB:
 
             selected_boundaries = selected_boundaries-set(minimal_association[1])
             compat_boundaries[measurement] = list(selected_boundaries)
-        
         assigned_associations = self.branch_and_bound(unassociated_measurements, minimal_association, compat_boundaries, boundary_points)
     
         return assigned_associations
@@ -85,9 +98,14 @@ class JCBB:
         self.best_association = np.copy(minimal_association)
         boundaries_taken = set()
         self.unassociated_measurements = unassociated_measurements
-        self.DFS(0, minimal_association, compat_boundaries, boundary_points, boundaries_taken)
+        try:
+            self.DFS(0, minimal_association, compat_boundaries, boundary_points, boundaries_taken)
+        except RecursionStop:
+            pass
+
         jnis = self.calc_JNIS(self.best_association, boundary_points)
         joint_compat = self.check_compat(jnis, DOF =np.count_nonzero(~np.isnan(self.best_association[1]))*2)
+        print("Done!")
         if joint_compat:
             # print(self.best_association)
             return self.best_association
@@ -95,9 +113,16 @@ class JCBB:
             return np.zeros((self.best_association.shape))
 
     def DFS(self, level, association, compat_boundaries, boundary_points, boundaries_taken):
+        print(self.recursion)
+        self.recursion += 1
+        if self.recursion >= 500:
+            raise RecursionStop
+
         boundaries_taken = boundaries_taken.copy()
         avail_boundaries = compat_boundaries[self.unassociated_measurements[level]]
+        # print(avail_boundaries)
         for next_boundary in avail_boundaries:
+            print("Next boundary {}".format(next_boundary))
             isValidBoundary = next_boundary not in boundaries_taken or np.isnan(next_boundary)
             if isValidBoundary and level < len(self.unassociated_measurements):
                 test_association = np.copy(association)
@@ -119,7 +144,10 @@ class JCBB:
                     self.best_association = np.copy(test_association)
                 if joint_compat and level+1 < len(self.unassociated_measurements):
                     boundaries_taken.add(next_boundary)
-                    self.DFS(level+1, np.copy(test_association), compat_boundaries, boundary_points, boundaries_taken)
+                    try:
+                        self.DFS(level+1, np.copy(test_association), compat_boundaries, boundary_points, boundaries_taken)
+                    except RecursionStop:
+                        raise RecursionStop
     def check_compat(self, JNIS, DOF):
         if DOF == 0:
             return True
@@ -224,7 +252,7 @@ class JCBB:
             temp = np.einsum('ijk,ikl->ijl', H, P_stacked)
             S = np.einsum('ijk,ilk->ijl', temp, H)+R
         else:
-            S = H@P@H.T + R
+            S = H@self.P@H.T + R
         return S
 
     def calc_g_and_G(self, associated_points, indiv):
@@ -241,8 +269,8 @@ class JCBB:
         else:
             G = np.zeros((associated_points.shape[0]*2, 2))
 
-        alpha = self.xs["alpha"]
-        beta = self.xs["beta"]
+        alpha = self.xs[0]
+        beta = self.xs[1]
         alpha_beta_arr = np.array([alpha, beta])
         if not self.static:
             phi = self.track[2]
@@ -263,15 +291,42 @@ class JCBB:
                 g[index] = R_psi.T@(R_phi@np.array([x, y])+np.array([gamma, delta])-alpha_beta_arr)
             
             if indiv:
-                G[index] = -R_psi.T-R_pi_by_2@g[index]
+                # G[index] = -R_psi.T-R_pi_by_2@g[index]
+                G[index] = R_psi.T@R_phi
             else:
-                G[index*2:index*2+2] = -R_psi.T-R_pi_by_2@g[index]
+                # G[index*2:index*2+2] = -R_psi.T-R_pi_by_2@g[index]
+                G[index*2:index*2+2] = R_psi.T@R_phi
         return g, G
 
 
+    # def calc_Gt_and_Gp(self, associated_points, indiv):
+    #     if indiv:
+    #         Gt  = np.zeros((associated_points.shape[0], 2, 2))
+    #         Gp  = np.zeros((associated_points.shape[0], 2, 2))
+    #     else:
+    #         Gt = np.zeros((associated_points.shape[0]*2, 2))
+    #         Gp = np.zeros((associated_points.shape[0]*2, 2))
+    #     phi = self.track[2]
+    #     gamma = self.track[0]
+    #     delta = self.track[1]
+    #     R_psi = Helper.compute_rot_matrix(self.psi)
+    #     R_phi = Helper.compute_rot_matrix(phi)
+
+    #     for index, point in enumerate(associated_points):
+    #         if indiv:
+    #             Gp[index] = R_psi.T@R_phi
+    #             Gt[index] = R_psi.T@R_psi.T @R_phi@
+
+    #         else:
+    #             G[index*2:index*2+2] = -R_psi.T-R_pi_by_2@g[index]
+
     def calc_Jacobian_H(self, g, G, associated_points, indiv):
         U = self.calc_U(g, len(associated_points), indiv)
+        
+        
         H = U.T @ G
+        
+        
         return H
 
     def calc_U(self, g, num_tiles, indiv):
@@ -356,11 +411,21 @@ def plot_association(asso, polar):
 
 
 if __name__ == "__main__":
+    import numpy as np
+    import scipy as sp
+    from scipy.linalg import block_diag
+    from scipy import stats
+    from helper import Helper
+    import random
+    import sys
+    import time
+    import matplotlib.pyplot as plt
+
     jc = JCBB()
     # for i in range(100):
     np.random.seed(2003)
-    xs = {"alpha":0, "beta":0}
-    n = 100
+    xs = [0,0]
+    n = 500
     initial_association = np.zeros((2, n))
     initial_association[0] = np.arange(n)
     initial_association[1] = np.random.randint(0, 10, n)
