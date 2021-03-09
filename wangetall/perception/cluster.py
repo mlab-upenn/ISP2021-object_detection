@@ -17,8 +17,8 @@ class Cluster:
 
     def cluster(self, points):
         tree = self.EMST(points)
-        clusters = self.EGBIS(tree, points)
-        return clusters
+        clusters, roots_arr = self.EGBIS(tree, points)
+        return clusters, roots_arr
 
     def EMST(self, points):
         #https://en.wikipedia.org/wiki/Euclidean_minimum_spanning_tree
@@ -114,11 +114,12 @@ class Cluster:
                     thresholds[component_i] = w + self.get_tau(segmentation.size(component_i))
 
         components = segmentation.get_components()
+        roots_arr = segmentation.get_root_arr()
 
-        return components
+        return components, roots_arr
 
     def get_tau(self, size):
-        k = 10
+        k = 100
         return k/size
 
 class Universe:
@@ -157,6 +158,13 @@ class Universe:
             components_dict[parent].append(i)
         return components_dict
 
+    def get_root_arr(self):
+        out_arr = np.zeros((self.num_vertices))
+        for i in range(self.num_vertices):
+            parent = self.find(i)
+            out_arr[i] = parent
+
+        return out_arr
 
 
 # def get_cmap(n, name='hsv'):
@@ -165,26 +173,27 @@ class Universe:
 #     return plt.cm.get_cmap(name, n)
 
 if __name__ == "__main__":
-    # points= np.array(random.sample(range(2000), 2000)).reshape((1000,2))
-    points = np.array((0 + np.random.random((1000,2)) * (100 - 0)))
-    cl = Cluster()
+    pass
+#     # points= np.array(random.sample(range(2000), 2000)).reshape((1000,2))
+#     points = np.array((0 + np.random.random((1000,2)) * (100 - 0)))
+#     cl = Cluster()
 
-    clusters = cl.cluster(points)
-    print(clusters.keys())
-    # print(clusters)
+#     clusters = cl.cluster(points)
+#     print(clusters.keys())
+#     # print(clusters)
 
 
 
-    # cmap = get_cmap(len(points))
-    plt.figure()
-    for key in clusters.keys():
-        selected_points = points[clusters[key]]
-        plt.scatter(selected_points[:,0], selected_points[:,1])
-    plt.show()
+#     # cmap = get_cmap(len(points))
+#     plt.figure()
+#     for key in clusters.keys():
+#         selected_points = points[clusters[key]]
+#         plt.scatter(selected_points[:,0], selected_points[:,1])
+#     plt.show()
 
-    # print(clusters)
+#     # print(clusters)
 
-    # plt.triplot(points[:,0], points[:,1], tri)
-    plt.figure()
-    plt.plot(points[:,0], points[:,1], 'o')
-    plt.show()
+#     # plt.triplot(points[:,0], points[:,1], tri)
+#     plt.figure()
+#     plt.plot(points[:,0], points[:,1], 'o')
+#     plt.show()
