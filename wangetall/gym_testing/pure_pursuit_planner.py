@@ -3,14 +3,15 @@ import yaml
 import gym
 import numpy as np
 from argparse import Namespace
-import matplotlib.pyplot as plt
+
 from numba import njit
-import coarse_association
-import cluster
 
-import cleanupstates
 
-"""
+
+################
+#COPIED FROM JOHANNES BETZS
+################
+""" 
 Planner Helpers
 """
 @njit(fastmath=False, cache=True)
@@ -186,71 +187,3 @@ class PurePursuitPlanner:
 
         return speed, steering_angle
 
-def convert_scan_polar_cartesian(scan, angle):
-    return np.sin(angle)*scan, np.cos(angle)*scan
-
-if __name__ == '__main__':
-
-    work = {'mass': 3.463388126201571, 'lf': 0.15597534362552312, 'tlad': 0.82461887897713965, 'vgain': 0.90338203837889}
-    with open('config_example_map.yaml') as file:
-        conf_dict = yaml.load(file, Loader=yaml.FullLoader)
-    conf = Namespace(**conf_dict)
-
-    env = gym.make('f110_gym:f110-v0', map=conf.map_path, map_ext=conf.map_ext, num_agents=1)
-    obs, step_reward, done, info = env.reset(np.array([[conf.sx, conf.sy, conf.stheta]]))
-    env.render()
-    planner = PurePursuitPlanner(conf, 0.17145+0.15875)
-
-    laptime = 0.0
-    start = time.time()
-    cl = cluster.Cluster()
-    while not done:
-        speed, steer = planner.plan(obs['poses_x'][0], obs['poses_y'][0], obs['poses_theta'][0], work['tlad'], work['vgain'])
-
-        num_beams = 1080
-        fov = 4.7
-        lidar_data, agent_x, agent_y = obs['scans'],obs['poses_x'], obs['poses_y']
-        theta = np.linspace(-fov/2., fov/2., num=num_beams)
-
-        seed=123
-        rng = np.random.default_rng(seed=seed)
-        current_scan = lidar_data
-        noise = rng.normal(0., 0.1, size=num_beams)
-        Q_s = current_scan
-        current_scan = current_scan + noise
-        # print("Qs", Q_s[0])
-        y, x = convert_scan_polar_cartesian(current_scan, theta)
-        y_s, x_s = convert_scan_polar_cartesian(Q_s, theta)
-        #plt.scatter(x, y)
-        #plt.scatter(x_s, y_s)
-        #print(np.max(current_scan))
-        # print(theta, current_scan)
-        #
-        #plt.show()
-        Q_s_cart = np.stack((x, y), axis=-1)
-        # plt.scatter(agent_x, agent_y)
-        # plt.scatter(x_s, y_s)
-        #plt.scatter(Q_s_cart[0][:,0],Q_s_cart[0][:,1])
-        #Q_s_ = np.stack((x, y), axis=-1)
-
-        cleanup = cleanupstates.CleanUpStates(Q_s_cart, agent_x, agent_y, lidar_range=30.0)
-        cleaned = cleanup.run()
-        #print(cleaned)
-        # plt.scatter(cleaned[:,0],cleaned[:,1])
-        # plt.show()
-        #print(lidar_data, agent_x, agent_y, obs['poses_theta'])
-        #print(np.sin( obs['poses_theta']) * lidar_data)
-
-        #2.: C <- CLUSTERMEASUREMENTS(Z)
-        C = cl.cluster(cleaned)
-        # for key in C.keys():
-        #     P = cleaned[C[key]]
-        #     plt.scatter(P[:,0], P[:,1])
-        # plt.show()
-        ca = coarse_association.Coarse_Association(C)
-        ca.run(cleaned, Q_s_cart[0])#, Q_d, dynamic_tracks_dict)
-
-        obs, step_reward, done, info = env.step(np.array([[steer, speed]]))
-        laptime += step_reward
-        env.render(mode='human')
-    print('Sim elapsed time:', laptime, 'Real elapsed time:', time.time()-start)

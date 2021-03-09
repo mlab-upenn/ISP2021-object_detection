@@ -4,20 +4,25 @@ run_name: 'map_wide'
 perf_num: 6
 
 # map paths
-map_path: './example_map'
+map_path: 'maps/Melbourne//Melbourne_map'
 map_ext: '.png'
 
 # starting pose for map
-sx: 0.0
-sy: 0.0
-stheta: 1.37079632679
+sx: -0.3950017
+sy: -0.5718742
+stheta: 2.2
 
-sx2: -0.7305930
-sy2: 4.5436054
+sx2: 0.7305930
+sy2: -0.5436054
 stheta2: 2.2
 
+sx3: 1.4387733
+sy3: -2.4143688
+stheta3: 2.2
+
+
 # raceline path and indices
-wpt_path: './example_waypoints.csv'
+wpt_path: 'maps/Melbourne/Melbourne_map_waypoints.csv'
 wpt_delim: ';'
 wpt_rowskip: 3
 wpt_xind: 1

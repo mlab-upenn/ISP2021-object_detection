@@ -17,8 +17,8 @@ class Cluster:
 
     def cluster(self, points):
         tree = self.EMST(points)
-        clusters = self.EGBIS(tree, points)
-        return clusters
+        clusters, roots_arr = self.EGBIS(tree, points)
+        return clusters, roots_arr
 
     def EMST(self, points):
         #https://en.wikipedia.org/wiki/Euclidean_minimum_spanning_tree
@@ -40,7 +40,7 @@ class Cluster:
 
         dist = np.linalg.norm(points_1- points_2, axis = 1)
         dist = dist[..., np.newaxis]
-        graph = np.hstack((edges_array, dist)).astype(int)
+        graph = np.hstack((edges_array, dist))
 
         return graph
 
@@ -77,6 +77,8 @@ class Cluster:
         rank = np.zeros((parent.shape))
         while edge_count < len(points)-1:
             origin, dest, weight = sorted_graph[i]
+            origin = int(origin)
+            dest = int(dest)
             i+=1
             parent_origin = self.find_set(parent, origin)
             parent_dest = self.find_set(parent, dest)
@@ -112,8 +114,9 @@ class Cluster:
                     thresholds[component_i] = w + self.get_tau(segmentation.size(component_i))
 
         components = segmentation.get_components()
+        roots_arr = segmentation.get_root_arr()
 
-        return components
+        return components, roots_arr
 
     def get_tau(self, size):
         k = 100
@@ -155,34 +158,42 @@ class Universe:
             components_dict[parent].append(i)
         return components_dict
 
+    def get_root_arr(self):
+        out_arr = np.zeros((self.num_vertices))
+        for i in range(self.num_vertices):
+            parent = self.find(i)
+            out_arr[i] = parent
+
+        return out_arr
 
 
 # def get_cmap(n, name='hsv'):
-#     '''Returns a function that maps each index in 0, 1, ..., n-1 to a distinct 
+#     '''Returns a function that maps each index in 0, 1, ..., n-1 to a distinct
 #     RGB color; the keyword argument name must be a standard mpl colormap name.'''
 #     return plt.cm.get_cmap(name, n)
 
 if __name__ == "__main__":
-    points= np.array(random.sample(range(2000), 2000)).reshape((1000,2))
+    pass
+#     # points= np.array(random.sample(range(2000), 2000)).reshape((1000,2))
+#     points = np.array((0 + np.random.random((1000,2)) * (100 - 0)))
+#     cl = Cluster()
 
-    cl = Cluster()
-
-    clusters = cl.cluster(points)
-    print(clusters.keys())
-    # print(clusters)
+#     clusters = cl.cluster(points)
+#     print(clusters.keys())
+#     # print(clusters)
 
 
 
-    # cmap = get_cmap(len(points))
-    plt.figure()
-    for key in clusters.keys():
-        selected_points = points[clusters[key]]
-        plt.scatter(selected_points[:,0], selected_points[:,1])
-    plt.show()
+#     # cmap = get_cmap(len(points))
+#     plt.figure()
+#     for key in clusters.keys():
+#         selected_points = points[clusters[key]]
+#         plt.scatter(selected_points[:,0], selected_points[:,1])
+#     plt.show()
 
-    # print(clusters)
+#     # print(clusters)
 
-    # plt.triplot(points[:,0], points[:,1], tri)
-    plt.figure()
-    plt.plot(points[:,0], points[:,1], 'o')
-    plt.show()
+#     # plt.triplot(points[:,0], points[:,1], tri)
+#     plt.figure()
+#     plt.plot(points[:,0], points[:,1], 'o')
+#     plt.show()
