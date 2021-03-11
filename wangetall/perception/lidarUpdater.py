@@ -26,7 +26,8 @@ class lidarUpdater:
 
     def update(self, dt, data, state):
         self.state = state
-        self.theta = self.theta_init
+        self.theta = self.theta_init+self.state.xs[2] #do I need to correct for current heading?
+        # self.theta = self.theta_init
         self.polar_laser_points = np.zeros((len(data), 2))
         self.polar_laser_points[:,0] = data
         self.polar_laser_points[:,1] = self.theta

@@ -74,10 +74,11 @@ def main():
         conf_dict = yaml.load(file, Loader=yaml.FullLoader)
     conf = Namespace(**conf_dict)
 
-    env = gym.make('f110_gym:f110-v0', map=conf.map_path, map_ext=conf.map_ext, num_agents=1)
-    obs, step_reward, done, info = env.reset(np.array([[conf.sx, conf.sy, conf.stheta]]))
+    env = gym.make('f110_gym:f110-v0', map=conf.map_path, map_ext=conf.map_ext, num_agents=2)
+    obs, step_reward, done, info = env.reset(np.array([[conf.sx, conf.sy, conf.stheta], [conf.sx2, conf.sy2, conf.stheta2]]))
     env.render()
     planner = PurePursuitPlanner(conf, 0.17145+0.15875)
+    planner2 = PurePursuitPlanner(conf, 0.17145+0.15875)
 
     laptime = 0.0
     start = time.time()
@@ -91,6 +92,8 @@ def main():
     count = 0
     while not done:
         speed, steer = planner.plan(obs['poses_x'][0], obs['poses_y'][0], obs['poses_theta'][0], work['tlad'], work['vgain'])
+        speed2, steer2 = planner2.plan(obs['poses_x'][1], obs['poses_y'][1], obs['poses_theta'][1], work['tlad'], work['vgain'])
+
         if count % 10 == 0 and count != 0:
             obs["Odom"] = False
             obs["LiDAR"] = True
@@ -100,6 +103,10 @@ def main():
         time_now = time.time()
         tracker.update(obs, time_now)
         if plot:
+            ax.clear()
+            ax.set_xlim([-15, 15])
+            ax.set_ylim([-15,15])
+
             ax.scatter(tracker.state.xs[0], tracker.state.xs[1], color="blue")
             static_background_state = tracker.state.static_background
             ax.scatter(static_background_state.xb[:,0], static_background_state.xb[:,1], s = 1, color="orange", label="Static Background")
@@ -107,13 +114,13 @@ def main():
                 ax.scatter(track.kf.x[0], track.kf.x[1], color="purple", label="Dynamic Centroid")
                 ax.scatter(track.xp[:,0]+track.kf.x[0], track.xp[:,1]+track.kf.x[1], s = 1, label="Dynamic B Points")
                 ax.text(track.kf.x[0], track.kf.x[1], str(idx), size = "x-small")
-
+            plt.legend()
 
             plt.pause(0.0001)
         # plt.clf()
 
 
-        obs, step_reward, done, info = env.step(np.array([[steer, speed]]))
+        obs, step_reward, done, info = env.step(np.array([[steer, speed], [steer2, speed2]]))
         laptime += step_reward
         env.render(mode='human')
         count += 1

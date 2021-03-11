@@ -91,7 +91,7 @@ class JCBB:
             if JNIS-JNIS_delta <= chi2 or dof ==0:
                 minimal_association = np.copy(curr_association)
                 JNIS = JNIS-JNIS_delta
-                print("Breaking while loop.")
+                # print("Breaking while loop.")
                 # print("MIN ASSO {}".format(minimal_association))
                 break
             else:
@@ -123,7 +123,7 @@ class JCBB:
 
         jnis = self.calc_JNIS(self.best_association, boundary_points)
         joint_compat = self.check_compat(jnis, DOF =np.count_nonzero(~np.isnan(self.best_association[1]))*2)
-        print("Done!")
+        # print("Done!")
         if joint_compat:
             # print(self.best_association)
             return self.best_association
@@ -133,7 +133,7 @@ class JCBB:
     def DFS(self, level, association, compat_boundaries, boundary_points, boundaries_taken):
         # print(self.recursion)
         self.recursion += 1
-        if self.recursion >= 500:
+        if self.recursion >= 10:
             raise RecursionStop
 
         boundaries_taken = boundaries_taken.copy()

@@ -43,7 +43,7 @@ class State:
             target.xp = np.append(target.xp, track.xp, axis = 0) #do I need to adjust their centerpoints?
         elif kind=="static":
             track = self.dynamic_tracks[track_id]
-            self.static_background.xb = np.append(self.static_background.xb, track.xp, axis = 0)
+            self.static_background.xb = np.append(self.static_background.xb, track.xp+track.kf.x[0:2], axis = 0)
             #tracks are by default assumed to be dynamic. If they're being merged to the static boundary,
             #they are removed from list of dynamic objects.
         self.cull_dynamic_track(track_id)
