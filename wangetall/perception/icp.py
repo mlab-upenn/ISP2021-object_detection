@@ -40,12 +40,16 @@ class ICP:
             #print('------ iteration', iter_num, '------')
             static=  False
 
-            closest_point_pairs = []  # list of point correspondences for closest point rule
+            closest_point_pairs = []
+            closest_point_pairs_idxs = []
+
+              # list of point correspondences for closest point rule
             distances, indices = nbrs.kneighbors(self.points)
             # Step 1: A point in P is associated to its nearest neighbour in Q if their distance is within a certain threshold,
             for nn_index in range(len(distances)):
                 if distances[nn_index][0] < self.distance_threshold: # ELSE OUTLIER?
                     closest_point_pairs.append((self.points[nn_index], self.reference_points[indices[nn_index][0]]))
+                    closest_point_pairs_idxs.append((nn_index, indices[nn_index][0]))
                     # otherwise it is discarded as an outlier for this iteration and become unassociated to any point in Q.
 
             # if only few point pairs, stop process
@@ -79,7 +83,7 @@ class ICP:
                 break
         #The association upon convergence is taken as the final association, with outlier rejection from P to Q.
         # -- outliers not in points now
-        return static, closest_point_pairs
+        return static, closest_point_pairs_idxs
 
 
     def point_based_matching(self, point_pairs):

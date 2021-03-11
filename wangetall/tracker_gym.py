@@ -42,12 +42,14 @@ class Tracker:
             self.odom_callback(obs, time)
     
     def lidar_callback(self, data, time):
-        dt = time - self.prev_Lidar_callback_time
+        # dt = time - self.prev_Lidar_callback_time
+        dt = 0.01
         self.prev_Lidar_callback_time = time
         self.lidarUpdater.update(dt, data, self.state)
 
     def odom_callback(self, data, time):
-        dt = time - self.prev_Odom_callback_time
+        # dt = time - self.prev_Odom_callback_time
+        dt = 0.01
         self.prev_Odom_callback_time = time
 
 
@@ -74,16 +76,18 @@ def main():
 
     env = gym.make('f110_gym:f110-v0', map=conf.map_path, map_ext=conf.map_ext, num_agents=1)
     obs, step_reward, done, info = env.reset(np.array([[conf.sx, conf.sy, conf.stheta]]))
-    # env.render()
+    env.render()
     planner = PurePursuitPlanner(conf, 0.17145+0.15875)
 
     laptime = 0.0
     start = time.time()
 
     tracker = Tracker(0)
-    fig, ax = plt.subplots(figsize=(6, 6))
-    ax.set_xlim([-100, 100])
-    ax.set_ylim([-100,100])
+    plot = True
+    if plot:
+        fig, ax = plt.subplots(figsize=(6, 6))
+        ax.set_xlim([-30, 30])
+        ax.set_ylim([-30,30])
     count = 0
     while not done:
         speed, steer = planner.plan(obs['poses_x'][0], obs['poses_y'][0], obs['poses_theta'][0], work['tlad'], work['vgain'])
@@ -93,26 +97,25 @@ def main():
         else:
             obs["Odom"] = True
             obs["LiDAR"] = False
-
         time_now = time.time()
         tracker.update(obs, time_now)
-        ax.scatter(tracker.state.xs[0], tracker.state.xs[1], color="blue")
-        static_background_state = tracker.state.static_background
-        ax.scatter(static_background_state.xb[:,0], static_background_state.xb[:,1], color="orange", label="Static Background")
-        for track in tracker.state.dynamic_tracks.values():
-            ax.scatter(track.kf.x[0], track.kf.x[1], color="purple", label="Dynamic Centroid")
-            ax.scatter(track.xp[0]+track.kf.x[0], track.xp[1]+track.kf.x[1], color="red", label="Dynamic B Points")
-            ax.text(track.kf.x[0], track.kf.x[1], str(i), size = "xx-small")
+        if plot:
+            ax.scatter(tracker.state.xs[0], tracker.state.xs[1], color="blue")
+            static_background_state = tracker.state.static_background
+            ax.scatter(static_background_state.xb[:,0], static_background_state.xb[:,1], s = 1, color="orange", label="Static Background")
+            for idx, track in tracker.state.dynamic_tracks.items():
+                ax.scatter(track.kf.x[0], track.kf.x[1], color="purple", label="Dynamic Centroid")
+                ax.scatter(track.xp[:,0]+track.kf.x[0], track.xp[:,1]+track.kf.x[1], s = 1, label="Dynamic B Points")
+                ax.text(track.kf.x[0], track.kf.x[1], str(idx), size = "x-small")
 
 
-        plt.pause(0.0001)
+            plt.pause(0.0001)
         # plt.clf()
-
 
 
         obs, step_reward, done, info = env.step(np.array([[steer, speed]]))
         laptime += step_reward
-        # env.render(mode='human')
+        env.render(mode='human')
         count += 1
     print('Sim elapsed time:', laptime, 'Real elapsed time:', time.time()-start)
 

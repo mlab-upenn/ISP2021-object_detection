@@ -40,11 +40,10 @@ class State:
             target = self.dynamic_tracks[target_id]
 
             target.kf.x = (target.kf.x+track.kf.x)/2
-            target.xp = np.append(target.xp, track.xp) #do I need to adjust their centerpoints?
+            target.xp = np.append(target.xp, track.xp, axis = 0) #do I need to adjust their centerpoints?
         elif kind=="static":
             track = self.dynamic_tracks[track_id]
-            self.static_background.xb = np.append(self.static_background.xb, track.xp)
-            
+            self.static_background.xb = np.append(self.static_background.xb, track.xp, axis = 0)
             #tracks are by default assumed to be dynamic. If they're being merged to the static boundary,
             #they are removed from list of dynamic objects.
         self.cull_dynamic_track(track_id)
@@ -55,7 +54,7 @@ class State:
 class Track:
     mature_threshold = 3
     def __init__(self,idx, status):
-        self.num_viewings = 0
+        self.num_viewings = 1
         self.status = status #Status: 0, 1 --> tentative, confirmed
         ##Private attributes:
         self.id = idx

@@ -16,13 +16,14 @@ class RecursionStop(Exception):
 
 class JCBB:
     def __init__(self):
-        self.alpha = 1-0.99
+        self.alpha = 1-0.95
 
     def assign_values(self, xs, scan_data, track, P, static, psi):
         self.xs = xs
         self.scan_data = scan_data
         self.track = track
         self.P = P
+        # assert self.P[0,0] < 100
         self.static = static
         self.psi = psi
         self.recursion = 0
@@ -39,12 +40,29 @@ class JCBB:
         assert initial_association.shape[0] == 2
         assert boundary_points.shape[1] == 2
         assert self.scan_data.shape[1] == 2
-        print("Boundary points shape {}".format(boundary_points.shape))
-        print("bound points {}".format(boundary_points))
+        # print("Boundary points shape {}".format(boundary_points.shape))
 
         individual_compatibilities = self.compute_compatibility(boundary_points)
-        print("Indiv compat shape {}".format(individual_compatibilities.shape))
-        print("Scan data shape {}".format(self.scan_data.shape))
+        # print("Indiv compat shape {}".format(individual_compatibilities.shape))
+        # print("Scan data shape {}".format(self.scan_data.shape))
+        print("Percent indiv compat: {}".format(np.count_nonzero(individual_compatibilities)/np.multiply(*individual_compatibilities.shape)))
+        if np.count_nonzero(individual_compatibilities)/np.multiply(*individual_compatibilities.shape) > 0.8:
+            print("COMPAT ALERT!")
+            plt.figure()
+            # np.save("P.npy", self.P)
+            # np.save("xs.npy", self.xs)
+            # np.save("scan_data.npy", self.scan_data)
+            # np.save("boundary_points.npy", boundary_points)
+            # np.save("psi.npy", self.psi)
+            # np.save("initial_association.npy", initial_association)
+            # np.save("track.npy", self.track)
+
+            scan_x, scan_y = convert_scan_polar_cartesian(self.scan_data)
+            plt.scatter(scan_x, scan_y, c="b", marker="o", alpha = 0.5, label="Scan Data")
+            plt.scatter(boundary_points[:,0]+self.track[0], boundary_points[:,1]+self.track[1], c="orange", marker="o", alpha = 0.5, label="Boundary Points")
+            plt.legend()
+            plt.show()
+
 
         pruned_associations = self.prune_associations(initial_association, individual_compatibilities)
         JNIS = self.calc_JNIS(pruned_associations, boundary_points)
@@ -85,7 +103,7 @@ class JCBB:
             selected_boundaries = set(boundary_idxs)
 
             selected_boundaries.add(np.nan)
-
+            # print("Len selected bound {}".format(len(list(selected_boundaries))))
             selected_boundaries = selected_boundaries-set(minimal_association[1])
             compat_boundaries[measurement] = list(selected_boundaries)
         assigned_associations = self.branch_and_bound(unassociated_measurements, minimal_association, compat_boundaries, boundary_points)
@@ -113,7 +131,7 @@ class JCBB:
             return np.zeros((self.best_association.shape))
 
     def DFS(self, level, association, compat_boundaries, boundary_points, boundaries_taken):
-        print(self.recursion)
+        # print(self.recursion)
         self.recursion += 1
         if self.recursion >= 500:
             raise RecursionStop
@@ -122,7 +140,7 @@ class JCBB:
         avail_boundaries = compat_boundaries[self.unassociated_measurements[level]]
         # print(avail_boundaries)
         for next_boundary in avail_boundaries:
-            print("Next boundary {}".format(next_boundary))
+            # print("Next boundary {}".format(next_boundary))
             isValidBoundary = next_boundary not in boundaries_taken or np.isnan(next_boundary)
             if isValidBoundary and level < len(self.unassociated_measurements):
                 test_association = np.copy(association)
@@ -276,10 +294,11 @@ class JCBB:
             phi = self.track[2]
             gamma = self.track[0]
             delta = self.track[1]
+            R_phi = Helper.compute_rot_matrix(phi)
 
-        R_pi_by_2 = Helper.compute_rot_matrix(np.pi/2)
+
+        # R_pi_by_2 = Helper.compute_rot_matrix(np.pi/2)
         R_psi = Helper.compute_rot_matrix(self.psi)
-        R_phi = Helper.compute_rot_matrix(phi)
         #naive way-- with for loops. need to think how to get rid of.
         for index, point in enumerate(associated_points):
             x = point[0]
@@ -292,33 +311,19 @@ class JCBB:
             
             if indiv:
                 # G[index] = -R_psi.T-R_pi_by_2@g[index]
-                G[index] = R_psi.T@R_phi
+                if self.static:
+                    G[index] = R_psi.T
+                else:
+                    G[index] = R_psi.T@R_phi
             else:
                 # G[index*2:index*2+2] = -R_psi.T-R_pi_by_2@g[index]
-                G[index*2:index*2+2] = R_psi.T@R_phi
+                if self.static:
+                     G[index*2:index*2+2] = R_psi.T
+                else:
+                    G[index*2:index*2+2] = R_psi.T@R_phi
         return g, G
 
 
-    # def calc_Gt_and_Gp(self, associated_points, indiv):
-    #     if indiv:
-    #         Gt  = np.zeros((associated_points.shape[0], 2, 2))
-    #         Gp  = np.zeros((associated_points.shape[0], 2, 2))
-    #     else:
-    #         Gt = np.zeros((associated_points.shape[0]*2, 2))
-    #         Gp = np.zeros((associated_points.shape[0]*2, 2))
-    #     phi = self.track[2]
-    #     gamma = self.track[0]
-    #     delta = self.track[1]
-    #     R_psi = Helper.compute_rot_matrix(self.psi)
-    #     R_phi = Helper.compute_rot_matrix(phi)
-
-    #     for index, point in enumerate(associated_points):
-    #         if indiv:
-    #             Gp[index] = R_psi.T@R_phi
-    #             Gt[index] = R_psi.T@R_psi.T @R_phi@
-
-    #         else:
-    #             G[index*2:index*2+2] = -R_psi.T-R_pi_by_2@g[index]
 
     def calc_Jacobian_H(self, g, G, associated_points, indiv):
         U = self.calc_U(g, len(associated_points), indiv)
@@ -423,35 +428,43 @@ if __name__ == "__main__":
 
     jc = JCBB()
     # for i in range(100):
-    np.random.seed(2003)
-    xs = [0,0]
-    n = 500
-    initial_association = np.zeros((2, n))
-    initial_association[0] = np.arange(n)
-    initial_association[1] = np.random.randint(0, 10, n)
-    scan_data = np.zeros((n,2))
-    scan_data[:,0] = np.random.uniform(28, 38, n) #1st row is ranges
-    scan_data[:,1] = np.random.uniform(0.6, 1.1, n) #2nd row is angles (radians)
+    # np.random.seed(2003)
+    # xs = [0,0]
+    # n = 500
+    # initial_association = np.zeros((2, n))
+    # initial_association[0] = np.arange(n)
+    # initial_association[1] = np.random.randint(0, 10, n)
+    # scan_data = np.zeros((n,2))
+    # scan_data[:,0] = np.random.uniform(28, 38, n) #1st row is ranges
+    # scan_data[:,1] = np.random.uniform(0.6, 1.1, n) #2nd row is angles (radians)
 
 
-    # scan_data[:,0], scan_data[:,1] = convert_scan_polar_cartesian(scan_data)
-    # scan_data[:,0] = np.random.normal(33,sigma, n) #1st row is ranges
-    # scan_data[:,1] =  np.random.normal(0.85,sigma, n) #1st row is ranges
+    # # scan_data[:,0], scan_data[:,1] = convert_scan_polar_cartesian(scan_data)
+    # # scan_data[:,0] = np.random.normal(33,sigma, n) #1st row is ranges
+    # # scan_data[:,1] =  np.random.normal(0.85,sigma, n) #1st row is ranges
 
-    n_boundary = 10
-    boundary_points= np.zeros((n_boundary,2))
-    # boundary_points[:,0] = np.random.uniform(-3, 3, n_boundary) #x coord, relative to track coordinate
-    # boundary_points[:,1] = np.random.uniform(-3, 3, n_boundary) #y coord, relative to track coordinate
-    boundary_points[:,0] = np.array([0,0,0,0,0,1,2,3,4,5]) #x coord, relative to track coordinate
-    boundary_points[:,1] = np.array([0,1,2,3,4,0,0,0,0,0]) #y coord, relative to track coordinate
+    # n_boundary = 10
+    # boundary_points= np.zeros((n_boundary,2))
+    # # boundary_points[:,0] = np.random.uniform(-3, 3, n_boundary) #x coord, relative to track coordinate
+    # # boundary_points[:,1] = np.random.uniform(-3, 3, n_boundary) #y coord, relative to track coordinate
+    # boundary_points[:,0] = np.array([0,0,0,0,0,1,2,3,4,5]) #x coord, relative to track coordinate
+    # boundary_points[:,1] = np.array([0,1,2,3,4,0,0,0,0,0]) #y coord, relative to track coordinate
 
 
-    track = [20, 25, 0]
-    P = np.eye(2)*0
+    # track = [20, 25, 0]
+    # P = np.eye(2)*0
+    # static = False
+    # psi = 0 #sensor angle. Will work if adjusted for JCBB running purposes, but 
+    #         #don't change-- need to refactor a bit to make the plot look nice too.
+    xs = np.load("xs.npy")
+    scan_data = np.load("scan_data.npy")
+    P = np.load("P.npy")
+    # P = np.eye(2)
+    track = np.load("track.npy")
     static = False
-    psi = 0 #sensor angle. Will work if adjusted for JCBB running purposes, but 
-            #don't change-- need to refactor a bit to make the plot look nice too.
-    
+    psi = np.load("psi.npy")
+    initial_association = np.load("initial_association.npy")   
+    boundary_points = np.load("boundary_points.npy")
     jc.assign_values(xs, scan_data, track, P, static, psi)
 
 

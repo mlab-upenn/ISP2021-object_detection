@@ -34,26 +34,24 @@ class Coarse_Association():
                 del self.C[key]
         else:
             A = {}
-            static_point_pairs = np.zeros((2,0))
-
-
+            static_point_pairs = []
 
         #5. for i = 1,2,.,Nt do
         if len(self.state.dynamic_tracks) != 0:
-            dynamic_point_pairs = []
+            dynamic_point_pairs = {}
             dynamic_associations = {}
             for key, track in self.state.dynamic_tracks.items():
                 dynanmic_P = track.xp
                 #6. (x, P, A) <- ASSOCIATEANDUPDATEWITHDYNAMIC(x, P, C, i)
-                A_d, dynamic_point_pairs = self.associateAndUpdateWithDynamic(Z, dynanmic_P)
+                A_d, point_pairs = self.associateAndUpdateWithDynamic(Z, dynanmic_P)
                 dynamic_associations[key] = A_d
-
+                dynamic_point_pairs[key] = point_pairs
                 #7. C <- C/A
                 for key in A_d.keys():
                     del self.C[key]
         else:
             dynamic_associations = {}
-            dynamic_point_pairs = np.zeros((2,0))
+            dynamic_point_pairs = {}
             # print("cluster-static-dynamic clusters:", len(self.C))
         #9. for all C do
         new_tracks = {}
@@ -85,10 +83,11 @@ class Coarse_Association():
     def associateAndUpdateWithDynamic(self, Z, points):
         icp_obj = perception.icp.ICP()
         dynamic_C = {}
-        point_pairs = []
+        point_idx_pairs = []
         for key in self.C.keys():
             P = Z[self.C[key]]
             dynamic, point_pairs = icp_obj.run(points, P)
             if dynamic:
                 dynamic_C[key] = self.C[key]
-        return dynamic_C, point_pairs
+                point_idx_pairs = point_idx_pairs+point_pairs
+        return dynamic_C, point_idx_pairs
