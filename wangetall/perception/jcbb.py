@@ -25,7 +25,8 @@ class JCBB:
         self.P = P
         # assert self.P[0,0] < 100
         self.static = static
-        self.psi = psi
+        # self.psi = psi
+        self.psi = 0
         self.recursion = 0
 
 
@@ -43,8 +44,14 @@ class JCBB:
         # print("Boundary points shape {}".format(boundary_points.shape))
 
         individual_compatibilities = self.compute_compatibility(boundary_points)
-        # print("Indiv compat shape {}".format(individual_compatibilities.shape))
-        # print("Scan data shape {}".format(self.scan_data.shape))
+        # np.save("P.npy", self.P)
+        # np.save("xs.npy", self.xs)
+        # np.save("scan_data.npy", self.scan_data)
+        # np.save("boundary_points.npy", boundary_points)
+        # np.save("psi.npy", self.psi)
+        # np.save("initial_association.npy", initial_association)
+        # np.save("track.npy", self.track)
+
         print("Percent indiv compat: {}".format(np.count_nonzero(individual_compatibilities)/np.multiply(*individual_compatibilities.shape)))
         if np.count_nonzero(individual_compatibilities)/np.multiply(*individual_compatibilities.shape) > 0.8:
             print("COMPAT ALERT!")
@@ -92,7 +99,6 @@ class JCBB:
             if JNIS-JNIS_delta <= chi2 or dof ==0:
                 minimal_association = np.copy(curr_association)
                 JNIS = JNIS-JNIS_delta
-                print("Breaking while loop.")
                 # print("MIN ASSO {}".format(minimal_association))
                 break
             else:
@@ -109,10 +115,8 @@ class JCBB:
 
             selected_boundaries.add(np.nan)
             # print("Len selected bound {}".format(len(list(selected_boundaries))))
-            st = time.time()
 
             selected_boundaries = np.setdiff1d(np.array(list(selected_boundaries)), min_asso_vals)
-            et = time.time()
 
             compat_boundaries[measurement] = list(selected_boundaries)
         assigned_associations = self.branch_and_bound(unassociated_measurements, minimal_association, compat_boundaries, boundary_points)
@@ -126,24 +130,20 @@ class JCBB:
         boundaries_taken = set()
         self.unassociated_measurements = unassociated_measurements
         try:
-            print("Begin DFS")
             self.DFS(0, minimal_association, compat_boundaries, boundary_points, boundaries_taken)
         except RecursionStop:
             pass
 
         jnis = self.calc_JNIS(self.best_association, boundary_points)
         joint_compat = self.check_compat(jnis, DOF =np.count_nonzero(~np.isnan(self.best_association[1]))*2)
-        print("JCBB Done!")
         if joint_compat:
-            # print(self.best_association)
             return self.best_association
         else:
             return np.zeros((self.best_association.shape))
 
     def DFS(self, level, association, compat_boundaries, boundary_points, boundaries_taken):
-        # print(self.recursion)
         self.recursion += 1
-        if self.recursion >= 10:
+        if self.recursion >= 200:
             raise RecursionStop
 
         boundaries_taken = boundaries_taken.copy()
@@ -222,6 +222,7 @@ class JCBB:
         z_hat_idx = association[0][~np.isnan(association[1])].astype(int)
 
         associated_points = boundary_points[bndry_points_idx]
+
         if len(associated_points) == 0:
             return 0
 
@@ -235,19 +236,13 @@ class JCBB:
             z_hat = self.scan_data[z_hat_idx]
 
             a = (z_hat-h)
+            # print("z_hat {},h {}".format(z_hat, h))
             b = np.linalg.inv(S)
-
             JNIS = np.einsum('ki,kij,kj->k', a, b, a)
-
-
         else:
             z_hat = self.scan_data[z_hat_idx].flatten()
-
             h = h.flatten()
-
             JNIS = (z_hat-h).T@np.linalg.inv(S)@(z_hat-h)
-
-
         return JNIS
 
     def calc_R(self, associated_points, indiv):
@@ -318,7 +313,6 @@ class JCBB:
                 g[index] = R_psi.T @ np.array(np.array([x, y])- alpha_beta_arr).T
             else:
                 g[index] = R_psi.T@(R_phi@np.array([x, y])+np.array([gamma, delta])-alpha_beta_arr)
-            
             if indiv:
                 # G[index] = -R_psi.T-R_pi_by_2@g[index]
                 if self.static:
@@ -337,11 +331,7 @@ class JCBB:
 
     def calc_Jacobian_H(self, g, G, associated_points, indiv):
         U = self.calc_U(g, len(associated_points), indiv)
-        
-        
         H = U.T @ G
-        
-        
         return H
 
     def calc_U(self, g, num_tiles, indiv):
@@ -468,13 +458,22 @@ if __name__ == "__main__":
     #         #don't change-- need to refactor a bit to make the plot look nice too.
     xs = np.load("xs.npy")
     scan_data = np.load("scan_data.npy")
+    # scan_x, scan_y = Helper.convert_scan_polar_cartesian_joint(scan_data)
+    # plt.scatter(scan_x, scan_y, c="b", marker="o", alpha = 0.5, label="Scan Data")
+    # plt.xlim(-10,3)
+    # plt.ylim(-1, 9)
+
     P = np.load("P.npy")
-    # P = np.eye(2)
     track = np.load("track.npy")
     static = False
     psi = np.load("psi.npy")
-    initial_association = np.load("initial_association.npy")   
+    initial_association = np.load("initial_association.npy")
     boundary_points = np.load("boundary_points.npy")
+    # plt.scatter(boundary_points[:,0]+track[0], boundary_points[:,1]+track[1], c="orange", marker="o", alpha = 0.5, label="Scan Data")
+    # plt.xlim(-10,3)
+    # plt.ylim(-1, 9)
+    # plt.show()
+
     jc.assign_values(xs, scan_data, track, P, static, psi)
 
 

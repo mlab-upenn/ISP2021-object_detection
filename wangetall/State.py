@@ -21,12 +21,12 @@ class State:
 
         boundary_points = laserpoints[clusterIds] #want boundarypoints to be in cartesian
         track = DynamicTrack(idx, status =0)
-        track.kf.x = np.array([np.mean(boundary_points[:,0]),
-                            np.mean(boundary_points[:,1]), 
+        track.kf.x = np.array([np.mean(boundary_points[:,0])+self.xs[0],
+                            np.mean(boundary_points[:,1])+self.xs[1], 
                             0,
                             0,0,0])
-        track.xp = np.array([boundary_points[:,0]-track.kf.x[0],
-                            boundary_points[:,1]-track.kf.x[1]]).T
+        track.xp = np.array([boundary_points[:,0]-track.kf.x[0]+self.xs[0],
+                            boundary_points[:,1]-track.kf.x[1]+self.xs[1]]).T
         self.dynamic_tracks[idx] = track
         return idx
 

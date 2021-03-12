@@ -1,5 +1,5 @@
 import numpy as np
-from scipy.sparse import block_diag
+from scipy.linalg import block_diag
 
 from perception.cluster import Cluster
 from coarse_association import Coarse_Association
@@ -116,33 +116,37 @@ class lidarUpdater:
                 initial_association[1, pairs[:,0]] = pairs[:,1]
 
                 self.jcbb.assign_values(xs = self.state.xs, scan_data = self.polar_laser_points[tgt_points], track = track.kf.x, P = track.kf.P[0:2,0:2], static=False, psi=self.state.xs[2])
-                # scan_x, scan_y = Helper.convert_scan_polar_cartesian_joint(self.polar_laser_points)
+                
+                # scan_x, scan_y = Helper.convert_scan_polar_cartesian_joint(self.polar_laser_points[tgt_points])
                 # plt.figure()
                 # plt.scatter(scan_x, scan_y, c="b", marker="o", alpha = 0.5, label="Scan Data")
-                # plt.scatter(track.xp[:,0]+track.kf.x[0], track.xp[:,1]+track.kf.x[1], c="orange", marker="o", alpha = 0.5, label="Boundary Points")
+                # plt.scatter(track.xp[:,0]+track.kf.x[0], track.xp[:,1]+track.kf.x[1], c="orange", marker="o", alpha = 0.1, label="Boundary Points")
                 # plt.show()
                 
                 
                 association = self.jcbb.run(initial_association, track.xp)
+                # sys.exit()
                 association[0] = tgt_points
-                if len(association) >= 3: #need 3 points to compute rigid transformation
-                    self.Updater.assign_values(track.kf.x, association, static=False)
+                pairings = association[:,~np.isnan(association[1])]
+                if pairings.shape[1] >= 3: #need 3 points to compute rigid transformation
+                    print("UPDATING!!")
+                    self.Updater.assign_values(track, association, self.state, static=False)
                     
-                    pairings = association[:,~np.isnan(association[1])]
-                    selected_bndr_pts = track.xp[pairings[1].astype(int)]
+                    selected_bndr_pts = track.xp[pairings[1].astype(int)]+track.kf.x[0:2]
                     selected_scan_pts = self.polar_laser_points[pairings[0].astype(int)]
 
-                    selected_scan_cartesian = Helper.convert_scan_polar_cartesian_joint(selected_scan_pts)
-                    M = cv2.estimateRigidTransform(selected_bndr_pts, selected_scan_cartesian, fullAffine=False)
-                    angle= np.atan2(M[1,0], M[0,0])
+                    selected_scan_x, selected_scan_y = Helper.convert_scan_polar_cartesian_joint(selected_scan_pts)
+                    selected_scan_cartesian = np.vstack((selected_scan_x, selected_scan_y)).T+self.state.xs[0:2]
+                    M = cv2.estimateAffinePartial2D(selected_bndr_pts, selected_scan_cartesian)
+                    T = M[0]
+                    angle= np.arctan2(T[1,0], T[0,0])
                     measurement = np.zeros((6))
-                    measurement[0] = track.kf.x[0]+M[0,2]
-                    measurement[1] = track.kf.x[1]+M[1,2]
+                    measurement[0] = track.kf.x[0]+T[0,2]
+                    measurement[1] = track.kf.x[1]+T[1,2]
                     measurement[2] = track.kf.x[1]+angle
-                    measurement[3] = M[0,2]/dt
-                    measurement[4] = M[1,2]/dt
+                    measurement[3] = T[0,2]/dt
+                    measurement[4] = T[1,2]/dt
                     measurement[5] = angle/dt
-                    print("Measurement {}".format(measurement))
 
                     self.Updater.run(measurement)
             
@@ -192,9 +196,13 @@ class Updater:
 
     def __init__(self):
         pass
-    def assign_values(self, track,associated_points, static):
+    def assign_values(self, track,associated_points, state, static):
+        self.state = state
         self.track = track
         self.xs = self.state.xs
+        # self.psi = self.state.xs[2]
+        self.psi = 0
+
         self.associated_points = associated_points
         #HOW DO WE USE ASSOCIATED POINTS AS MEASUREMENT?
         self.static = static
@@ -203,16 +211,13 @@ class Updater:
         print("UPDATING........")
         R = self.calc_R(self.associated_points)
         g, G = self.calc_g_and_G(self.associated_points)
-        H = self.calc_Jacobian_H(g, G, self.associated_points)
-
-        self.track.kf.R = R
-        self.track.kf.H = R
-        self.track.kf.update(measurement)
+        # H = self.calc_Jacobian_H(x, g, G)
+        self.track.kf.update(measurement, self.calc_Jacobian_H, self.calc_U, R, args=(g, G), hx_args=(g))
 
 
     def calc_R(self, associated_points):
         #https://dspace.mit.edu/handle/1721.1/32438#files-area
-        R_indiv = np.array([[0.1, 0], [0,0.1]])
+        R = np.array([[0.1, 0], [0,0.1]])
 
         return R
 
@@ -221,12 +226,12 @@ class Updater:
         ##Make 3D? Stack K's on top of each other for every dynamic object.
         return K
 
-    def calc_Jacobian_H(self, g, G, associated_points):
-        U = self.calc_U(g, len(associated_points))
+    def calc_Jacobian_H(self, x, g, G):
+        U = self.calc_U(x, g)
         H = U.T @ G
         return H
 
-    def calc_U(self, g, num_tiles):
+    def calc_U(self, x, g):
         r = np.sqrt(g[:,0]**2+g[:,1]**2)
         U = (np.array([[r*g[:,0], r*g[:,1]],[-g[:,1], g[:,0]]]))/r**2
             
@@ -237,24 +242,13 @@ class Updater:
 
 
     def calc_g_and_G(self, associated_points):
-        """inputs: xs, measured laserpoint
-        
-        xs is dict of measurements with xs["alpha"] = const, xs["beta"] = const maybe?
-        
-        measured_laserpoint is 2d matrix with one col of angles, one col of x coords, one col of y coords 
-        where psi is the current rotation angle
-        """
-
-
-        """How to generalize to compute all objects at once, if
-        the length of associated_points is not the same per object?"""
         g = np.zeros((associated_points.shape[0], 2))
         #make 3d?
         G = np.zeros((associated_points.shape[0]*2, 2))
         #make 3d?
 
-        alpha = self.xs["alpha"]
-        beta = self.xs["beta"]
+        alpha = self.xs[0]
+        beta = self.xs[1]
         alpha_beta_arr = np.array([alpha, beta])
         phi = self.track.kf.x[0]
         gamma = self.track.kf.x[2]
