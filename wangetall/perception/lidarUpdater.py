@@ -21,6 +21,8 @@ class lidarUpdater:
         self.num_beams = 1080
         self.fov = 4.7
         self.theta_init = np.linspace(-self.fov/2., self.fov/2., num=self.num_beams)
+        self.i = 0
+        self.i2 = 0
 
 
 
@@ -72,6 +74,11 @@ class lidarUpdater:
 
     def associate_and_update(self, data, dt):
         clusters = self.cl.cluster(self.laserpoints)
+        # for key in clusters.keys():
+        #     selected_points = self.laserpoints[clusters[key]]
+        #     plt.scatter(selected_points[:,0], selected_points[:,1])
+        # plt.savefig("output_plots/cluster_idx{}.png".format(self.i2))
+        # self.i2 += 1
 
         #First, do the static points.
 
@@ -83,7 +90,9 @@ class lidarUpdater:
             tgt_points = []
             for key, value in static_association.items():
                 tgt_points = tgt_points+value
+            print("Tgt pts shape {}".format(len(tgt_points)))
             pairs = np.array([*static_point_pairs]).T
+            print("pairs shape {}".format(pairs.shape))
             initial_association = np.zeros((2, len(tgt_points)))
             initial_association[0] = np.arange(len(tgt_points))
             initial_association[1, pairs[:,0]] = pairs[:,1]
@@ -116,20 +125,19 @@ class lidarUpdater:
                 initial_association[1, pairs[:,0]] = pairs[:,1]
 
                 self.jcbb.assign_values(xs = self.state.xs, scan_data = self.polar_laser_points[tgt_points], track = track.kf.x, P = track.kf.P[0:2,0:2], static=False, psi=self.state.xs[2])
-                
-                # scan_x, scan_y = Helper.convert_scan_polar_cartesian_joint(self.polar_laser_points[tgt_points])
-                # plt.figure()
-                # plt.scatter(scan_x, scan_y, c="b", marker="o", alpha = 0.5, label="Scan Data")
-                # plt.scatter(track.xp[:,0]+track.kf.x[0], track.xp[:,1]+track.kf.x[1], c="orange", marker="o", alpha = 0.1, label="Boundary Points")
-                # plt.show()
-                
+                # if track.id == 1:
+                #     scan_x, scan_y = Helper.convert_scan_polar_cartesian_joint(self.polar_laser_points[tgt_points])
+                #     plt.figure()
+                #     plt.scatter(scan_x, scan_y, c="b", marker="o", alpha = 0.5, label="Scan Data")
+                #     plt.scatter(track.xp[:,0]+track.kf.x[0], track.xp[:,1]+track.kf.x[1], c="orange", marker="o", alpha = 0.1, label="Boundary Points")
+                #     plt.savefig("output_plots/{}.png".format(self.i))
+                #     self.i += 1
                 
                 association = self.jcbb.run(initial_association, track.xp)
                 # sys.exit()
                 association[0] = tgt_points
                 pairings = association[:,~np.isnan(association[1])]
                 if pairings.shape[1] >= 3: #need 3 points to compute rigid transformation
-                    print("UPDATING!!")
                     self.Updater.assign_values(track, association, self.state, static=False)
                     
                     selected_bndr_pts = track.xp[pairings[1].astype(int)]+track.kf.x[0:2]
@@ -143,11 +151,13 @@ class lidarUpdater:
                     measurement = np.zeros((6))
                     measurement[0] = track.kf.x[0]+T[0,2]
                     measurement[1] = track.kf.x[1]+T[1,2]
-                    measurement[2] = track.kf.x[1]+angle
+                    measurement[2] = (track.kf.x[2]+angle)%np.pi
                     measurement[3] = T[0,2]/dt
                     measurement[4] = T[1,2]/dt
                     measurement[5] = angle/dt
-
+                    if track.id == 1:
+                        print("T {}".format(T))
+                        print("Measurement {}".format(measurement))
                     self.Updater.run(measurement)
             
             # track.xp = np.append(track.xp, unassociated_boundarypts = ??) #add to track
@@ -208,67 +218,75 @@ class Updater:
         self.static = static
 
     def run(self, measurement):
-        print("UPDATING........")
         R = self.calc_R(self.associated_points)
-        g, G = self.calc_g_and_G(self.associated_points)
+        # g, G = self.calc_g_and_G(self.associated_points)
         # H = self.calc_Jacobian_H(x, g, G)
-        self.track.kf.update(measurement, self.calc_Jacobian_H, self.calc_U, R, args=(g, G), hx_args=(g))
+
+        #May need to come up with custom measurement model for the 
+        # special measurement we created..
+        self.track.kf.update(measurement, self.calc_Hj, self.calc_hx, R)
+
+    def calc_Hj(self, x):
+        return np.eye(6)
+    
+    def calc_hx(self, x):
+        return x
+
 
 
     def calc_R(self, associated_points):
         #https://dspace.mit.edu/handle/1721.1/32438#files-area
-        R = np.array([[0.1, 0], [0,0.1]])
-
+        R = np.eye(6)*0.1
         return R
 
-    def compute_Kalman_gain(self, H, P, R):
-        K = P@H.T@ np.linalg.inv(H@P@H.T + R)
-        ##Make 3D? Stack K's on top of each other for every dynamic object.
-        return K
+    # def compute_Kalman_gain(self, H, P, R):
+    #     K = P@H.T@ np.linalg.inv(H@P@H.T + R)
+    #     ##Make 3D? Stack K's on top of each other for every dynamic object.
+    #     return K
 
-    def calc_Jacobian_H(self, x, g, G):
-        U = self.calc_U(x, g)
-        H = U.T @ G
-        return H
+    # def calc_Jacobian_H(self, x, g, G):
+    #     U = self.calc_U(x, g)
+    #     H = U.T @ G
+    #     return H
 
-    def calc_U(self, x, g):
-        r = np.sqrt(g[:,0]**2+g[:,1]**2)
-        U = (np.array([[r*g[:,0], r*g[:,1]],[-g[:,1], g[:,0]]]))/r**2
+    # def calc_U(self, x, g):
+    #     r = np.sqrt(g[:,0]**2+g[:,1]**2)
+    #     U = (np.array([[r*g[:,0], r*g[:,1]],[-g[:,1], g[:,0]]]))/r**2
             
-        U_matrices = tuple([U[:,:,i] for i in range(U.shape[2])])
-        U =  block_diag(*U_matrices)
-        ###Make 3D? Stack U's on top of each other for every dynamic object.
-        return U
+    #     U_matrices = tuple([U[:,:,i] for i in range(U.shape[2])])
+    #     U =  block_diag(*U_matrices)
+    #     ###Make 3D? Stack U's on top of each other for every dynamic object.
+    #     return U
 
 
-    def calc_g_and_G(self, associated_points):
-        g = np.zeros((associated_points.shape[0], 2))
-        #make 3d?
-        G = np.zeros((associated_points.shape[0]*2, 2))
-        #make 3d?
+    # def calc_g_and_G(self, associated_points):
+    #     g = np.zeros((associated_points.shape[0], 2))
+    #     #make 3d?
+    #     G = np.zeros((associated_points.shape[0]*2, 2))
+    #     #make 3d?
 
-        alpha = self.xs[0]
-        beta = self.xs[1]
-        alpha_beta_arr = np.array([alpha, beta])
-        phi = self.track.kf.x[0]
-        gamma = self.track.kf.x[2]
-        delta = self.track.kf.x[1]
+    #     alpha = self.xs[0]
+    #     beta = self.xs[1]
+    #     alpha_beta_arr = np.array([alpha, beta])
+    #     phi = self.track.kf.x[0]
+    #     gamma = self.track.kf.x[2]
+    #     delta = self.track.kf.x[1]
 
-        ##Make 2D? have phi, gamma, delta be 2D matrices for every object
+    #     ##Make 2D? have phi, gamma, delta be 2D matrices for every object
 
-        R_pi_by_2 = Helper.compute_rot_matrix(np.pi/2)
-        R_psi = Helper.compute_rot_matrix(self.psi)
-        R_phi = Helper.compute_rot_matrix(phi)
-        #naive way-- with for loops. need to think how to get rid of.
-        for index, point in enumerate(associated_points):
-            x = point[0]
-            y = point[1]
+    #     R_pi_by_2 = Helper.compute_rot_matrix(np.pi/2)
+    #     R_psi = Helper.compute_rot_matrix(self.psi)
+    #     R_phi = Helper.compute_rot_matrix(phi)
+    #     #naive way-- with for loops. need to think how to get rid of.
+    #     for index, point in enumerate(associated_points):
+    #         x = point[0]
+    #         y = point[1]
 
-            if self.static:
-                g[index] = R_psi.T @ np.array(np.array([x, y])- alpha_beta_arr).T
-            else:
-                g[index] = R_psi.T@(R_phi@np.array([x, y])+np.array([gamma, delta])-alpha_beta_arr)
+    #         if self.static:
+    #             g[index] = R_psi.T @ np.array(np.array([x, y])- alpha_beta_arr).T
+    #         else:
+    #             g[index] = R_psi.T@(R_phi@np.array([x, y])+np.array([gamma, delta])-alpha_beta_arr)
             
-            G[index*2:index*2+2] = -R_psi.T-R_pi_by_2@g[index]
-        return g, G
+    #         G[index*2:index*2+2] = -R_psi.T-R_pi_by_2@g[index]
+    #     return g, G
 

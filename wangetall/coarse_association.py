@@ -41,7 +41,7 @@ class Coarse_Association():
             dynamic_point_pairs = {}
             dynamic_associations = {}
             for key, track in self.state.dynamic_tracks.items():
-                dynanmic_P = track.xp
+                dynanmic_P = track.xp+track.kf.x[0:2]
                 #6. (x, P, A) <- ASSOCIATEANDUPDATEWITHDYNAMIC(x, P, C, i)
                 A_d, point_pairs = self.associateAndUpdateWithDynamic(Z, dynanmic_P)
                 dynamic_associations[key] = A_d
