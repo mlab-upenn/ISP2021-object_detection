@@ -70,8 +70,9 @@ class JCBB:
         JNIS_delta = 0
         dof = np.count_nonzero(~np.isnan(pruned_associations[1]))*2
         chi2 = stats.chi2.ppf(self.alpha, df=dof)
-
-        while True:
+        max_iter = 10
+        i = 0
+        while i < max_iter:
             curr_association = np.copy(pruned_associations)
             for index in np.arange(pruned_associations.shape[1])[~np.isnan(pruned_associations[1])]:
                 curr_pairing = pruned_associations[1, index]
@@ -91,20 +92,28 @@ class JCBB:
             if JNIS-JNIS_delta <= chi2 or dof ==0:
                 minimal_association = np.copy(curr_association)
                 JNIS = JNIS-JNIS_delta
-                # print("Breaking while loop.")
+                print("Breaking while loop.")
                 # print("MIN ASSO {}".format(minimal_association))
                 break
             else:
                 pruned_associations = np.copy(curr_association)
+                i+=1
         unassociated_measurements = minimal_association[0, np.isnan(minimal_association[1])]
         compat_boundaries = {}
         for measurement in unassociated_measurements:
             boundary_idxs = np.where(individual_compatibilities[int(measurement),:] == 1)[0]
+
             selected_boundaries = set(boundary_idxs)
+            min_asso_vals = np.unique(minimal_association[1])
+            min_asso_vals = min_asso_vals[~np.isnan(min_asso_vals)]
 
             selected_boundaries.add(np.nan)
             # print("Len selected bound {}".format(len(list(selected_boundaries))))
-            selected_boundaries = selected_boundaries-set(minimal_association[1])
+            st = time.time()
+
+            selected_boundaries = np.setdiff1d(np.array(list(selected_boundaries)), min_asso_vals)
+            et = time.time()
+
             compat_boundaries[measurement] = list(selected_boundaries)
         assigned_associations = self.branch_and_bound(unassociated_measurements, minimal_association, compat_boundaries, boundary_points)
     
@@ -117,13 +126,14 @@ class JCBB:
         boundaries_taken = set()
         self.unassociated_measurements = unassociated_measurements
         try:
+            print("Begin DFS")
             self.DFS(0, minimal_association, compat_boundaries, boundary_points, boundaries_taken)
         except RecursionStop:
             pass
 
         jnis = self.calc_JNIS(self.best_association, boundary_points)
         joint_compat = self.check_compat(jnis, DOF =np.count_nonzero(~np.isnan(self.best_association[1]))*2)
-        # print("Done!")
+        print("JCBB Done!")
         if joint_compat:
             # print(self.best_association)
             return self.best_association

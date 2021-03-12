@@ -113,7 +113,8 @@ def main():
             for idx, track in tracker.state.dynamic_tracks.items():
                 ax.scatter(track.kf.x[0], track.kf.x[1], color="purple", label="Dynamic Centroid")
                 ax.scatter(track.xp[:,0]+track.kf.x[0], track.xp[:,1]+track.kf.x[1], s = 1, label="Dynamic B Points")
-                ax.text(track.kf.x[0], track.kf.x[1], str(idx), size = "x-small")
+                trackspeed = np.sqrt(track.kf.x[2]**2+track.kf.x[3]**2)
+                ax.text(track.kf.x[0], track.kf.x[1], "T{} S:{}".format(idx, trackspeed), size = "x-small")
             plt.legend()
 
             plt.pause(0.0001)
