@@ -7,9 +7,9 @@ class State:
         self.static_background = StaticTrack(0, status=1)
 
         # self.laserpoints = [] #if in ROS, laserpoints will be published.
-        self.xs = np.zeros((3))
-        self.Pxs = np.eye(3)
-        self.xc = np.zeros((3))
+        self.xs = np.zeros((3)) #xs ego vehicle pose-- [x, y, theta]; global frame
+        self.Pxs = np.eye(3) #covariance of ego vehicle pose
+        self.xc = np.zeros((3)) #
         self.Pxc = np.eye(3)
             
     def create_new_track(self, laserpoints, clusterIds):
@@ -25,6 +25,7 @@ class State:
                             np.mean(boundary_points[:,1])+self.xs[1], 
                             0,
                             0,0,0])
+        
         track.xp = np.array([boundary_points[:,0]-track.kf.x[0]+self.xs[0],
                             boundary_points[:,1]-track.kf.x[1]+self.xs[1]]).T
         self.dynamic_tracks[idx] = track

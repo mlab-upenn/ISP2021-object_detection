@@ -95,6 +95,7 @@ class lidarUpdater:
             print("pairs shape {}".format(pairs.shape))
             initial_association = np.zeros((2, len(tgt_points)))
             initial_association[0] = np.arange(len(tgt_points))
+            #tiebreaker?
             initial_association[1, pairs[:,0]] = pairs[:,1]
             self.jcbb.assign_values(xs = self.state.xs, scan_data = self.polar_laser_points[tgt_points], track=None, P = P_static_sub, static=True, psi=self.state.xs[2])
             association = self.jcbb.run(initial_association, self.state.static_background.xb)
@@ -223,7 +224,7 @@ class Updater:
         # H = self.calc_Jacobian_H(x, g, G)
 
         #May need to come up with custom measurement model for the 
-        # special measurement we created..
+        #special measurement we created..
         self.track.kf.update(measurement, self.calc_Hj, self.calc_hx, R)
 
     def calc_Hj(self, x):
