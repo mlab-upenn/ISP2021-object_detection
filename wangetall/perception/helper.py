@@ -25,7 +25,12 @@ class Helper:
         return R
     @staticmethod
     def convert_scan_polar_cartesian(scan, angle):
-        return np.sin(angle)*scan, np.cos(angle)*scan
+        return np.cos(angle)*scan, np.sin(angle)*scan
+
+    @staticmethod
+    def convert_scan_polar_cartesian_joint(scan):
+        return np.cos(scan[:,1])*scan[:,0], np.sin(scan[:,1])*scan[:,0]
+
 
 
 # if __name__ =="__main__":

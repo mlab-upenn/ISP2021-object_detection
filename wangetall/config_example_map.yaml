@@ -12,10 +12,6 @@ sx: 0.0
 sy: 0.0
 stheta: 1.37079632679
 
-sx2: -0.7305930
-sy2: 4.5436054
-stheta2: 2.2
-
 # raceline path and indices
 wpt_path: './example_waypoints.csv'
 wpt_delim: ';'

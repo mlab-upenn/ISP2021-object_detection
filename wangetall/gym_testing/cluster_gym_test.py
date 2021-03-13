@@ -34,6 +34,7 @@ class Test:
         y, x = Helper.convert_scan_polar_cartesian(current_scan, theta)
 
         Q_s_cart = np.stack((x, y), axis=-1)[0]
+        print("Qs shape {}".format(Q_s_cart.shape))
 
         C = cl.cluster(Q_s_cart)
         for key in C.keys():

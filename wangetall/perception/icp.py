@@ -1,7 +1,7 @@
 import numpy as np
 import math
 from sklearn.neighbors import NearestNeighbors
-
+import sys
 class ICP:
     """
     Class Based on the ICP implementation of https://github.com/richardos/icp/blob/master/icp.py and Besl and
@@ -35,34 +35,37 @@ class ICP:
         self.reference_points = reference_points
         self.points = points
         nbrs = NearestNeighbors(n_neighbors=1, algorithm='kd_tree').fit(self.reference_points)
-        aligned_points = []
+
         for iter_num in range(self.max_iterations):
             #print('------ iteration', iter_num, '------')
-            converged = False
+            static=  False
 
-            closest_point_pairs = []  # list of point correspondences for closest point rule
+            closest_point_pairs = []
+            closest_point_pairs_idxs = []
 
+              # list of point correspondences for closest point rule
             distances, indices = nbrs.kneighbors(self.points)
             # Step 1: A point in P is associated to its nearest neighbour in Q if their distance is within a certain threshold,
             for nn_index in range(len(distances)):
                 if distances[nn_index][0] < self.distance_threshold: # ELSE OUTLIER?
                     closest_point_pairs.append((self.points[nn_index], self.reference_points[indices[nn_index][0]]))
+                    closest_point_pairs_idxs.append((nn_index, indices[nn_index][0]))
                     # otherwise it is discarded as an outlier for this iteration and become unassociated to any point in Q.
 
             # if only few point pairs, stop process
             #print('number of pairs found:', len(closest_point_pairs))
             if len(closest_point_pairs) < self.point_pairs_threshold:
-                print('No better solution can be found (very few point pairs)!')
+                #print('No better solution can be found (very few point pairs)!')
                 break
 
             # All associations obtained in this way are used to estimate a transform that aligns the point set P to Q.
             closest_rot_angle, closest_translation_x, closest_translation_y = self.point_based_matching(closest_point_pairs)
 
             if closest_rot_angle is None or closest_translation_x is None or closest_translation_y is None:
-                print('No better solution can be found!')
+                #print('No better solution can be found!')
                 break
 
-            #The points in P are then updated to their new positions with the estimated transform
+            #T he points in P are then updated to their new positions with the estimated transform
             c, s = math.cos(closest_rot_angle), math.sin(closest_rot_angle)
             rot = np.array([[c, -s],
                             [s, c]])
@@ -70,19 +73,15 @@ class ICP:
             aligned_points[:, 0] += closest_translation_x
             aligned_points[:, 1] += closest_translation_y
 
-            #print(closest_rot_angle, closest_translation_x, closest_translation_y)
-
             # and the loop continues until convergence
             if (abs(closest_rot_angle) < self.convergence_rotation_threshold) \
                     and (abs(closest_translation_x) < self.convergence_translation_threshold) \
                     and (abs(closest_translation_y) < self.convergence_translation_threshold):
-
-                print('Converged!')
-                converged = True
+                prin("Converged!")
                 break
         #The association upon convergence is taken as the final association, with outlier rejection from P to Q.
         # -- outliers not in points now
-        return indices.ravel()
+        return indices.ravel(), closest_point_pairs_idxs
 
 
     def point_based_matching(self, point_pairs):
