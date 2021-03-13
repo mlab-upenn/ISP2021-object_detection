@@ -251,7 +251,7 @@ if __name__ == "__main__":
     for key in C.keys():
         P = lidar[C[key]]
         plt.scatter(P[:,0], P[:,1])
-    plt.title("CLusters")
+    plt.title("Scan separated by clusters")
     plt.show()
     C_static, C_dynamic, C_new = ca.run(lidar, static_background_prev, dynamic_tracks_prev, C, C_static_prev, C_dynamic_prev, C_roots_arr, C_static_prev_roots_arr, C_dynamic_prev_roots_arr)
     for key in C_static.keys():
@@ -263,6 +263,8 @@ if __name__ == "__main__":
         P = lidar[C_dynamic[key]]
         plt.scatter(P[:,0], P[:,1])
     plt.title("separated dynamic tracks")
+    plt.ylim(-2,5)
+    plt.xlim(-2,10)
     plt.show()
     for key in C_new.keys():
         P = lidar[C_dynamic[key]]
