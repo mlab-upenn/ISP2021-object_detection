@@ -120,7 +120,7 @@ class lidarUpdater:
                 tgt_points = []
                 for value in dyn_association.values():
                     tgt_points = tgt_points+value
-
+                print(dynamic_point_pairs)
                 pairs = np.array([*dynamic_point_pairs[track_id]])
                 initial_association = np.zeros((2, len(tgt_points)))
                 initial_association[0] = np.arange(len(tgt_points))
