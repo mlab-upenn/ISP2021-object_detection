@@ -47,14 +47,16 @@ class ICP:
 
               # list of point correspondences for closest point rule
             distances, indices = nbrs.kneighbors(self.points)
-            #print(indices)
+            
+            # remove outliers: process the output of nearest_neighbor, only being used to feed into best_fit_transform (added by wuch)
+    
+            indices = indices.ravel()
             indices_filtered = []
             # Step 1: A point in P is associated to its nearest neighbour in Q if their distance is within a certain threshold,
             for nn_index in range(len(distances)):
                 if distances[nn_index][0] < self.distance_threshold: # ELSE OUTLIER?
-                    closest_point_pairs.append((self.points[nn_index], self.reference_points[indices[nn_index][0]]))
-                    closest_point_pairs_idxs.append((nn_index, indices[nn_index][0]))
-                    indices_filtered.append(indices[nn_index][0])
+                    closest_point_pairs.append((self.points[nn_index], self.reference_points[indices[nn_index]]))
+                    closest_point_pairs_idxs.append((nn_index, indices[nn_index]))
                     # otherwise it is discarded as an outlier for this iteration and become unassociated to any point in Q.
             # if only few point pairs, stop process
             #print('number of pairs found:', len(closest_point_pairs))
@@ -85,7 +87,10 @@ class ICP:
                 break
         #The association upon convergence is taken as the final association, with outlier rejection from P to Q.
         # -- outliers not in points now
-        return indices.ravel(), closest_point_pairs_idxs
+        for i,dist in enumerate(distances):
+            if dist > 1:
+                indices[i] = -1  # this is an outlier
+        return indices, closest_point_pairs_idxs
 
 
     def point_based_matching(self, point_pairs):

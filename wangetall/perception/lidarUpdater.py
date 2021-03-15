@@ -11,6 +11,9 @@ from cleanupstates import CleanUpStates
 import cv2
 import sys
 import matplotlib.pyplot as plt
+
+from pdb import set_trace as bp
+
 class lidarUpdater:
     def __init__(self):
         self.jcbb = JCBB()
@@ -97,7 +100,7 @@ class lidarUpdater:
             initial_association = np.zeros((2, len(tgt_points)))
             initial_association[0] = np.arange(len(tgt_points))
             #tiebreaker?
-            breakpoint()
+            bp()
             initial_association[1, pairs[:,0]] = pairs[:,1]
             self.jcbb.assign_values(xs = self.state.xs, scan_data = self.polar_laser_points[tgt_points], track=None, P = P_static_sub, static=True, psi=self.state.xs[2])
             association = self.jcbb.run(initial_association, self.state.static_background.xb)
@@ -131,6 +134,7 @@ class lidarUpdater:
                 pairs = np.array([*dynamic_point_pairs[track_id]])
                 initial_association = np.zeros((2, len(tgt_points)))
                 initial_association[0] = np.arange(len(tgt_points))
+                #bp()
                 initial_association[1, pairs[:,0]] = pairs[:,1]
 
                 self.jcbb.assign_values(xs = self.state.xs, scan_data = self.polar_laser_points[tgt_points], track = track.kf.x, P = track.kf.P[0:2,0:2], static=False, psi=self.state.xs[2])
