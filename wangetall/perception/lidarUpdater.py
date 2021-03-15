@@ -97,6 +97,7 @@ class lidarUpdater:
             initial_association = np.zeros((2, len(tgt_points)))
             initial_association[0] = np.arange(len(tgt_points))
             #tiebreaker?
+            breakpoint()
             initial_association[1, pairs[:,0]] = pairs[:,1]
             self.jcbb.assign_values(xs = self.state.xs, scan_data = self.polar_laser_points[tgt_points], track=None, P = P_static_sub, static=True, psi=self.state.xs[2])
             association = self.jcbb.run(initial_association, self.state.static_background.xb)
@@ -110,8 +111,13 @@ class lidarUpdater:
             new_pts_x, new_pts_y = Helper.convert_scan_polar_cartesian_joint(self.polar_laser_points[list(new_pts)])
             new_pts = np.vstack((new_pts_x, new_pts_y)).T+self.state.xs[0:2]
             self.state.static_background.xb = np.concatenate((self.state.static_background.xb, new_pts))
+
         #then, do dynamic tracks
         for track_id, dyn_association in dynamic_association.items():
+            # for key in dynamic_association.keys():
+            #     selected_points = self.laserpoints[dynamic_association[key]]
+            #     plt.scatter(selected_points[:,0], selected_points[:,1])
+            # plt.show()
             if dyn_association != {}:
                 track = self.state.dynamic_tracks[track_id]
                 # print("Track id {}, Track boundary std {}".format(track_id, np.std(track.xp, axis = 0)))
@@ -125,7 +131,6 @@ class lidarUpdater:
                 pairs = np.array([*dynamic_point_pairs[track_id]])
                 initial_association = np.zeros((2, len(tgt_points)))
                 initial_association[0] = np.arange(len(tgt_points))
-                breakpoint()
                 initial_association[1, pairs[:,0]] = pairs[:,1]
 
                 self.jcbb.assign_values(xs = self.state.xs, scan_data = self.polar_laser_points[tgt_points], track = track.kf.x, P = track.kf.P[0:2,0:2], static=False, psi=self.state.xs[2])

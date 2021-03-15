@@ -35,13 +35,13 @@ class Tracker:
         self.id = idx
         self.state = State()
         self.dt = dt
-        
+
     def update(self, obs, time):
         if obs["LiDAR"]:
             self.lidar_callback(obs["scans"][self.id], time)
         if obs["Odom"]:
             self.odom_callback(obs, time)
-    
+
     def lidar_callback(self, data, time):
         # dt = time - self.prev_Lidar_callback_time
         dt = self.dt

@@ -16,6 +16,9 @@ class Coarse_Association():
         self.state = state
         self.C, self.C_roots_arr = self.cl.cluster(lidar)
         print("clusters:", len(self.C))
+        with open('lidar.npy', 'wb') as f:
+            np.save(f, lidar)
+
         if self.state.static_background.xb.size != 0:
             C_static_prev, C_static_prev_roots_arr = self.cl.cluster(self.state.static_background.xb)
             A, static_point_pairs = self.associateAndUpdateWithStatic(lidar)
@@ -32,10 +35,15 @@ class Coarse_Association():
             dynamic_associations = {}
             for key, track in self.state.dynamic_tracks.items():
                 dynanmic_P = track.xp+track.kf.x[0:2]
+                with open('dynamic.npy', 'wb') as f:
+                    np.save(f, dynanmic_P)
+                plt.scatter(dynanmic_P[:,0],dynanmic_P[:,1])
+                plt.show()
                 #6. (x, P, A) <- ASSOCIATEANDUPDATEWITHDYNAMIC(x, P, C, i)
                 A_d, point_pairs = self.associateAndUpdateWithDynamic(lidar, dynanmic_P)
+                breakpoint()
                 dynamic_associations[key] = A_d
-                print("dynamic_associations[key]:",dynamic_associations[key])
+                #print("dynamic_associations[key]:",dynamic_associations[key])
                 dynamic_point_pairs[key] = point_pairs
                 # #7. C <- C/A
                 # for key in A_d.keys():
@@ -56,6 +64,7 @@ class Coarse_Association():
         # plt.show()
         # print("Ad {}".format(A_d))
         print("new tracks:",len(new_tracks),"dynamic tracks:",len(dynamic_associations))
+        print(dynamic_associations)
         return A, static_point_pairs, dynamic_associations, dynamic_point_pairs, new_tracks #A_d, new_tracks
 
     def associateAndUpdateWithStatic(self, lidar):
@@ -77,8 +86,15 @@ class Coarse_Association():
         print(len(self.C))
         icp_obj = perception.icp.ICP()
         indicies, point_pairs = icp_obj.run(lidar_dynamic_prev, lidar) #outputs indicies corresponding to points in lidar associated with nn in lidar_prev
+        print("indicies:", indicies)
+        print("len(indicies):",len(indicies))
+        print("point_pairs", point_pairs)
+        print("len(ipoint_pairs)", len(point_pairs))
         C_dynamic_prev_roots = list(dict.fromkeys(C_dynamic_prev_roots_arr))
         self.C_roots = list(dict.fromkeys(self.C_roots_arr))
+        print("self.C_roots:",self.C_roots)
+
+        print("C_dynamic_prev_roots", C_dynamic_prev_roots)
         matched_b_indices = []
         # print("dynamic roots:",C_dynamic_prev_roots)
         # print("C roots:",self.C_roots)
@@ -109,6 +125,7 @@ class Coarse_Association():
                     matched_b_indices.append(-1)
                 else:
                     # we only allow one to one matching
+                    #breakpoint()
                     if matched_b_index in matched_b_indices:  # if someone else is matched
                         exist_i = matched_b_indices.index(matched_b_index)
                         # if i am bigger
@@ -125,6 +142,7 @@ class Coarse_Association():
                 matched_b_indices.append(-1)
 
         matched = np.array(matched_b_indices)
+        #breakpoint()
         print("matched:",matched)
         not_dynamic_C_idx = [i for i, x in enumerate(matched) if x == -1]
         if (len(not_dynamic_C_idx) > 0):
@@ -146,6 +164,7 @@ class Coarse_Association():
 
         print("total clusters - static - dynamic clusters:", len(self.C))
         print(C_dynamic)
+        #breakpoint()
         return C_dynamic, point_pairs
         # icp_obj = perception.icp.ICP()
         # dynamic_C = {}
