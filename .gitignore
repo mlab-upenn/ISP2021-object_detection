@@ -128,11 +128,31 @@ dmypy.json
 # Pyre type checker
 .pyre/
 
+<<<<<<< HEAD
+=======
+
+>>>>>>> ea539fec56ee5a21aeaf97850928ec36d5b6f482
+#gym
+f1tenthgym/
+Melbourne/
+
+#iOS file
+.DS_Store
+=======
 #f1tenth gym
 /f1tenth_gym
 
 #.vscode
 ./vscode
 
-.DS_Store
-
+#testing files
+<<<<<<< HEAD
+test_ca.py
+test.py
+waypoint_follow.py
+=======
+#test_ca.py
+#test.py
+#cleaned_with_noise.npy
+#waypoint_follow.py
+>>>>>>> ea539fec56ee5a21aeaf97850928ec36d5b6f482
