@@ -85,7 +85,7 @@ def main():
     start = time.time()
 
     tracker = Tracker(0,env.timestep)
-    plot = False
+    plot = True
     if plot:
         fig, ax = plt.subplots(figsize=(6, 6))
         ax.set_xlim([-30, 30])

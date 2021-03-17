@@ -11,7 +11,7 @@ from cleanupstates import CleanUpStates
 import cv2
 import sys
 import matplotlib.pyplot as plt
-
+import time
 # from pdb import set_trace as bp
 
 class lidarUpdater:
@@ -86,6 +86,7 @@ class lidarUpdater:
         # plt.savefig("output_plots/cluster_idx{}.png".format(self.i2))
         # self.i2 += 1
         #First, do the static points.
+        print("Running coarse...")
         static_association, static_point_pairs, dynamic_association, dynamic_point_pairs, new_tracks = Coarse_Association().run(self.laserpoints, self.state)
         #check how the dynamic point pairs is working... don't want just rough associations for all the dynamic tracks.
         if len(static_point_pairs) > 0:
@@ -124,21 +125,15 @@ class lidarUpdater:
             if dyn_association != {}:
                 track = self.state.dynamic_tracks[track_id]
                 # print("Track id {}, Track boundary std {}".format(track_id, np.std(track.xp, axis = 0)))
-                print("dynamic point pairs:",dynamic_point_pairs)
                 track.update_num_viewings()
                 tgt_points = list(dyn_association.values())[0]
-                print(track_id)
                 #   dynamic_point_pairs cointains # of pairs matched from one cluster to another (can be more than
                 #   #of points in the dynamic track - len(dynamic_association) )
                 pairs = np.array([*dynamic_point_pairs[track_id]])
                 initial_association = np.zeros((2, len(tgt_points)))
                 initial_association[0] = np.arange(len(tgt_points))
                 xy, x_ind, y_ind = np.intersect1d(pairs[:,0], np.array(tgt_points), return_indices=True)
-                try:
-                    initial_association[1] = pairs[x_ind, 1]
-                except:
-                    print("Here's the error I was talking about. Print pairs and tgt_points")
-                    breakpoint()
+                initial_association[1, y_ind] = pairs[x_ind, 1]
 
                 self.jcbb.assign_values(xs = self.state.xs, scan_data = self.polar_laser_points[tgt_points], track = track.kf.x, P = track.kf.P[0:2,0:2], static=False, psi=self.state.xs[2])
                 # if track.id == 1:

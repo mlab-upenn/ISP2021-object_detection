@@ -4,7 +4,7 @@ from sklearn.neighbors import NearestNeighbors
 import sys
 import pdb
 import matplotlib.pyplot as plt
-
+import time
 class ICP:
     """
     Class Based on the ICP implementation of https://github.com/richardos/icp/blob/master/icp.py and Besl and
@@ -35,6 +35,7 @@ class ICP:
 
 
     def run(self, reference_points, points):
+        
         self.reference_points = reference_points
         self.points = points
         self.point_pairs_threshold= len(reference_points)/2
@@ -92,7 +93,7 @@ class ICP:
         # plt.scatter(self.reference_points[:,0],self.reference_points[:,1], label="reference points")
         # plt.scatter(self.points[:,0],self.points[:,1], label="incoming points")
         # plt.legend()
-        plt.show()
+        # plt.show()
         #breakpoint()
         #The association upon convergence is taken as the final association, with outlier rejection from P to Q.
         # -- outliers not in points now
