@@ -7,7 +7,7 @@ from perception.jcbb import JCBB
 from perception.helper import Helper
 from perception.init_and_merge import InitAndMerge
 from cleanupstates import CleanUpStates
-
+import time
 import cv2
 import sys
 import matplotlib.pyplot as plt
@@ -39,7 +39,9 @@ class lidarUpdater:
         self.laserpoints= np.vstack((x, y)).T
 
         # self.state.laserpoints = laserpoints
+
         new_tracks = self.associate_and_update(data, dt)
+
         for key, points in new_tracks.items():
             idx = self.state.create_new_track(self.laserpoints, points)
         
@@ -51,7 +53,6 @@ class lidarUpdater:
                 tracks_to_init_and_merge.append(track_id)
         if len(tracks_to_init_and_merge) > 0:
             self.InitAndMerge.run(tracks_to_init_and_merge, self.state)
-
     def clean_up_states(self):
         pass
 
@@ -81,8 +82,8 @@ class lidarUpdater:
         # self.i2 += 1
 
         #First, do the static points.
-
         static_association, static_point_pairs, dynamic_association, dynamic_point_pairs, new_tracks = Coarse_Association(clusters).run(self.laserpoints, self.state)
+        
         #check how the dynamic point pairs is working... don't want just rough associations for all the dynamic tracks.
         if len(static_point_pairs) > 0:
             # print("Stat point pairs {}".format(static_point_pairs.size))
@@ -110,8 +111,10 @@ class lidarUpdater:
             new_pts = np.vstack((new_pts_x, new_pts_y)).T+self.state.xs[0:2]
             self.state.static_background.xb = np.concatenate((self.state.static_background.xb, new_pts)) 
         #then, do dynamic tracks
+
         for track_id, dyn_association in dynamic_association.items():
             if dyn_association != {}:
+
                 track = self.state.dynamic_tracks[track_id]
                 # print("Track id {}, Track boundary std {}".format(track_id, np.std(track.xp, axis = 0)))
 
@@ -119,7 +122,7 @@ class lidarUpdater:
                 tgt_points = []
                 for value in dyn_association.values():
                     tgt_points = tgt_points+value
-                
+
                 pairs = np.array([*dynamic_point_pairs[track_id]])
                 initial_association = np.zeros((2, len(tgt_points)))
                 initial_association[0] = np.arange(len(tgt_points))
@@ -133,11 +136,13 @@ class lidarUpdater:
                 #     plt.scatter(track.xp[:,0]+track.kf.x[0], track.xp[:,1]+track.kf.x[1], c="orange", marker="o", alpha = 0.1, label="Boundary Points")
                 #     plt.savefig("output_plots/{}.png".format(self.i))
                 #     self.i += 1
-                
+
                 association = self.jcbb.run(initial_association, track.xp)
+
                 # sys.exit()
                 association[0] = tgt_points
                 pairings = association[:,~np.isnan(association[1])]
+
                 if pairings.shape[1] >= 3: #need 3 points to compute rigid transformation
                     self.Updater.assign_values(track, association, self.state, static=False)
                     
@@ -156,10 +161,11 @@ class lidarUpdater:
                     measurement[3] = T[0,2]/dt
                     measurement[4] = T[1,2]/dt
                     measurement[5] = angle/dt
-                    if track.id == 1:
-                        print("T {}".format(T))
-                        print("Measurement {}".format(measurement))
+                    # if track.id == 1:
+                    #     print("T {}".format(T))
+                    #     print("Measurement {}".format(measurement))
                     self.Updater.run(measurement)
+
             
             # track.xp = np.append(track.xp, unassociated_boundarypts = ??) #add to track
 

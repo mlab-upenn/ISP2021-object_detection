@@ -42,7 +42,6 @@ class JCBB:
         assert boundary_points.shape[1] == 2
         assert self.scan_data.shape[1] == 2
         # print("Boundary points shape {}".format(boundary_points.shape))
-
         individual_compatibilities = self.compute_compatibility(boundary_points)
         # np.save("P.npy", self.P)
         # np.save("xs.npy", self.xs)
@@ -79,6 +78,7 @@ class JCBB:
         chi2 = stats.chi2.ppf(self.alpha, df=dof)
         max_iter = 10
         i = 0
+
         while i < max_iter:
             curr_association = np.copy(pruned_associations)
             for index in np.arange(pruned_associations.shape[1])[~np.isnan(pruned_associations[1])]:
@@ -120,7 +120,7 @@ class JCBB:
 
             compat_boundaries[measurement] = list(selected_boundaries)
         assigned_associations = self.branch_and_bound(unassociated_measurements, minimal_association, compat_boundaries, boundary_points)
-    
+
         return assigned_associations
     
     def branch_and_bound(self, unassociated_measurements, minimal_association, compat_boundaries, boundary_points):
@@ -185,15 +185,17 @@ class JCBB:
  
     def compute_compatibility(self, boundary_points):
         #returns MxN matrix of compatibility boolean
+
         individual_compatabilities = np.zeros((self.scan_data.shape[0], boundary_points.shape[0]))
         chi2_val = stats.chi2.ppf(self.alpha, df=2)
         for i in range(self.scan_data.shape[0]):
-                
+            #Code optimization: can I do all this in one swoop with a 4d matrix??
             association = np.zeros((2, boundary_points.shape[0]))
             association[0] = i
             association[1] = np.arange(boundary_points.shape[0])
             JNIS = self.calc_JNIS(association, boundary_points, indiv=True, i = i)
             individual_compatabilities[i, np.where(JNIS<=chi2_val)] = 1
+
         return individual_compatabilities
 
 
