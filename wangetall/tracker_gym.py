@@ -44,7 +44,7 @@ class Tracker:
     
     def lidar_callback(self, data, time):
         # dt = time - self.prev_Lidar_callback_time
-        dt = self.dt
+        dt = self.dt*10
         self.prev_Lidar_callback_time = time
         self.lidarUpdater.update(dt, data, self.state)
 
@@ -65,6 +65,8 @@ class Tracker:
         self.control_input["poses_x"] = data["poses_x"][self.id]
         self.control_input["poses_y"] = data["poses_y"][self.id]
         self.control_input["poses_theta"] = data["poses_theta"][self.id]
+        self.control_input["linear_vels_x"] = data["linear_vels_x"][self.id]
+        self.control_input["linear_vels_y"] = data["linear_vels_y"][self.id]
 
         self.odom_updater.update(self.control_input, self.state)
 
@@ -77,7 +79,7 @@ def main():
 
     env = gym.make('f110_gym:f110-v0', map=conf.map_path, map_ext=conf.map_ext, num_agents=2)
     obs, step_reward, done, info = env.reset(np.array([[conf.sx, conf.sy, conf.stheta], [conf.sx2, conf.sy2, conf.stheta2]]))
-    # env.render()
+    env.render()
     planner = PurePursuitPlanner(conf, 0.17145+0.15875)
     planner2 = PurePursuitPlanner(conf, 0.17145+0.15875)
 
@@ -124,7 +126,7 @@ def main():
 
         obs, step_reward, done, info = env.step(np.array([[steer, speed], [steer2, speed2]]))
         laptime += step_reward
-        # env.render(mode='human')
+        env.render(mode='human')
         count += 1
     print('Sim elapsed time:', laptime, 'Real elapsed time:', time.time()-start)
 

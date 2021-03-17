@@ -8,7 +8,7 @@ from perception.helper import Helper
 from perception.init_and_merge import InitAndMerge
 from cleanupstates import CleanUpStates
 import time
-import cv2
+from skimage.transform import estimate_transform
 import sys
 import matplotlib.pyplot as plt
 class lidarUpdater:
@@ -62,7 +62,7 @@ class lidarUpdater:
         F = self.calc_F(dt)
         Q = self.calc_Q(dt)
 
-        for id, track in self.state.dynamic_tracks.items():
+        for idx, track in self.state.dynamic_tracks.items():
             track.kf.F = F
             track.kf.Q = Q
             track.kf.predict()
@@ -88,16 +88,15 @@ class lidarUpdater:
         if len(static_point_pairs) > 0:
             # print("Stat point pairs {}".format(static_point_pairs.size))
             P_static_sub = self.state.static_background.kf.P
-            tgt_points = []
-            for key, value in static_association.items():
-                tgt_points = tgt_points+value
-            print("Tgt pts shape {}".format(len(tgt_points)))
+            tgt_points = list(static_association.values())[0]
+
+            # print("Tgt pts shape {}".format(len(tgt_points)))
             pairs = np.array([*static_point_pairs]).T
-            print("pairs shape {}".format(pairs.shape))
+            # print("pairs shape {}".format(pairs.shape))
             initial_association = np.zeros((2, len(tgt_points)))
             initial_association[0] = np.arange(len(tgt_points))
-            #tiebreaker?
-            initial_association[1, pairs[:,0]] = pairs[:,1]
+            xy, x_ind, y_ind = np.intersect1d(pairs[:,0], np.array(tgt_points), return_indices=True)
+            initial_association[1, y_ind] = pairs[x_ind, 1]
             self.jcbb.assign_values(xs = self.state.xs, scan_data = self.polar_laser_points[tgt_points], track=None, P = P_static_sub, static=True, psi=self.state.xs[2])
             association = self.jcbb.run(initial_association, self.state.static_background.xb)
                 
@@ -119,14 +118,13 @@ class lidarUpdater:
                 # print("Track id {}, Track boundary std {}".format(track_id, np.std(track.xp, axis = 0)))
 
                 track.update_num_viewings()
-                tgt_points = []
-                for value in dyn_association.values():
-                    tgt_points = tgt_points+value
+                tgt_points = list(dyn_association.values())[0]
 
                 pairs = np.array([*dynamic_point_pairs[track_id]])
                 initial_association = np.zeros((2, len(tgt_points)))
                 initial_association[0] = np.arange(len(tgt_points))
-                initial_association[1, pairs[:,0]] = pairs[:,1]
+                xy, x_ind, y_ind = np.intersect1d(pairs[:,0], np.array(tgt_points), return_indices=True)
+                initial_association[1, y_ind] = pairs[x_ind, 1]
 
                 self.jcbb.assign_values(xs = self.state.xs, scan_data = self.polar_laser_points[tgt_points], track = track.kf.x, P = track.kf.P[0:2,0:2], static=False, psi=self.state.xs[2])
                 # if track.id == 1:
@@ -151,19 +149,32 @@ class lidarUpdater:
 
                     selected_scan_x, selected_scan_y = Helper.convert_scan_polar_cartesian_joint(selected_scan_pts)
                     selected_scan_cartesian = np.vstack((selected_scan_x, selected_scan_y)).T+self.state.xs[0:2]
-                    M = cv2.estimateAffinePartial2D(selected_bndr_pts, selected_scan_cartesian)
-                    T = M[0]
-                    angle= np.arctan2(T[1,0], T[0,0])
-                    measurement = np.zeros((6))
-                    measurement[0] = track.kf.x[0]+T[0,2]
-                    measurement[1] = track.kf.x[1]+T[1,2]
-                    measurement[2] = (track.kf.x[2]+angle)%np.pi
-                    measurement[3] = T[0,2]/dt
-                    measurement[4] = T[1,2]/dt
-                    measurement[5] = angle/dt
+                    boundaries_centroid = np.mean(selected_bndr_pts, axis = 0)
+                    boundaries_adjusted = selected_bndr_pts - boundaries_centroid
+                    scans_adjusted = selected_scan_cartesian-boundaries_centroid
+                    tform = estimate_transform("euclidean", boundaries_adjusted, scans_adjusted)
+                    # breakpoint()
                     # if track.id == 1:
-                    #     print("T {}".format(T))
-                    #     print("Measurement {}".format(measurement))
+                    #     plt.figure()
+                    #     plt.xlim(-15, 15)
+                    #     plt.ylim(-15,15)
+                    #     plt.scatter(selected_scan_x, selected_scan_y, c="b", marker="o", alpha = 0.5, label="Scan Data")
+                    #     plt.scatter(selected_bndr_pts[:,0], selected_bndr_pts[:,1], c="orange", marker="o", alpha = 0.1, label="Boundary Points")
+                    #     plt.show()    
+
+                    angle= tform.rotation
+                    measurement = np.zeros((6))
+                    measurement[0] = track.kf.x[0]+tform.translation[0]
+                    measurement[1] = track.kf.x[1]+tform.translation[1]
+                    measurement[2] = (track.kf.x[2]+angle)%np.pi
+                    measurement[3] = tform.translation[0]/dt + self.state.xs[3]
+                    measurement[4] = tform.translation[1]/dt + self.state.xs[4]
+                    measurement[5] = angle
+                    if track.id == 1:
+                        print("Received a new reading!")
+                        # print("Self state vel x {}, vely {}".format(self.state.xs[3], self.state.xs[4]))
+                        # print("Tform {}".format(tform))
+                        # print("Measurement {}".format(measurement[3:5]))
                     self.Updater.run(measurement)
 
             

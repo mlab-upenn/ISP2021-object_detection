@@ -1,8 +1,36 @@
 import numpy as np
+from skimage.transform import estimate_transform
 
-y = np.zeros((2, 520))
-x = [(455, 2), (456, 2), (457, 0), (458, 0), (459, 0), (460, 0), (461, 0), (462, 0), (463, 0), (464, 0), (465, 0), (466, 0), (467, 0), (468, 0), (469, 0), (470, 0), (471, 0), (472, 0), (473, 0), (474, 0), (475, 0), (476, 0), (477, 0), (478, 0), (479, 0), (480, 0), (481, 0), (482, 0), (483, 0), (484, 0), (485, 0), (486, 0), (487, 0), (488, 0), (489, 0), (490, 0), (491, 0), (492, 0), (493, 0), (494, 0), (495, 0), (496, 0), (497, 0), (498, 0), (499, 0), (500, 0), (501, 0), (502, 0), (503, 0), (504, 0), (505, 0), (506, 0), (507, 0), (508, 0), (509, 0), (510, 0), (511, 0), (512, 0), (513, 0), (514, 0), (515, 0), (516, 0), (517, 0), (518, 0)]
-p = np.array([*x])
+import matplotlib.pyplot as plt
+boundaries = np.load("boundaries.npy")
+boundaries_centroid = np.mean(boundaries, axis = 0)
+scans = np.load("scans.npy")-boundaries_centroid
+boundaries = boundaries - boundaries_centroid
 
-print(p)
-y[1,p[:,0]] = p[:,1]
+# boundaries = np.arange(20).reshape((10,2))
+
+# scans = boundaries + [1,2]
+
+tform = estimate_transform("euclidean", boundaries, scans)
+theta = tform.rotation
+print(theta)
+R = np.array([[np.cos(theta), -np.sin(theta)],[np.sin(theta), np.cos(theta)]])
+print(tform.translation)
+
+# b = np.ones((boundaries.shape[0], 3))
+# b[:,0:2]= boundaries
+shifted_b = tform(boundaries)
+test = (boundaries.T+np.array([[tform.translation[0]], [tform.translation[1]]])).T
+# plt.xlim(-0.5, 0.5)
+# plt.ylim(-0.5,0.5)
+plt.gca().set_aspect('equal', adjustable='box')
+plt.scatter(scans[:,0], scans[:,1], c="b", marker="o", alpha =0.5, label="Scan Data")
+plt.scatter(boundaries[:,0], boundaries[:,1], c="orange", marker="o", alpha = 1, label="Boundary Points")
+plt.scatter(shifted_b[:,0], shifted_b[:,1], c="green", marker="o", alpha = 0.5, label="Shifted")
+
+plt.scatter(test[:,0], test[:,1], c="purple", marker="o", alpha = 0.5, label="Test")
+
+plt.legend()
+
+plt.show()
+
