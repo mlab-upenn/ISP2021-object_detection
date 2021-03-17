@@ -86,23 +86,17 @@ class lidarUpdater:
         # plt.savefig("output_plots/cluster_idx{}.png".format(self.i2))
         # self.i2 += 1
         #First, do the static points.
-        print("Running coarse...")
         static_association, static_point_pairs, dynamic_association, dynamic_point_pairs, new_tracks = Coarse_Association().run(self.laserpoints, self.state)
         #check how the dynamic point pairs is working... don't want just rough associations for all the dynamic tracks.
         if len(static_point_pairs) > 0:
             # print("Stat point pairs {}".format(static_point_pairs.size))
             P_static_sub = self.state.static_background.kf.P
-            tgt_points = []
-            for key, value in static_association.items():
-                tgt_points = tgt_points+value
-            print("Tgt pts shape {}".format(len(tgt_points)))
+            tgt_points = list(static_association.values())
             pairs = np.array([*static_point_pairs]).T
-            print("pairs shape {}".format(pairs.shape))
             initial_association = np.zeros((2, len(tgt_points)))
             initial_association[0] = np.arange(len(tgt_points))
-            #tiebreaker?
-            # bp()
-            initial_association[1, pairs[:,0]] = pairs[:,1]
+            xy, x_ind, y_ind = np.intersect1d(pairs[:,0], np.array(tgt_points), return_indices=True)
+            initial_association[1, y_ind] = pairs[x_ind, 1]
             self.jcbb.assign_values(xs = self.state.xs, scan_data = self.polar_laser_points[tgt_points], track=None, P = P_static_sub, static=True, psi=self.state.xs[2])
             association = self.jcbb.run(initial_association, self.state.static_background.xb)
 
