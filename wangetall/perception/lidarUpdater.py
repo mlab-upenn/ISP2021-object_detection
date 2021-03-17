@@ -130,11 +130,12 @@ class lidarUpdater:
                 for value in dyn_association.values():
                     tgt_points = tgt_points+value
                 print(track_id)
-
+                #   dynamic_point_pairs cointains # of pairs matched from one cluster to another (can be more than
+                #   #of points in the dynamic track - len(dynamic_association) )
                 pairs = np.array([*dynamic_point_pairs[track_id]])
                 initial_association = np.zeros((2, len(tgt_points)))
                 initial_association[0] = np.arange(len(tgt_points))
-                #bp()
+                breakpoint()
                 initial_association[1, pairs[:,0]] = pairs[:,1]
 
                 self.jcbb.assign_values(xs = self.state.xs, scan_data = self.polar_laser_points[tgt_points], track = track.kf.x, P = track.kf.P[0:2,0:2], static=False, psi=self.state.xs[2])
