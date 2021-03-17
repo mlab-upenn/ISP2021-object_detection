@@ -17,8 +17,8 @@ class Cluster:
 
     def cluster(self, points):
         tree = self.EMST(points)
-        clusters = self.EGBIS(tree, points)
-        return clusters
+        clusters, roots_arr = self.EGBIS(tree, points)
+        return clusters, roots_arr
 
     def EMST(self, points):
         #https://en.wikipedia.org/wiki/Euclidean_minimum_spanning_tree
@@ -114,11 +114,12 @@ class Cluster:
                     thresholds[component_i] = w + self.get_tau(segmentation.size(component_i))
 
         components = segmentation.get_components()
+        roots_arr = segmentation.get_root_arr()
 
-        return components
+        return components, roots_arr
 
     def get_tau(self, size):
-        k = 10
+        k = 50
         return k/size
 
 class Universe:
@@ -157,6 +158,20 @@ class Universe:
             components_dict[parent].append(i)
         return components_dict
 
+    def get_root_arr(self):
+        out_arr = np.zeros((self.num_vertices))
+        for i in range(self.num_vertices):
+            parent = self.find(i)
+            out_arr[i] = parent
+
+        return out_arr
+
+    # def get_components(self):
+    #     out_arr = np.zeros((self.num_vertices))
+    #     for i in range(self.num_vertices):
+    #         parent = self.find(i)
+    #         out_arr[i] = parent
+    #     return out_arr
 
 
 # def get_cmap(n, name='hsv'):
@@ -170,7 +185,7 @@ if __name__ == "__main__":
     cl = Cluster()
 
     clusters = cl.cluster(points)
-    print(clusters.keys())
+    # print(clusters.keys())
     # print(clusters)
 
 

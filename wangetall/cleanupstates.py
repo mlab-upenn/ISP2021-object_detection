@@ -22,8 +22,8 @@ class CleanUpStates():
 
 
     def removeOutOfRange(self):
-        mask = (self.Q_s[:,0] - self.lidar_center_x)**2 + (self.Q_s[:,1] - self.lidar_center_y)**2 < self.lidar_range**2
-        within_radius = self.Q_s[mask,:]
+        mask = (self.Q_s[0][:,0] - self.lidar_center_x)**2 + (self.Q_s[0][:,1] - self.lidar_center_y)**2 < self.lidar_range**2
+        within_radius = self.Q_s[0][mask,:]
 
         return within_radius
 
