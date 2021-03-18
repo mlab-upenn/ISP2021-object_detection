@@ -1,36 +1,45 @@
 import numpy as np
 from skimage.transform import estimate_transform
-
 import matplotlib.pyplot as plt
-boundaries = np.load("boundaries.npy")
-boundaries_centroid = np.mean(boundaries, axis = 0)
-scans = np.load("scans.npy")-boundaries_centroid
-boundaries = boundaries - boundaries_centroid
+from scipy.spatial.distance import cdist
+from scipy.optimize import linear_sum_assignment
 
-# boundaries = np.arange(20).reshape((10,2))
+pts = np.load("pts.npy")
+refs = np.load("ref.npy")
 
-# scans = boundaries + [1,2]
+C = cdist(pts, refs)
+print(refs.shape)
+print(pts.shape)
+print(C.shape)
+_, assigment = linear_sum_assignment(C)
 
-tform = estimate_transform("euclidean", boundaries, scans)
-theta = tform.rotation
-print(theta)
-R = np.array([[np.cos(theta), -np.sin(theta)],[np.sin(theta), np.cos(theta)]])
-print(tform.translation)
+if pts.shape[0] < refs.shape[0]:
+    N = pts.shape[0]
+else:
+    N = refs.shape[0]
 
-# b = np.ones((boundaries.shape[0], 3))
-# b[:,0:2]= boundaries
-shifted_b = tform(boundaries)
-test = (boundaries.T+np.array([[tform.translation[0]], [tform.translation[1]]])).T
-# plt.xlim(-0.5, 0.5)
-# plt.ylim(-0.5,0.5)
-plt.gca().set_aspect('equal', adjustable='box')
-plt.scatter(scans[:,0], scans[:,1], c="b", marker="o", alpha =0.5, label="Scan Data")
-plt.scatter(boundaries[:,0], boundaries[:,1], c="orange", marker="o", alpha = 1, label="Boundary Points")
-plt.scatter(shifted_b[:,0], shifted_b[:,1], c="green", marker="o", alpha = 0.5, label="Shifted")
 
-plt.scatter(test[:,0], test[:,1], c="purple", marker="o", alpha = 0.5, label="Test")
+validIdxs = [i for i in range(N) if C[i, assigment[i]]<10]
+pairs = np.zeros((len(validIdxs),2, 2))
+pairs[:,:,0] = pts[validIdxs]
+pairs[:,:,1] = refs[assigment[validIdxs]]
+print(assigment.shape)
 
-plt.legend()
-
+plt.plot(pts[:,0], pts[:,1],'bo', markersize = 10)
+plt.plot(refs[:,0], refs[:,1],'rs',  markersize = 7)
+for p in range(refs.shape[0]):
+    plt.plot([pts[p,0], refs[assigment[p],0]], [pts[p,1], refs[assigment[p],1]], 'k')
+# plt.xlim(-1.1,1.1)
+# plt.ylim(-1.1,1.1)
+plt.axes().set_aspect('equal')
 plt.show()
 
+# x = [[(0,0), (0.1,0.1)],[(2,2), (2.1, 2.1)], [(3,3), (3.1, 3.1)]]
+# t = np.array(x)
+# print(t)
+# print(t[:,0,:])
+# print(t.shape)
+
+# tform = estimate_transform("euclidean", t[:,0,:], t[:,1,:])
+# dx, dy = tform.translation
+# print(dx)

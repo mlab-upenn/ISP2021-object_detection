@@ -1,6 +1,10 @@
 import numpy as np
 import math
 from sklearn.neighbors import NearestNeighbors
+from skimage.transform import estimate_transform
+from scipy.spatial.distance import cdist
+from scipy.optimize import linear_sum_assignment
+import matplotlib.pyplot as plt
 import sys
 class ICP:
     """
@@ -26,31 +30,47 @@ class ICP:
         Testing out with the params
         """
         self.max_iterations=30
-        self.distance_threshold=10
+        self.distance_threshold=0.5
         self.convergence_translation_threshold=1e-3
         self.convergence_rotation_threshold=1e-4
-        self.point_pairs_threshold=0
+        self.point_pairs_threshold=2
 
-    def run(self, reference_points, points):
+    def run(self, reference_points, points, key = None, trackid = None):
         self.reference_points = reference_points
         self.points = points
-        nbrs = NearestNeighbors(n_neighbors=1, algorithm='kd_tree').fit(self.reference_points)
+        # nbrs = NearestNeighbors(n_neighbors=1, algorithm='kd_tree').fit(self.reference_points)
 
         for iter_num in range(self.max_iterations):
             #print('------ iteration', iter_num, '------')
             static=  False
 
-            closest_point_pairs = []
+            # closest_point_pairs = []
             closest_point_pairs_idxs = []
+            C = cdist(self.points, self.reference_points)
+            try:
+                _, assignment = linear_sum_assignment(C)
+            except ValueError:
+                print(C)
+                breakpoint()
+            if self.points.shape[0] < self.reference_points.shape[0]:
+                N = self.points.shape[0]
+            else:
+                N = self.reference_points.shape[0]
+            validIdxs = [i for i in range(N) if C[i, assignment[i]]<self.distance_threshold]
+            closest_point_pairs = np.zeros((len(validIdxs),2, 2))
+            closest_point_pairs[:,:,0] = self.points[validIdxs]
+            closest_point_pairs[:,:,1] = self.reference_points[assignment[validIdxs]]
+            for idx in validIdxs:
+                closest_point_pairs_idxs.append((idx, assignment[idx]))
+            # if key == 129 and trackid == 2:
+            #     plt.figure()
+            #     plt.plot(self.points[:,0], self.points[:,1],'bo', markersize = 10)
+            #     plt.plot(self.reference_points[:,0], self.reference_points[:,1],'rs',  markersize = 7)
+            #     for p in range(N):
+            #         plt.plot([self.points[p,0], self.reference_points[assignment[p],0]], [self.points[p,1], self.reference_points[assignment[p],1]], 'k')
+            #     plt.show()
+            #     breakpoint()
 
-              # list of point correspondences for closest point rule
-            distances, indices = nbrs.kneighbors(self.points)
-            # Step 1: A point in P is associated to its nearest neighbour in Q if their distance is within a certain threshold,
-            for nn_index in range(len(distances)):
-                if distances[nn_index][0] < self.distance_threshold: # ELSE OUTLIER?
-                    closest_point_pairs.append((self.points[nn_index], self.reference_points[indices[nn_index][0]]))
-                    closest_point_pairs_idxs.append((nn_index, indices[nn_index][0]))
-                    # otherwise it is discarded as an outlier for this iteration and become unassociated to any point in Q.
 
             # if only few point pairs, stop process
             #print('number of pairs found:', len(closest_point_pairs))
@@ -59,21 +79,26 @@ class ICP:
                 break
 
             # All associations obtained in this way are used to estimate a transform that aligns the point set P to Q.
-            closest_rot_angle, closest_translation_x, closest_translation_y = self.point_based_matching(closest_point_pairs)
-
-            if closest_rot_angle is None or closest_translation_x is None or closest_translation_y is None:
+            # closest_rot_angle, closest_translation_x, closest_translation_y = self.point_based_matching(closest_point_pairs)
+            if len(closest_point_pairs) == 0:
                 #print('No better solution can be found!')
                 break
 
-            #T he points in P are then updated to their new positions with the estimated transform
-            c, s = math.cos(closest_rot_angle), math.sin(closest_rot_angle)
-            rot = np.array([[c, -s],
-                            [s, c]])
-            aligned_points = np.dot(self.points, rot.T)
-            aligned_points[:, 0] += closest_translation_x
-            aligned_points[:, 1] += closest_translation_y
 
-            self.points = aligned_points
+            tform = estimate_transform("euclidean", closest_point_pairs[:,:,0], closest_point_pairs[:,:,1])
+            closest_rot_angle = tform.rotation
+            closest_translation_x, closest_translation_y = tform.translation
+
+            #T he points in P are then updated to their new positions with the estimated transform
+
+            # c, s = math.cos(closest_rot_angle), math.sin(closest_rot_angle)
+            # rot = np.array([[c, -s],
+            #                 [s, c]])
+            # aligned_points = np.dot(self.points, rot.T)
+            # aligned_points[:, 0] += closest_translation_x
+            # aligned_points[:, 1] += closest_translation_y
+
+            self.points = tform(self.points)
 
             # and the loop continues until convergence
             if (abs(closest_rot_angle) < self.convergence_rotation_threshold) \

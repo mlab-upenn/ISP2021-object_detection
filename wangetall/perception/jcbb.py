@@ -42,6 +42,7 @@ class JCBB:
         assert boundary_points.shape[1] == 2
         assert self.scan_data.shape[1] == 2
         # print("Boundary points shape {}".format(boundary_points.shape))
+        # print("Scan data shape {}".format(self.scan_data.shape))
         individual_compatibilities = self.compute_compatibility(boundary_points)
         # np.save("P.npy", self.P)
         # np.save("xs.npy", self.xs)

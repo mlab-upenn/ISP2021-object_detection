@@ -128,20 +128,18 @@ class lidarUpdater:
                 initial_association[0] = np.arange(len(tgt_points))
                 xy, x_ind, y_ind = np.intersect1d(pairs[:,0], np.array(tgt_points), return_indices=True)
                 initial_association[1, y_ind] = pairs[x_ind, 1]
-
                 self.jcbb.assign_values(xs = self.state.xs, scan_data = self.polar_laser_points[tgt_points], track = track.kf.x, P = track.kf.P[0:2,0:2], static=False, psi=self.state.xs[2])
-                if track.id == 2:
-                    scan_x, scan_y = Helper.convert_scan_polar_cartesian_joint(self.polar_laser_points[tgt_points])
-                    plt.figure()
-                    # plt.xlim(-15,15)
-                    # plt.ylim(-15,15)
-                    plt.scatter(scan_x, scan_y, c="b", marker="o", alpha = 0.5, label="Scan Data")
-                    plt.scatter(track.xp[:,0]+track.kf.x[0], track.xp[:,1]+track.kf.x[1], c="orange", marker="o", alpha = 0.1, label="Boundary Points")
-                    # plt.savefig("output_plots/{}.png".format(self.i))
-                    self.i += 1
+                # if track.id == 2:
+                #     scan_x, scan_y = Helper.convert_scan_polar_cartesian_joint(self.polar_laser_points[tgt_points])
+                #     plt.figure()
+                #     # plt.xlim(-15,15)
+                #     # plt.ylim(-15,15)
+                #     plt.scatter(scan_x, scan_y, c="b", marker="o", alpha = 0.5, label="Scan Data")
+                #     plt.scatter(track.xp[:,0]+track.kf.x[0], track.xp[:,1]+track.kf.x[1], c="orange", marker="o", alpha = 0.1, label="Boundary Points")
+                #     plt.savefig("output_plots/{}.png".format(self.i))
+                #     self.i += 1
 
                 association = self.jcbb.run(initial_association, track.xp)
-
                 # sys.exit()
                 association[0] = tgt_points
                 pairings = association[:,~np.isnan(association[1])]

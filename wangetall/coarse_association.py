@@ -27,6 +27,7 @@ class Coarse_Association():
 
     def run(self, Z, state): #Q_d, dynamic_tracks_dict):
         #3.: (x, P, A) <- ASSOCIATEANDUPDATEWITHSTATIC(x, P, C)
+
         self.state=state
         if self.state.static_background.xb.size != 0:
             A, static_point_pairs = self.associateAndUpdateWithStatic(Z)
@@ -38,17 +39,19 @@ class Coarse_Association():
             static_point_pairs = []
 
         #5. for i = 1,2,.,Nt do
+        used_clusters = set()
         if len(self.state.dynamic_tracks) != 0:
             dynamic_point_pairs = {}
             dynamic_associations = {}
             for key, track in self.state.dynamic_tracks.items():
                 dynamic_P = track.xp+track.kf.x[0:2]
-                A_d, point_pairs = self.associateAndUpdateWithDynamic(Z, dynamic_P)
+                A_d, point_pairs = self.associateAndUpdateWithDynamic(Z, dynamic_P, track.id)
                 dynamic_associations[key] = A_d
                 dynamic_point_pairs[key] = point_pairs
                 #7. C <- C/A
-                for key in A_d.keys():
-                    del self.C[key]
+                used_clusters.add(key)
+                # for key in A_d.keys():
+                #     del self.C[key]
         else:
             dynamic_associations = {}
             dynamic_point_pairs = {}
@@ -56,8 +59,9 @@ class Coarse_Association():
         new_tracks = {}
         for key in self.C.keys():
             #10. (x, P) INITIALISENEWTRACK(x, P, C)
-            # P = Z[self.C[key]]
-            new_tracks[key] = self.C[key]
+            # new_tracks[key] = self.C[key]
+            if key not in used_clusters:
+                new_tracks[key] = self.C[key]
         # breakpoint()
         return A, static_point_pairs, dynamic_associations, dynamic_point_pairs, new_tracks #A_d, new_tracks
 
@@ -73,12 +77,12 @@ class Coarse_Association():
                     static_C[key] = self.C[key]
         return static_C, point_pairs
 
-    def associateAndUpdateWithDynamic(self, Z, points):
+    def associateAndUpdateWithDynamic(self, Z, points, trackid):
         dynamic_C = {}
         point_idx_pairs = []
         for key in self.C.keys():
             P = Z[self.C[key]]
-            dynamic, point_pairs = self.ICP.run(points, P)
+            dynamic, point_pairs = self.ICP.run(points, P, key, trackid)
             if dynamic:
                 dynamic_C[key] = self.C[key]
                 point_idx_pairs = point_idx_pairs+point_pairs
