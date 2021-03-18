@@ -88,7 +88,7 @@ class lidarUpdater:
         if len(static_point_pairs) > 0:
             # print("Stat point pairs {}".format(static_point_pairs.size))
             P_static_sub = self.state.static_background.kf.P
-            tgt_points = list(static_association.values())[0]
+            tgt_points = [point for association in list(static_association.values()) for point in association]
 
             # print("Tgt pts shape {}".format(len(tgt_points)))
             pairs = np.array([*static_point_pairs]).T
