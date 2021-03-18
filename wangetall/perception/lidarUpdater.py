@@ -130,6 +130,8 @@ class lidarUpdater:
                 # if track.id == 1:
                 #     scan_x, scan_y = Helper.convert_scan_polar_cartesian_joint(self.polar_laser_points[tgt_points])
                 #     plt.figure()
+                #     plt.xlim(-15,15)
+                #     plt.ylim(-15,15)
                 #     plt.scatter(scan_x, scan_y, c="b", marker="o", alpha = 0.5, label="Scan Data")
                 #     plt.scatter(track.xp[:,0]+track.kf.x[0], track.xp[:,1]+track.kf.x[1], c="orange", marker="o", alpha = 0.1, label="Boundary Points")
                 #     plt.savefig("output_plots/{}.png".format(self.i))
@@ -154,13 +156,6 @@ class lidarUpdater:
                     scans_adjusted = selected_scan_cartesian-boundaries_centroid
                     tform = estimate_transform("euclidean", boundaries_adjusted, scans_adjusted)
                     # breakpoint()
-                    # if track.id == 1:
-                    #     plt.figure()
-                    #     plt.xlim(-15, 15)
-                    #     plt.ylim(-15,15)
-                    #     plt.scatter(selected_scan_x, selected_scan_y, c="b", marker="o", alpha = 0.5, label="Scan Data")
-                    #     plt.scatter(selected_bndr_pts[:,0], selected_bndr_pts[:,1], c="orange", marker="o", alpha = 0.1, label="Boundary Points")
-                    #     plt.show()    
 
                     angle= tform.rotation
                     measurement = np.zeros((6))
