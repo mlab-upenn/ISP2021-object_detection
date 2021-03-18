@@ -49,7 +49,9 @@ class Coarse_Association():
                 dynamic_associations[key] = A_d
                 dynamic_point_pairs[key] = point_pairs
                 #7. C <- C/A
-                used_clusters.add(key)
+                for key in A_d.keys():
+                    print("Used {}".format(key))
+                    used_clusters.add(key)
                 # for key in A_d.keys():
                 #     del self.C[key]
         else:
