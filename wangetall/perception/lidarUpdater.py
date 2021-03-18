@@ -113,12 +113,14 @@ class lidarUpdater:
 
         for track_id, dyn_association in dynamic_association.items():
             if dyn_association != {}:
+                # if track_id == 1:
+                #     breakpoint()
 
                 track = self.state.dynamic_tracks[track_id]
                 # print("Track id {}, Track boundary std {}".format(track_id, np.std(track.xp, axis = 0)))
 
                 track.update_num_viewings()
-                tgt_points = list(dyn_association.values())[0]
+                tgt_points = [point for association in list(dyn_association.values()) for point in association]
 
                 pairs = np.array([*dynamic_point_pairs[track_id]])
                 initial_association = np.zeros((2, len(tgt_points)))
@@ -127,15 +129,15 @@ class lidarUpdater:
                 initial_association[1, y_ind] = pairs[x_ind, 1]
 
                 self.jcbb.assign_values(xs = self.state.xs, scan_data = self.polar_laser_points[tgt_points], track = track.kf.x, P = track.kf.P[0:2,0:2], static=False, psi=self.state.xs[2])
-                # if track.id == 1:
-                #     scan_x, scan_y = Helper.convert_scan_polar_cartesian_joint(self.polar_laser_points[tgt_points])
-                #     plt.figure()
-                #     plt.xlim(-15,15)
-                #     plt.ylim(-15,15)
-                #     plt.scatter(scan_x, scan_y, c="b", marker="o", alpha = 0.5, label="Scan Data")
-                #     plt.scatter(track.xp[:,0]+track.kf.x[0], track.xp[:,1]+track.kf.x[1], c="orange", marker="o", alpha = 0.1, label="Boundary Points")
-                #     plt.savefig("output_plots/{}.png".format(self.i))
-                #     self.i += 1
+                if track.id == 1:
+                    scan_x, scan_y = Helper.convert_scan_polar_cartesian_joint(self.polar_laser_points[tgt_points])
+                    # plt.figure()
+                    # plt.xlim(-15,15)
+                    # plt.ylim(-15,15)
+                    plt.scatter(scan_x, scan_y, c="b", marker="o", alpha = 0.5, label="Scan Data")
+                    plt.scatter(track.xp[:,0]+track.kf.x[0], track.xp[:,1]+track.kf.x[1], c="orange", marker="o", alpha = 0.1, label="Boundary Points")
+                    plt.savefig("output_plots/{}.png".format(self.i))
+                    self.i += 1
 
                 association = self.jcbb.run(initial_association, track.xp)
 

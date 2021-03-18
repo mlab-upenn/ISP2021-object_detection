@@ -42,8 +42,8 @@ class Coarse_Association():
             dynamic_point_pairs = {}
             dynamic_associations = {}
             for key, track in self.state.dynamic_tracks.items():
-                dynamic_P = track.xp+track.kf.x[0:2]
-                A_d, point_pairs = self.associateAndUpdateWithDynamic(Z, dynamic_P)
+                dynanmic_P = track.xp+track.kf.x[0:2]
+                A_d, point_pairs = self.associateAndUpdateWithDynamic(Z, dynanmic_P)
                 dynamic_associations[key] = A_d
                 dynamic_point_pairs[key] = point_pairs
                 #7. C <- C/A
@@ -58,7 +58,7 @@ class Coarse_Association():
             #10. (x, P) INITIALISENEWTRACK(x, P, C)
             # P = Z[self.C[key]]
             new_tracks[key] = self.C[key]
-        # breakpoint()
+
         return A, static_point_pairs, dynamic_associations, dynamic_point_pairs, new_tracks #A_d, new_tracks
 
     def associateAndUpdateWithStatic(self, Z):
