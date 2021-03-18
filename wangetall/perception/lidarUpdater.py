@@ -19,7 +19,7 @@ class lidarUpdater:
         self.InitAndMerge = InitAndMerge()
         # self.clean_up_states = CleanUpStates()
         self.num_beams = 1080
-        self.fov = 4.7
+        self.fov = 5.5
         self.theta_init = np.linspace(-self.fov/2., self.fov/2., num=self.num_beams)
         self.i = 0
         self.i2 = 0
@@ -75,6 +75,7 @@ class lidarUpdater:
 
     def associate_and_update(self, data, dt):
         clusters = self.cl.cluster(self.laserpoints)
+        # plt.figure()
         # for key in clusters.keys():
         #     selected_points = self.laserpoints[clusters[key]]
         #     plt.scatter(selected_points[:,0], selected_points[:,1])
@@ -129,14 +130,14 @@ class lidarUpdater:
                 initial_association[1, y_ind] = pairs[x_ind, 1]
 
                 self.jcbb.assign_values(xs = self.state.xs, scan_data = self.polar_laser_points[tgt_points], track = track.kf.x, P = track.kf.P[0:2,0:2], static=False, psi=self.state.xs[2])
-                if track.id == 1:
+                if track.id == 2:
                     scan_x, scan_y = Helper.convert_scan_polar_cartesian_joint(self.polar_laser_points[tgt_points])
-                    # plt.figure()
+                    plt.figure()
                     # plt.xlim(-15,15)
                     # plt.ylim(-15,15)
                     plt.scatter(scan_x, scan_y, c="b", marker="o", alpha = 0.5, label="Scan Data")
                     plt.scatter(track.xp[:,0]+track.kf.x[0], track.xp[:,1]+track.kf.x[1], c="orange", marker="o", alpha = 0.1, label="Boundary Points")
-                    plt.savefig("output_plots/{}.png".format(self.i))
+                    # plt.savefig("output_plots/{}.png".format(self.i))
                     self.i += 1
 
                 association = self.jcbb.run(initial_association, track.xp)
@@ -167,11 +168,10 @@ class lidarUpdater:
                     measurement[3] = tform.translation[0]/dt + self.state.xs[3]
                     measurement[4] = tform.translation[1]/dt + self.state.xs[4]
                     measurement[5] = angle
-                    if track.id == 1:
-                        print("Received a new reading!")
-                        # print("Self state vel x {}, vely {}".format(self.state.xs[3], self.state.xs[4]))
-                        # print("Tform {}".format(tform))
-                        # print("Measurement {}".format(measurement[3:5]))
+                    print("Track {} received a new reading!".format(track.id))
+                    # print("Self state vel x {}, vely {}".format(self.state.xs[3], self.state.xs[4]))
+                    # print("Tform {}".format(tform))
+                    print("Measurement {}".format(measurement[3:5]))
                     self.Updater.run(measurement)
 
             

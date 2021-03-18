@@ -93,6 +93,7 @@ def main():
         ax.set_xlim([-30, 30])
         ax.set_ylim([-30,30])
     count = 0
+    # breakpoint()
     while not done:
         speed, steer = planner.plan(obs['poses_x'][0], obs['poses_y'][0], obs['poses_theta'][0], work['tlad'], work['vgain'])
         speed2, steer2 = planner2.plan(obs['poses_x'][1], obs['poses_y'][1], obs['poses_theta'][1], work['tlad'], work['vgain'])
