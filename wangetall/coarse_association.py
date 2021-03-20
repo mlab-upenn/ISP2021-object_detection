@@ -64,7 +64,17 @@ class Coarse_Association():
             # new_tracks[key] = self.C[key]
             if key not in used_clusters:
                 new_tracks[key] = self.C[key]
+        cl_w_asso = []
+        for key in dynamic_associations.keys():
+            if len(dynamic_associations[key]) > 0:
+                cl_w_asso.append(key)
+        print("Clusters with coarse associations: {}".format(cl_w_asso))
         # breakpoint()
+        # plt.figure()
+        # plt.scatter(Z[self.C[575],0], Z[self.C[575],1], c = "blue")
+        # track = self.state.dynamic_tracks[5]
+        # plt.scatter(track.xp[:,0]+track.kf.x[0], track.xp[:,1]+track.kf.x[1], c="orange", marker="o", alpha = 0.1, label="Boundary Points")
+        # plt.show()
         return A, static_point_pairs, dynamic_associations, dynamic_point_pairs, new_tracks #A_d, new_tracks
 
     def associateAndUpdateWithStatic(self, Z):

@@ -79,7 +79,7 @@ def main():
 
     env = gym.make('f110_gym:f110-v0', map=conf.map_path, map_ext=conf.map_ext, num_agents=2)
     obs, step_reward, done, info = env.reset(np.array([[conf.sx, conf.sy, conf.stheta], [conf.sx2, conf.sy2, conf.stheta2]]))
-    env.render()
+    # env.render()
     planner = PurePursuitPlanner(conf, 0.17145+0.15875)
     planner2 = PurePursuitPlanner(conf, 0.17145+0.15875)
 
@@ -117,7 +117,7 @@ def main():
             for idx, track in tracker.state.dynamic_tracks.items():
                 ax.scatter(track.kf.x[0], track.kf.x[1], color="purple", label="Dynamic Centroid")
                 ax.scatter(track.xp[:,0]+track.kf.x[0], track.xp[:,1]+track.kf.x[1], s = 1, label="Dynamic B Points")
-                trackspeed = np.sqrt(track.kf.x[3]**2+track.kf.x[4]**2)
+                trackspeed = round(np.sqrt(track.kf.x[3]**2+track.kf.x[4]**2), 2)
                 ax.text(track.kf.x[0], track.kf.x[1], "T{} S:{}".format(idx, trackspeed), size = "x-small")
             plt.legend()
 
@@ -127,7 +127,7 @@ def main():
 
         obs, step_reward, done, info = env.step(np.array([[steer, speed], [steer2, speed2]]))
         laptime += step_reward
-        env.render(mode='human')
+        # env.render(mode='human')
         count += 1
     print('Sim elapsed time:', laptime, 'Real elapsed time:', time.time()-start)
 

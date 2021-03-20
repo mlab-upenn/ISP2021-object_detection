@@ -19,7 +19,7 @@ class lidarUpdater:
         self.InitAndMerge = InitAndMerge()
         # self.clean_up_states = CleanUpStates()
         self.num_beams = 1080
-        self.fov = 5.5
+        self.fov = 5.5 #was 4.7
         self.theta_init = np.linspace(-self.fov/2., self.fov/2., num=self.num_beams)
         self.i = 0
         self.i2 = 0
@@ -49,9 +49,10 @@ class lidarUpdater:
         # print("to init: {}".format(tracks_to_init_and_merge))
         for track_id, track in self.state.dynamic_tracks.items():
             # print("Track id {}, num_viewings {}".format(track_id, track.num_viewings))
-            if track.num_viewings == track.mature_threshold:
+            if track.num_viewings >= track.mature_threshold:
                 tracks_to_init_and_merge.append(track_id)
         if len(tracks_to_init_and_merge) > 0:
+            print("Tracks to init and merge {}".format(tracks_to_init_and_merge))
             self.InitAndMerge.run(tracks_to_init_and_merge, self.state)
     def clean_up_states(self):
         pass
@@ -129,7 +130,7 @@ class lidarUpdater:
                 xy, x_ind, y_ind = np.intersect1d(pairs[:,0], np.array(tgt_points), return_indices=True)
                 initial_association[1, y_ind] = pairs[x_ind, 1]
                 self.jcbb.assign_values(xs = self.state.xs, scan_data = self.polar_laser_points[tgt_points], track = track.kf.x, P = track.kf.P[0:2,0:2], static=False, psi=self.state.xs[2])
-                # if track.id == 2:
+                # if track.id == 5:
                 #     scan_x, scan_y = Helper.convert_scan_polar_cartesian_joint(self.polar_laser_points[tgt_points])
                 #     plt.figure()
                 #     # plt.xlim(-15,15)
@@ -156,6 +157,20 @@ class lidarUpdater:
                     boundaries_adjusted = selected_bndr_pts - boundaries_centroid
                     scans_adjusted = selected_scan_cartesian-boundaries_centroid
                     tform = estimate_transform("euclidean", boundaries_adjusted, scans_adjusted)
+                    # if track_id == 5:
+                    #     # plt.figure()
+
+                    #     plt.scatter(selected_scan_cartesian[:,0],selected_scan_cartesian[:,1],alpha=0.5, c="red")
+                    #     for i in range(selected_scan_cartesian.shape[0]):
+                    #         plt.text(selected_scan_cartesian[i,0], selected_scan_cartesian[i,1], str(i))
+
+                        
+                    #     plt.scatter(selected_bndr_pts[:,0],selected_bndr_pts[:,1],alpha=0.5, c="purple")
+                    #     for i in range(selected_bndr_pts.shape[0]):
+                    #         plt.text(selected_bndr_pts[i,0], selected_bndr_pts[i,1], str(i))
+
+                    #     breakpoint()
+
                     # breakpoint()
 
                     angle= tform.rotation

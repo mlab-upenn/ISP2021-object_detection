@@ -30,10 +30,12 @@ class ICP:
         Testing out with the params
         """
         self.max_iterations=30
-        self.distance_threshold=0.5
+        self.distance_threshold=1
         self.convergence_translation_threshold=1e-3
         self.convergence_rotation_threshold=1e-4
         self.point_pairs_threshold=2
+        self.range_threshold = 3
+        self.match_ratio_threshold = 0.8
 
     def run(self, reference_points, points, key = None, trackid = None):
         self.reference_points = reference_points
@@ -57,12 +59,18 @@ class ICP:
             else:
                 N = self.reference_points.shape[0]
             validIdxs = [i for i in range(N) if C[i, assignment[i]]<self.distance_threshold]
+            # validIdxs = [i for i in range(N)]
+
             closest_point_pairs = np.zeros((len(validIdxs),2, 2))
             closest_point_pairs[:,:,0] = self.points[validIdxs]
             closest_point_pairs[:,:,1] = self.reference_points[assignment[validIdxs]]
             for idx in validIdxs:
                 closest_point_pairs_idxs.append((idx, assignment[idx]))
-            # if key == 129 and trackid == 2:
+
+            # if only few point pairs, stop process
+            #print('number of pairs found:', len(closest_point_pairs))
+            # if key == 25 and trackid == 1:
+            #     print("PINGGGG!!!")
             #     plt.figure()
             #     plt.plot(self.points[:,0], self.points[:,1],'bo', markersize = 10)
             #     plt.plot(self.reference_points[:,0], self.reference_points[:,1],'rs',  markersize = 7)
@@ -71,15 +79,13 @@ class ICP:
             #     plt.show()
             #     breakpoint()
 
-
-            # if only few point pairs, stop process
-            #print('number of pairs found:', len(closest_point_pairs))
+            
+            
             if len(closest_point_pairs) < self.point_pairs_threshold:
                 #print('No better solution can be found (very few point pairs)!')
                 break
 
             # All associations obtained in this way are used to estimate a transform that aligns the point set P to Q.
-            # closest_rot_angle, closest_translation_x, closest_translation_y = self.point_based_matching(closest_point_pairs)
             if len(closest_point_pairs) == 0:
                 #print('No better solution can be found!')
                 break
@@ -91,20 +97,35 @@ class ICP:
 
             #T he points in P are then updated to their new positions with the estimated transform
 
-            # c, s = math.cos(closest_rot_angle), math.sin(closest_rot_angle)
-            # rot = np.array([[c, -s],
-            #                 [s, c]])
-            # aligned_points = np.dot(self.points, rot.T)
-            # aligned_points[:, 0] += closest_translation_x
-            # aligned_points[:, 1] += closest_translation_y
-
             self.points = tform(self.points)
 
+            # rangepts = np.max(self.points, axis = 0)-np.min(self.points, axis = 0)
+            # rangerefs = np.max(self.reference_points, axis = 0)-np.min(self.reference_points, axis = 0)
             # and the loop continues until convergence
+            
+
+            #Karel's idea: reject outliers based on scoring num points in dist, penalize num points out of dist
+            #Possible implementation: do min(len(closest_point_pairs)/self.reference_points.shape[0],len(closest_point_pairs)/self.points.shape[0])
+            #If min < threshold, reject?
+
+            match_ratio = min(len(closest_point_pairs)/self.reference_points.shape[0],len(closest_point_pairs)/self.points.shape[0])
+
+
             if (abs(closest_rot_angle) < self.convergence_rotation_threshold) \
                     and (abs(closest_translation_x) < self.convergence_translation_threshold) \
-                    and (abs(closest_translation_y) < self.convergence_translation_threshold):
+                    and (abs(closest_translation_y) < self.convergence_translation_threshold) \
+                    and match_ratio > self.match_ratio_threshold:
+                # print("Match ratio {}".format(match_ratio))
                 static= True
+                # if key == 190 and trackid == 2:
+                #     plt.figure()
+                #     plt.plot(self.points[:,0], self.points[:,1],'bo', markersize = 10)
+                #     plt.plot(self.reference_points[:,0], self.reference_points[:,1],'rs',  markersize = 7)
+                #     for p in range(N):
+                #         plt.plot([self.points[p,0], self.reference_points[assignment[p],0]], [self.points[p,1], self.reference_points[assignment[p],1]], 'k')
+                #     plt.show()
+                #     breakpoint()
+
                 break
         #The association upon convergence is taken as the final association, with outlier rejection from P to Q.
         # -- outliers not in points now
