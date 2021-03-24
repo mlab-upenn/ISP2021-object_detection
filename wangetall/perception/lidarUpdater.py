@@ -125,16 +125,25 @@ class lidarUpdater:
                 # print("Track id {}, Track boundary std {}".format(track_id, np.std(track.xp, axis = 0)))
 
                 track.update_num_viewings()
-                tgt_points = [point for association in list(dyn_association.values()) for point in association]
+                tgt_points = np.array([point for association in list(dyn_association.values()) for point in association])
 
                 pairs = np.array([*dynamic_point_pairs[track_id]])
+
+                # if tgt_points.shape[0] > 100:
+                #     tgt_points = tgt_points[np.random.choice(len(tgt_points), 10, replace=False)]
                 initial_association = np.zeros((2, len(tgt_points)))
                 initial_association[0] = np.arange(len(tgt_points))
                 xy, x_ind, y_ind = np.intersect1d(pairs[:,0], np.array(tgt_points), return_indices=True)
                 initial_association[1, y_ind] = pairs[x_ind, 1]
                 print("Scan data dyn shape{}".format(self.polar_laser_points[tgt_points].shape))
+                scan_data = self.polar_laser_points[tgt_points]
+                # if scan_data.shape[0] > 100:
+                #     scan_data = scan_data[np.random.choice(scan_data.shape[0], 100, replace=False)]
+                # boundary_points = track.xp
 
-                self.jcbb.assign_values(xs = self.state.xs, scan_data = self.polar_laser_points[tgt_points], track = track.kf.x, P = track.kf.P[0:2,0:2], static=False, psi=self.state.xs[2])
+                # if boundary_points.shape[0] > 100:
+                #     boundary_points = boundary_points[np.random.choice(boundary_points.shape[0], 100, replace=False)]
+                self.jcbb.assign_values(xs = self.state.xs, scan_data = scan_data, track = track.kf.x, P = track.kf.P[0:2,0:2], static=False, psi=self.state.xs[2])
                 # if track.id == 1:
                 #     scan_x, scan_y = Helper.convert_scan_polar_cartesian_joint(self.polar_laser_points[tgt_points])
                 #     plt.figure()
