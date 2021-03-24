@@ -34,6 +34,7 @@ class Coarse_Association():
             #4. C <- C/A
             for key in A.keys():
                 del self.C[key]
+            # breakpoint()
         else:
             A = {}
             static_point_pairs = []
@@ -50,7 +51,6 @@ class Coarse_Association():
                 dynamic_point_pairs[key] = point_pairs
                 #7. C <- C/A
                 for key in A_d.keys():
-                    print("Used {}".format(key))
                     used_clusters.add(key)
                 # for key in A_d.keys():
                 #     del self.C[key]
@@ -83,8 +83,9 @@ class Coarse_Association():
         point_pairs = []
         if self.state.static_background.xb.size != 0:
             for key in self.C.keys():
-                P = Z[self.C[key]]
+                P = Z[self.C[key]]+self.state.xs[0:2]
                 static, point_pairs = self.ICP.run(self.state.static_background.xb, P)
+                # print("static? {}".format(static))
                 if static:
                     static_C[key] = self.C[key]
         return static_C, point_pairs
@@ -93,7 +94,7 @@ class Coarse_Association():
         dynamic_C = {}
         point_idx_pairs = []
         for key in self.C.keys():
-            P = Z[self.C[key]]
+            P = Z[self.C[key]]+self.state.xs[0:2]
             dynamic, point_pairs = self.ICP.run(points, P, key, trackid)
             if dynamic:
                 dynamic_C[key] = self.C[key]

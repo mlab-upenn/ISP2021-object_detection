@@ -45,6 +45,7 @@ class InitAndMerge:
                                                 #the static check, and should be merged into the static backgorund.
 
         for idx in np.where(static_check)[0]:
+            print("Merging {} into static.".format(self.tentative[idx]))
             self.state.merge_tracks(self.tentative[idx], None, kind="static")
         
         self.tentative = [x for i, x in enumerate(self.tentative) if i not in np.where(static_check)[0]]
@@ -53,9 +54,9 @@ class InitAndMerge:
     def dynamic_check(self):
         chi2 = stats.chi2.ppf(self.alpha, df=3)
 
-        h2 = np.zeros((len(self.tentative), 3, 1))
-        R_phi_e = np.zeros((len(self.tentative), 2, 2))
-        R_phi_rot_e = np.zeros((len(self.tentative), 2, 2))
+        h2 = np.zeros((len(self.tentative), 4, 1))
+        # R_phi_e = np.zeros((len(self.tentative), 2, 2))
+        # R_phi_rot_e = np.zeros((len(self.tentative), 2, 2))
         vel_e = np.zeros((len(self.tentative), 2))
         pos_e = np.zeros((len(self.tentative), 2))
 
@@ -73,14 +74,14 @@ class InitAndMerge:
         # pos_t = pos_t.reshape(-1, 1, pos_t.shape[1])
         # vel_t = vel_t.reshape(-1, 1, vel_t.shape[1])
 
-        HT = np.zeros((len(self.tentative), 3, 6))
+        # HT = np.zeros((len(self.tentative), 3, 6))
 
-        HE = np.zeros((len(self.tentative), 3, 6))
-        D = np.zeros((len(self.tentative), 2, 3))
-        D[:] = np.array([[0,1,0],[-1,0,0]])
+        # HE = np.zeros((len(self.tentative), 3, 6))
+        # D = np.zeros((len(self.tentative), 2, 3))
+        # D[:] = np.array([[0,1,0],[-1,0,0]])
         
-        z_hat = np.zeros((len(self.tentative), 3, 1))
-        z_hat[:] = np.zeros((3,1))
+        z_hat = np.zeros((len(self.tentative), 4, 1))
+        z_hat[:] = np.zeros((4,1))
 
         joint_check = np.zeros((self.state.num_dynamic_tracks(), len(self.tentative)))
         track_arr = np.array(list(self.state.dynamic_tracks.keys()))
@@ -91,21 +92,21 @@ class InitAndMerge:
             vel_e[:] = np.array([track.kf.x[3], track.kf.x[4]])
             pos_e[:] = np.array([track.kf.x[0], track.kf.x[1]])
 
-            R_phi_e[:] = Helper.compute_rot_matrix(-track.kf.x[2])
-            R_phi_rot_e[:] = Helper.compute_rot_matrix(np.pi/2- track.kf.x[2])
+            # R_phi_e[:] = Helper.compute_rot_matrix(-track.kf.x[2])
+            # R_phi_rot_e[:] = Helper.compute_rot_matrix(np.pi/2- track.kf.x[2])
             dvel= vel_t-vel_e
             dpos = pos_t-pos_e
             dvel = dvel.reshape(-1, dvel.shape[1], 1)
             dpos = dpos.reshape(-1, dpos.shape[1], 1)
-            #TODO: EINSUM!!
 
             
             # h2[:, 0:2] = R_phi_e @ dvel-track.kf.x[5]*R_phi_rot_e @ dpos
 
-            h2[:, 0:2] = np.einsum("ijk, ijl -> ijl", R_phi_e, dvel) - track.kf.x[5]*np.einsum("ijk, ijl -> ijl", R_phi_rot_e, dpos)
+            # h2[:, 0:2] = np.einsum("ijk, ijl -> ijl", R_phi_e, dvel) - track.kf.x[5]*np.einsum("ijk, ijl -> ijl", R_phi_rot_e, dpos)
+            h2[:, 0:2] = dpos
 
 
-            h2[:, 2] = 0
+            h2[:, 2:4] = dvel
 
             # HT[:,0:2, 0:2] = -track.kf.x[5]*R_phi_rot_e
             # HT[:,0:2, 3:5] = R_phi_e
@@ -119,8 +120,12 @@ class InitAndMerge:
             # HE[:,2, 5] = 1
 
             # H = HT-HE
-            P = np.zeros((len(self.tentative), 3, 3))
-            P[:] = track.kf.P[3:6,3:6]
+            P = np.zeros((len(self.tentative), 4, 4))
+            # P[:] = track.kf.P[3:6,3:6]
+
+            P[:,0:2,0:2] = track.kf.P[0:2,0:2]
+            P[:,2:4,2:4] = track.kf.P[3:5,3:5]
+
             S = P
             # S = H.transpose(0,2, 1)@P@H
 
@@ -129,7 +134,7 @@ class InitAndMerge:
 
             val = np.einsum('kil,kij,kji->k', a, b, a)
             joint_check[idx, np.where(val <= chi2)] = 1 #1 indicates that the track has been flagged by joint check.
-
+            # breakpoint()
         idxs = zip(*np.where(joint_check))
         rmed_list = []
         for i, j in idxs:

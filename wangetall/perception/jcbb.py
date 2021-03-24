@@ -256,7 +256,7 @@ class JCBB:
 
     def calc_R(self, associated_points, indiv):
         #https://dspace.mit.edu/handle/1721.1/32438#files-area
-        R_indiv = np.array([[0.01, 0], [0,0.01]])
+        R_indiv = np.array([[0.001, 0], [0,0.001]])
         if indiv:
             R_stacked = np.zeros((len(associated_points), 2,2))
             R_stacked[:] = R_indiv
