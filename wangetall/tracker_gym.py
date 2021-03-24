@@ -38,7 +38,9 @@ class Tracker:
         
     def update(self, obs, time):
         if obs["LiDAR"]:
+            self.odom_callback(obs, time)
             self.lidar_callback(obs["scans"][self.id], time)
+
         if obs["Odom"]:
             self.odom_callback(obs, time)
     
@@ -52,7 +54,6 @@ class Tracker:
         # dt = time - self.prev_Odom_callback_time
         dt =self.dt
         self.prev_Odom_callback_time = time
-
 
         # print("Theta {}".format(theta))
         self.control_input["dt"] = dt

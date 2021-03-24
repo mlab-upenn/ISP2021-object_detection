@@ -130,13 +130,15 @@ class lidarUpdater:
                 xy, x_ind, y_ind = np.intersect1d(pairs[:,0], np.array(tgt_points), return_indices=True)
                 initial_association[1, y_ind] = pairs[x_ind, 1]
                 self.jcbb.assign_values(xs = self.state.xs, scan_data = self.polar_laser_points[tgt_points], track = track.kf.x, P = track.kf.P[0:2,0:2], static=False, psi=self.state.xs[2])
-                # if track.id == 5:
-                #     scan_x, scan_y = Helper.convert_scan_polar_cartesian_joint(self.polar_laser_points[tgt_points])
-                #     plt.figure()
-                #     # plt.xlim(-15,15)
-                #     # plt.ylim(-15,15)
-                #     plt.scatter(scan_x, scan_y, c="b", marker="o", alpha = 0.5, label="Scan Data")
-                #     plt.scatter(track.xp[:,0]+track.kf.x[0], track.xp[:,1]+track.kf.x[1], c="orange", marker="o", alpha = 0.1, label="Boundary Points")
+                if track.id == 1:
+                    scan_x, scan_y = Helper.convert_scan_polar_cartesian_joint(self.polar_laser_points[tgt_points])
+                    plt.figure()
+                    # plt.xlim(-15,15)
+                    # plt.ylim(-15,15)
+                    plt.scatter(scan_x+self.state.xs[0], scan_y+self.state.xs[1], c="b", marker="o", alpha = 0.5, label="Scan Data")
+                    plt.scatter(track.xp[:,0]+track.kf.x[0], track.xp[:,1]+track.kf.x[1], c="orange", marker="o", alpha = 0.5, label="Boundary Points")
+                    plt.show()
+                    breakpoint()
                 #     plt.savefig("output_plots/{}.png".format(self.i))
                 #     self.i += 1
 
@@ -156,8 +158,13 @@ class lidarUpdater:
                     boundaries_centroid = np.mean(selected_bndr_pts, axis = 0)
                     boundaries_adjusted = selected_bndr_pts - boundaries_centroid
                     scans_adjusted = selected_scan_cartesian-boundaries_centroid
+                    # if track_id == 1:
+                    #     np.save("scan.npy", selected_scan_cartesian)
+                    #     np.save("boundaries.npy", selected_bndr_pts)
+                    #     sys.exit()
                     tform = estimate_transform("euclidean", boundaries_adjusted, scans_adjusted)
-                    # if track_id == 5:
+                    # if track_id == 1:
+                    #     print("ahhh")
                     #     # plt.figure()
 
                     #     plt.scatter(selected_scan_cartesian[:,0],selected_scan_cartesian[:,1],alpha=0.5, c="red")
@@ -168,7 +175,9 @@ class lidarUpdater:
                     #     plt.scatter(selected_bndr_pts[:,0],selected_bndr_pts[:,1],alpha=0.5, c="purple")
                     #     for i in range(selected_bndr_pts.shape[0]):
                     #         plt.text(selected_bndr_pts[i,0], selected_bndr_pts[i,1], str(i))
-
+                    #     ### plt.scatter(scans_adjusted[:,0],scans_adjusted[:,1],alpha=0.5, c="red")
+                    #     ### plt.scatter(boundaries_adjusted[:,0],boundaries_adjusted[:,1],alpha=0.5, c="purple")
+                    #     plt.show()
                     #     breakpoint()
 
                     # breakpoint()
@@ -178,14 +187,15 @@ class lidarUpdater:
                     measurement[0] = track.kf.x[0]+tform.translation[0]
                     measurement[1] = track.kf.x[1]+tform.translation[1]
                     measurement[2] = (track.kf.x[2]+angle)%np.pi
-                    measurement[3] = tform.translation[0]/dt + self.state.xs[3]
-                    measurement[4] = tform.translation[1]/dt + self.state.xs[4]
+                    measurement[3] = tform.translation[0]/dt
+                    measurement[4] = tform.translation[1]/dt
                     measurement[5] = angle
-                    print("Track {} received a new reading!".format(track.id))
+                    print("Track {} received a new reading! {}".format(track.id, tform.translation))
                     # print("Self state vel x {}, vely {}".format(self.state.xs[3], self.state.xs[4]))
                     # print("Tform {}".format(tform))
                     print("Measurement {}".format(measurement[3:5]))
                     self.Updater.run(measurement)
+                    # print("Track {} new state {}".format(track.id, track.kf.x[0:4]))
 
             
             # track.xp = np.append(track.xp, unassociated_boundarypts = ??) #add to track

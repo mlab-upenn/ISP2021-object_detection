@@ -7,6 +7,8 @@ import random
 import sys
 import time
 import matplotlib.pyplot as plt
+from numba import njit
+from numba import jitclass
 
 
 #Sample code:
@@ -16,7 +18,7 @@ class RecursionStop(Exception):
 
 class JCBB:
     def __init__(self):
-        self.alpha = 1-0.95
+        self.alpha = 1-0.98
 
     def assign_values(self, xs, scan_data, track, P, static, psi):
         self.xs = xs
@@ -41,8 +43,8 @@ class JCBB:
         assert initial_association.shape[0] == 2
         assert boundary_points.shape[1] == 2
         assert self.scan_data.shape[1] == 2
-        print("Boundary points shape {}".format(boundary_points.shape))
-        print("Scan data shape {}".format(self.scan_data.shape))
+        # print("Boundary points shape {}".format(boundary_points.shape))
+        # print("Scan data shape {}".format(self.scan_data.shape))
         individual_compatibilities = self.compute_compatibility(boundary_points)
         # np.save("P.npy", self.P)
         # np.save("xs.npy", self.xs)
@@ -254,7 +256,7 @@ class JCBB:
 
     def calc_R(self, associated_points, indiv):
         #https://dspace.mit.edu/handle/1721.1/32438#files-area
-        R_indiv = np.array([[0.1, 0], [0,0.1]])
+        R_indiv = np.array([[0.01, 0], [0,0.01]])
         if indiv:
             R_stacked = np.zeros((len(associated_points), 2,2))
             R_stacked[:] = R_indiv

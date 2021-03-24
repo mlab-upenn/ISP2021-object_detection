@@ -135,7 +135,7 @@ class InitAndMerge:
         for i, j in idxs:
             track_id = track_arr[i]
             target_id = self.tentative[j]
-            if track_id != target_id:
+            if track_id != target_id and j not in rmed_list:
                 print("Merging {} with {}".format(target_id, track_id))
                 self.state.merge_tracks(target_id, track_id, kind="dynamic")
                 rmed_list.append(j)
