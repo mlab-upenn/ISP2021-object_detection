@@ -80,7 +80,7 @@ def main():
 
     env = gym.make('f110_gym:f110-v0', map=conf.map_path, map_ext=conf.map_ext, num_agents=2)
     obs, step_reward, done, info = env.reset(np.array([[conf.sx, conf.sy, conf.stheta], [conf.sx2, conf.sy2, conf.stheta2]]))
-    # env.render()
+    env.render()
     planner = PurePursuitPlanner(conf, 0.17145+0.15875)
     planner2 = PurePursuitPlanner(conf, 0.17145+0.15875)
 
@@ -128,7 +128,7 @@ def main():
 
         obs, step_reward, done, info = env.step(np.array([[steer, speed], [steer2, speed2]]))
         laptime += step_reward
-        # env.render(mode='human')
+        env.render(mode='human')
         count += 1
     print('Sim elapsed time:', laptime, 'Real elapsed time:', time.time()-start)
 
