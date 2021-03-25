@@ -7,14 +7,13 @@ import matplotlib.pyplot as plt
 from numba import njit
 
 class CleanUpStates():
-    def __init__(self, Q_s, lidar_center_x, lidar_center_y, lidar_range):
-        self.Q_s = Q_s
+    def __init__(self, lidar_center_x, lidar_center_y, lidar_range):
         self.lidar_center_x = lidar_center_x
         self.lidar_center_y = lidar_center_y
         self.lidar_range = lidar_range
 
-    def run(self):
-        valid_points_in_radius = self.removeOutOfRange()
+    def run(self, lidar, tracks):
+        valid_points_in_radius = self.removeOutOfRange(lidar, tracks)
 
         #cleaned_points = self.removeObscured(valid_points_in_radius)
 
@@ -22,8 +21,8 @@ class CleanUpStates():
 
 
     def removeOutOfRange(self):
-        mask = (self.Q_s[0][:,0] - self.lidar_center_x)**2 + (self.Q_s[0][:,1] - self.lidar_center_y)**2 < self.lidar_range**2
-        within_radius = self.Q_s[0][mask,:]
+        mask = (lidar[:,0] - self.lidar_center_x)**2 + (lidar[:,1] - self.lidar_center_y)**2 < self.lidar_range**2
+        within_radius = lidar[mask,:]
 
         return within_radius
 
