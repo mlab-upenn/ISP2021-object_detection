@@ -1,18 +1,11 @@
 import numpy as np
 import math
 from sklearn.neighbors import NearestNeighbors
-<<<<<<< HEAD
-import sys
-import pdb
-import matplotlib.pyplot as plt
-
-=======
 from skimage.transform import estimate_transform
 from scipy.spatial.distance import cdist
 from scipy.optimize import linear_sum_assignment
 import matplotlib.pyplot as plt
 import sys
->>>>>>> rbenefo
 class ICP:
     """
     Class Based on the ICP implementation of https://github.com/richardos/icp/blob/master/icp.py and Besl and
@@ -86,10 +79,10 @@ class ICP:
             #     plt.show()
             #     breakpoint()
 
-
-
+            
+            
             if len(closest_point_pairs) < self.point_pairs_threshold:
-                print('No better solution can be found (very few point pairs)!')
+                #print('No better solution can be found (very few point pairs)!')
                 break
 
             # All associations obtained in this way are used to estimate a transform that aligns the point set P to Q.
@@ -109,7 +102,7 @@ class ICP:
             # rangepts = np.max(self.points, axis = 0)-np.min(self.points, axis = 0)
             # rangerefs = np.max(self.reference_points, axis = 0)-np.min(self.reference_points, axis = 0)
             # and the loop continues until convergence
-
+            
 
             #Karel's idea: reject outliers based on scoring num points in dist, penalize num points out of dist
             #Possible implementation: do min(len(closest_point_pairs)/self.reference_points.shape[0],len(closest_point_pairs)/self.points.shape[0])
@@ -134,12 +127,6 @@ class ICP:
                 #     breakpoint()
 
                 break
-        # plt.scatter(aligned_points[:,0],aligned_points[:,1], label="aligned points")
-        # plt.scatter(self.reference_points[:,0],self.reference_points[:,1], label="reference points")
-        # plt.scatter(self.points[:,0],self.points[:,1], label="incoming points")
-        # plt.legend()
-        plt.show()
-        #breakpoint()
         #The association upon convergence is taken as the final association, with outlier rejection from P to Q.
         # -- outliers not in points now
         return static, closest_point_pairs_idxs

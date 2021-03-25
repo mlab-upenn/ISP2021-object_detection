@@ -34,8 +34,8 @@ class JCBB:
 
     def run(self, initial_association, boundary_points):
         # track is vector [gamma_i, delta_i, phi_i, gamma_dot_i, delta_dot_i, phi_dot_i]
-        #initial association as 1D vector. Indices of
-        # vector correspond to indices of lidar scan datapoints,
+        #initial association as 1D vector. Indices of 
+        # vector correspond to indices of lidar scan datapoints, 
         # and values in vector correspond to indices of track datapoints
         #unassociated datapoints are replaced with NaN maybe?
 
@@ -127,7 +127,7 @@ class JCBB:
         assigned_associations = self.branch_and_bound(unassociated_measurements, minimal_association, compat_boundaries, boundary_points)
 
         return assigned_associations
-
+    
     def branch_and_bound(self, unassociated_measurements, minimal_association, compat_boundaries, boundary_points):
         self.best_JNIS = np.inf
         self.best_num_associated = np.count_nonzero(~np.isnan(minimal_association[1]))
@@ -181,14 +181,14 @@ class JCBB:
                         self.DFS(level+1, np.copy(test_association), compat_boundaries, boundary_points, boundaries_taken)
                     except RecursionStop:
                         raise RecursionStop
-
+    
     def check_compat(self, JNIS, DOF):
         if DOF == 0:
             return True
         else:
             chi2 = stats.chi2.ppf(self.alpha, df=DOF)
             return JNIS <= chi2
-
+ 
     def compute_compatibility(self, boundary_points):
         #returns MxN matrix of compatibility boolean
 
@@ -222,7 +222,7 @@ class JCBB:
             associations[1][rm_idxs] = np.nan
         return associations
 
-
+        
     def calc_JNIS(self, association, boundary_points, indiv= False, i = 0):
         #want JNIS to output vector of JNIS's if individual
         #want single JNIS if joint.
@@ -250,6 +250,7 @@ class JCBB:
         else:
             z_hat = self.scan_data[z_hat_idx].flatten()
             h = h.flatten()
+
             JNIS = (z_hat-h).T@np.linalg.inv(S)@(z_hat-h)
         return JNIS
 
@@ -288,10 +289,10 @@ class JCBB:
 
     def calc_g_and_G(self, associated_points, indiv):
         """inputs: xs, measured laserpoint
-
+        
         xs is dict of measurements with xs["alpha"] = const, xs["beta"] = const maybe?
-
-        measured_laserpoint is 2d matrix with one col of angles, one col of x coords, one col of y coords
+        
+        measured_laserpoint is 2d matrix with one col of angles, one col of x coords, one col of y coords 
         where psi is the current rotation angle
         """
         g = np.zeros((associated_points.shape[0], 2))
@@ -339,7 +340,7 @@ class JCBB:
     def calc_U(self, g, num_tiles, indiv):
         r = np.sqrt(g[:,0]**2+g[:,1]**2)
         U = (np.array([[r*g[:,0], r*g[:,1]],[-g[:,1], g[:,0]]]))/r**2
-
+            
         if not indiv:
             U_matrices = tuple([U[:,:,i] for i in range(U.shape[2])])
             U =  block_diag(*U_matrices)
@@ -468,7 +469,7 @@ if __name__ == "__main__":
     # track = [20, 25, 0]
     # P = np.eye(2)*0
     # static = False
-    # psi = 0 #sensor angle. Will work if adjusted for JCBB running purposes, but
+    # psi = 0 #sensor angle. Will work if adjusted for JCBB running purposes, but 
     #         #don't change-- need to refactor a bit to make the plot look nice too.
     # xs = np.load("xs.npy")
     # scan_data = np.load("scan_data.npy")

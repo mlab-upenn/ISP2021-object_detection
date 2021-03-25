@@ -4,7 +4,7 @@ run_name: 'map_wide'
 perf_num: 6
 
 # map paths
-map_path: 'maps/Melbourne/Melbourne_map'
+map_path: 'maps/Melbourne//Melbourne_map'
 map_ext: '.png'
 
 # starting pose for map

@@ -8,8 +8,8 @@ class InitAndMerge:
         self.alpha = 1-0.95
 
     def run(self, tentative, state):
-        self.tentative = tentative  #=== new tracks #xt is a 1D list where each element corresponds with the id of
-                    #new tentative track T.
+        self.tentative = tentative #xt is a 1D list where each element corresponds with the id of
+                    #new tentative track T. 
         self.state = state
         self.static_check()
         if len(self.tentative) > 0:
@@ -22,17 +22,17 @@ class InitAndMerge:
 
         h = np.zeros((len(self.tentative), 3))
         for idx, track_id in enumerate(self.tentative):
-            h[idx] = [self.state.dynamic_tracks[track_id].kf.x[3], self.state.dynamic_tracks[track_id].kf.x[4], self.state.dynamic_tracks[track_id].kf.x[5]]
-
+            h[idx] = [self.state.dynamic_tracks[track_id].kf.x[3], self.state.dynamic_tracks[track_id].kf.x[4], self.state.dynamic_tracks[track_id].kf.x[5]]        
+        
         #fictious measurement model
         #optimization: move creation of H and z_hat into init to avoid calling every time.
         # H= np.zeros((h.shape[0], 3, 6))
         # H[:] = np.hstack((np.eye(3), np.ones((3,3))))
         S = np.zeros((len(self.tentative), 3, 3))
         for idx, track_id in enumerate(self.tentative):
-            S[idx] = self.state.dynamic_tracks[track_id].kf.P[3:6,3:6]
+            S[idx] = self.state.dynamic_tracks[track_id].kf.P[3:6,3:6]   
 
-
+        
         z_hat = np.zeros((h.shape[0], 3))
         z_hat[:] = np.zeros((3))
 
@@ -47,12 +47,12 @@ class InitAndMerge:
         for idx in np.where(static_check)[0]:
             print("Merging {} into static.".format(self.tentative[idx]))
             self.state.merge_tracks(self.tentative[idx], None, kind="static")
-
+        
         self.tentative = [x for i, x in enumerate(self.tentative) if i not in np.where(static_check)[0]]
+    
 
-
-    # def dynamic_check(self):
-    #     chi2 = stats.chi2.ppf(self.alpha, df=3)
+    def dynamic_check(self):
+        chi2 = stats.chi2.ppf(self.alpha, df=3)
 
         h2 = np.zeros((len(self.tentative), 4, 1))
         # R_phi_e = np.zeros((len(self.tentative), 2, 2))
@@ -62,14 +62,14 @@ class InitAndMerge:
 
         pos_t = np.zeros((len(self.tentative), 2))
         for idx, track_id in enumerate(self.tentative):
-            pos_t[idx] = self.state.dynamic_tracks[track_id].kf.x[0:2]
-
+            pos_t[idx] = self.state.dynamic_tracks[track_id].kf.x[0:2] 
+        
 
         vel_t = np.zeros((len(self.tentative), 2))
         for idx, track_id in enumerate(self.tentative):
-            vel_t[idx] = self.state.dynamic_tracks[track_id].kf.x[3:5]
+            vel_t[idx] = self.state.dynamic_tracks[track_id].kf.x[3:5] 
 
-
+        
         #need to change all of these...
         # pos_t = pos_t.reshape(-1, 1, pos_t.shape[1])
         # vel_t = vel_t.reshape(-1, 1, vel_t.shape[1])
@@ -79,7 +79,7 @@ class InitAndMerge:
         # HE = np.zeros((len(self.tentative), 3, 6))
         # D = np.zeros((len(self.tentative), 2, 3))
         # D[:] = np.array([[0,1,0],[-1,0,0]])
-
+        
         z_hat = np.zeros((len(self.tentative), 4, 1))
         z_hat[:] = np.zeros((4,1))
 
@@ -87,7 +87,7 @@ class InitAndMerge:
         track_arr = np.array(list(self.state.dynamic_tracks.keys()))
         for idx, track_id in enumerate(track_arr):
             track = self.state.dynamic_tracks[track_id]
-            #generate a bunch of stacked matrices to run all of this
+            #generate a bunch of stacked matrices to run all of this 
             # for all the tentative tracks at once.
             vel_e[:] = np.array([track.kf.x[3], track.kf.x[4]])
             pos_e[:] = np.array([track.kf.x[0], track.kf.x[1]])
@@ -99,7 +99,7 @@ class InitAndMerge:
             dvel = dvel.reshape(-1, dvel.shape[1], 1)
             dpos = dpos.reshape(-1, dpos.shape[1], 1)
 
-
+            
             # h2[:, 0:2] = R_phi_e @ dvel-track.kf.x[5]*R_phi_rot_e @ dpos
 
             # h2[:, 0:2] = np.einsum("ijk, ijl -> ijl", R_phi_e, dvel) - track.kf.x[5]*np.einsum("ijk, ijl -> ijl", R_phi_rot_e, dpos)

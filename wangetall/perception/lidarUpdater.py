@@ -13,6 +13,7 @@ import sys
 import matplotlib.pyplot as plt
 class lidarUpdater:
     def __init__(self):
+        self.cl = Cluster()
         self.jcbb = JCBB()
         self.Updater = Updater()
         self.InitAndMerge = InitAndMerge()
@@ -39,13 +40,12 @@ class lidarUpdater:
 
         # self.state.laserpoints = laserpoints
 
-        # self.state.laserpoints = laserpoints
         new_tracks = self.associate_and_update(data, dt)
 
         for key, points in new_tracks.items():
             idx = self.state.create_new_track(self.laserpoints, points)
             print("Created new track {}".format(idx))
-
+        
         tracks_to_init_and_merge = []
         # print("to init: {}".format(tracks_to_init_and_merge))
         for track_id, track in self.state.dynamic_tracks.items():
@@ -59,7 +59,7 @@ class lidarUpdater:
         pass
 
     def forward(self, dt):
-        """Propagates forward all tracks
+        """Propagates forward all tracks 
         based on current transition model"""
         F = self.calc_F(dt)
         Q = self.calc_Q(dt)
@@ -72,7 +72,7 @@ class lidarUpdater:
         #Static background doesn't move, so no need for propagation step...
         # self.state.static_background.kf.F = F
         # self.state.static_background.kf.Q = Q
-        # self.state.static_background.kf.predict()
+        # self.state.static_background.kf.predict()        
 
 
     def associate_and_update(self, data, dt):
@@ -86,7 +86,7 @@ class lidarUpdater:
 
         #First, do the static points.
         static_association, static_point_pairs, dynamic_association, dynamic_point_pairs, new_tracks = Coarse_Association(clusters).run(self.laserpoints, self.state)
-
+        
         #check how the dynamic point pairs is working... don't want just rough associations for all the dynamic tracks.
         if len(static_association) > 0:
             # print("Stat point pairs {}".format(static_point_pairs.size))
@@ -104,7 +104,7 @@ class lidarUpdater:
             # breakpoint()
             self.jcbb.assign_values(xs = self.state.xs, scan_data = self.polar_laser_points[tgt_points], track=None, P = P_static_sub, static=True, psi=self.state.xs[2])
             association = self.jcbb.run(initial_association, self.state.static_background.xb)
-
+                
             pairings = association[:,~np.isnan(association[1])]
             update_x, update_y = Helper.convert_scan_polar_cartesian_joint(self.polar_laser_points[pairings[0].astype(int)])
             update_points = np.vstack((update_x, update_y)).T +self.state.xs[0:2]
@@ -113,7 +113,7 @@ class lidarUpdater:
             new_pts = set(tgt_points)-set(pairings[0].astype(int))
             new_pts_x, new_pts_y = Helper.convert_scan_polar_cartesian_joint(self.polar_laser_points[list(new_pts)])
             new_pts = np.vstack((new_pts_x, new_pts_y)).T+self.state.xs[0:2]
-            self.state.static_background.xb = np.concatenate((self.state.static_background.xb, new_pts))
+            self.state.static_background.xb = np.concatenate((self.state.static_background.xb, new_pts)) 
         #then, do dynamic tracks
 
         for track_id, dyn_association in dynamic_association.items():
@@ -163,7 +163,7 @@ class lidarUpdater:
 
                 if pairings.shape[1] >= 3: #need 3 points to compute rigid transformation
                     self.Updater.assign_values(track, association, self.state, static=False)
-
+                    
                     selected_bndr_pts = track.xp[pairings[1].astype(int)]+track.kf.x[0:2]
                     selected_scan_pts = self.polar_laser_points[pairings[0].astype(int)]
 
@@ -185,7 +185,7 @@ class lidarUpdater:
                     #     for i in range(selected_scan_cartesian.shape[0]):
                     #         plt.text(selected_scan_cartesian[i,0], selected_scan_cartesian[i,1], str(i), size = "xx-small")
 
-
+                        
                     #     plt.scatter(selected_bndr_pts[:,0],selected_bndr_pts[:,1],alpha=0.5, s = 4,c="purple")
                     #     for i in range(selected_bndr_pts.shape[0]):
                     #         plt.text(selected_bndr_pts[i,0], selected_bndr_pts[i,1], str(i), size = "xx-small")
@@ -211,11 +211,11 @@ class lidarUpdater:
                     self.Updater.run(measurement)
                     # print("Track {} new state {}".format(track.id, track.kf.x[0:4]))
 
-
+            
             # track.xp = np.append(track.xp, unassociated_boundarypts = ??) #add to track
 
-        return new_tracks #need to feed remaining clusters into initialize and update
-
+        return new_tracks #need to feed remaining clusters into initialize and update 
+        
 
     def calc_F(self, dt):
         F = np.zeros((6,6))
@@ -249,11 +249,11 @@ class Updater:
     """Can I do this in one calculation for all objects? At least
     all dynamic objects at a time?"""
     """Maybe. Explore using 3D block diagonals?"""
-
+    
 
     """Takes in associated output boundary points. What do we do about
     boundary points that don't have association?
-
+    
     Returns updated state and covariance per object (static and dynamic)"""
 
     def __init__(self):
@@ -274,13 +274,13 @@ class Updater:
         # g, G = self.calc_g_and_G(self.associated_points)
         # H = self.calc_Jacobian_H(x, g, G)
 
-        #May need to come up with custom measurement model for the
+        #May need to come up with custom measurement model for the 
         #special measurement we created..
         self.track.kf.update(measurement, self.calc_Hj, self.calc_hx, R)
 
     def calc_Hj(self, x):
         return np.eye(6)
-
+    
     def calc_hx(self, x):
         return x
 
@@ -304,7 +304,7 @@ class Updater:
     # def calc_U(self, x, g):
     #     r = np.sqrt(g[:,0]**2+g[:,1]**2)
     #     U = (np.array([[r*g[:,0], r*g[:,1]],[-g[:,1], g[:,0]]]))/r**2
-
+            
     #     U_matrices = tuple([U[:,:,i] for i in range(U.shape[2])])
     #     U =  block_diag(*U_matrices)
     #     ###Make 3D? Stack U's on top of each other for every dynamic object.
@@ -338,6 +338,7 @@ class Updater:
     #             g[index] = R_psi.T @ np.array(np.array([x, y])- alpha_beta_arr).T
     #         else:
     #             g[index] = R_psi.T@(R_phi@np.array([x, y])+np.array([gamma, delta])-alpha_beta_arr)
-
+            
     #         G[index*2:index*2+2] = -R_psi.T-R_pi_by_2@g[index]
     #     return g, G
+
