@@ -1,10 +1,18 @@
 import numpy as np
 import math
 from sklearn.neighbors import NearestNeighbors
+<<<<<<< HEAD
 import sys
 import pdb
 import matplotlib.pyplot as plt
 
+=======
+from skimage.transform import estimate_transform
+from scipy.spatial.distance import cdist
+from scipy.optimize import linear_sum_assignment
+import matplotlib.pyplot as plt
+import sys
+>>>>>>> rbenefo
 class ICP:
     """
     Class Based on the ICP implementation of https://github.com/richardos/icp/blob/master/icp.py and Besl and
@@ -30,63 +38,101 @@ class ICP:
         """
         self.max_iterations=30
         self.distance_threshold=1
-        self.convergence_translation_threshold=1e-2
-        self.convergence_rotation_threshold=1e-3
+        self.convergence_translation_threshold=1e-3
+        self.convergence_rotation_threshold=1e-4
+        self.point_pairs_threshold=2
+        self.range_threshold = 3
+        self.match_ratio_threshold = 0.8
 
-
-    def run(self, reference_points, points):
+    def run(self, reference_points, points, key = None, trackid = None):
         self.reference_points = reference_points
         self.points = points
-        self.point_pairs_threshold= len(reference_points)/2
-        nbrs = NearestNeighbors(n_neighbors=1, algorithm='kd_tree').fit(self.reference_points)
-        aligned_points = self.points
+        # nbrs = NearestNeighbors(n_neighbors=1, algorithm='kd_tree').fit(self.reference_points)
+
         for iter_num in range(self.max_iterations):
             #print('------ iteration', iter_num, '------')
             static=  False
 
-            closest_point_pairs = []
+            # closest_point_pairs = []
             closest_point_pairs_idxs = []
+            C = cdist(self.points, self.reference_points)
+            try:
+                _, assignment = linear_sum_assignment(C)
+            except ValueError:
+                print(C)
+                breakpoint()
+            if self.points.shape[0] < self.reference_points.shape[0]:
+                N = self.points.shape[0]
+            else:
+                N = self.reference_points.shape[0]
+            validIdxs = [i for i in range(N) if C[i, assignment[i]]<self.distance_threshold]
+            # validIdxs = [i for i in range(N)]
 
-             # list of point correspondences for closest point rule
-            distances, indices = nbrs.kneighbors(self.points)
+            closest_point_pairs = np.zeros((len(validIdxs),2, 2))
+            closest_point_pairs[:,:,0] = self.points[validIdxs]
+            closest_point_pairs[:,:,1] = self.reference_points[assignment[validIdxs]]
+            for idx in validIdxs:
+                closest_point_pairs_idxs.append((idx, assignment[idx]))
 
-            # remove outliers: process the output of nearest_neighbor, only being used to feed into best_fit_transform (added by wuch)
-
-            indices = indices.ravel()
-            # Step 1: A point in P is associated to its nearest neighbour in Q if their distance is within a certain threshold,
-            for nn_index in range(len(distances)):
-                if distances[nn_index][0] < self.distance_threshold: # ELSE OUTLIER?
-                    closest_point_pairs.append((self.points[nn_index], self.reference_points[indices[nn_index]]))
-                    closest_point_pairs_idxs.append((nn_index, indices[nn_index]))
-                else:
-                    indices[nn_index] = -1  # this is an outlier
-                    # otherwise it is discarded as an outlier for this iteration and become unassociated to any point in Q.
             # if only few point pairs, stop process
             #print('number of pairs found:', len(closest_point_pairs))
+            # if key == 25 and trackid == 1:
+            #     print("PINGGGG!!!")
+            #     plt.figure()
+            #     plt.plot(self.points[:,0], self.points[:,1],'bo', markersize = 10)
+            #     plt.plot(self.reference_points[:,0], self.reference_points[:,1],'rs',  markersize = 7)
+            #     for p in range(N):
+            #         plt.plot([self.points[p,0], self.reference_points[assignment[p],0]], [self.points[p,1], self.reference_points[assignment[p],1]], 'k')
+            #     plt.show()
+            #     breakpoint()
+
+
+
             if len(closest_point_pairs) < self.point_pairs_threshold:
                 print('No better solution can be found (very few point pairs)!')
                 break
 
             # All associations obtained in this way are used to estimate a transform that aligns the point set P to Q.
-            closest_rot_angle, closest_translation_x, closest_translation_y = self.point_based_matching(closest_point_pairs)
-
-            if closest_rot_angle is None or closest_translation_x is None or closest_translation_y is None:
-                print('No better solution can be found!')
+            if len(closest_point_pairs) == 0:
+                #print('No better solution can be found!')
                 break
 
-            #T he points in P are then updated to their new positions with the estimated transform
-            c, s = math.cos(closest_rot_angle), math.sin(closest_rot_angle)
-            rot = np.array([[c, -s],
-                            [s, c]])
-            aligned_points = np.dot(self.points, rot.T)
-            aligned_points[:, 0] += closest_translation_x
-            aligned_points[:, 1] += closest_translation_y
 
+            tform = estimate_transform("euclidean", closest_point_pairs[:,:,0], closest_point_pairs[:,:,1])
+            closest_rot_angle = tform.rotation
+            closest_translation_x, closest_translation_y = tform.translation
+
+            #T he points in P are then updated to their new positions with the estimated transform
+
+            self.points = tform(self.points)
+
+            # rangepts = np.max(self.points, axis = 0)-np.min(self.points, axis = 0)
+            # rangerefs = np.max(self.reference_points, axis = 0)-np.min(self.reference_points, axis = 0)
             # and the loop continues until convergence
+
+
+            #Karel's idea: reject outliers based on scoring num points in dist, penalize num points out of dist
+            #Possible implementation: do min(len(closest_point_pairs)/self.reference_points.shape[0],len(closest_point_pairs)/self.points.shape[0])
+            #If min < threshold, reject?
+
+            match_ratio = min(len(closest_point_pairs)/self.reference_points.shape[0],len(closest_point_pairs)/self.points.shape[0])
+
+
             if (abs(closest_rot_angle) < self.convergence_rotation_threshold) \
                     and (abs(closest_translation_x) < self.convergence_translation_threshold) \
-                    and (abs(closest_translation_y) < self.convergence_translation_threshold):
-                print("Converged!")
+                    and (abs(closest_translation_y) < self.convergence_translation_threshold) \
+                    and match_ratio > self.match_ratio_threshold:
+                # print("Match ratio {}".format(match_ratio))
+                static= True
+                # if key == 190 and trackid == 2:
+                #     plt.figure()
+                #     plt.plot(self.points[:,0], self.points[:,1],'bo', markersize = 10)
+                #     plt.plot(self.reference_points[:,0], self.reference_points[:,1],'rs',  markersize = 7)
+                #     for p in range(N):
+                #         plt.plot([self.points[p,0], self.reference_points[assignment[p],0]], [self.points[p,1], self.reference_points[assignment[p],1]], 'k')
+                #     plt.show()
+                #     breakpoint()
+
                 break
         # plt.scatter(aligned_points[:,0],aligned_points[:,1], label="aligned points")
         # plt.scatter(self.reference_points[:,0],self.reference_points[:,1], label="reference points")
@@ -96,7 +142,7 @@ class ICP:
         #breakpoint()
         #The association upon convergence is taken as the final association, with outlier rejection from P to Q.
         # -- outliers not in points now
-        return indices, closest_point_pairs_idxs
+        return static, closest_point_pairs_idxs
 
 
     def point_based_matching(self, point_pairs):

@@ -175,6 +175,13 @@ class Universe:
     #         out_arr[i] = parent
     #     return out_arr
 
+    # def get_components(self):
+    #     out_arr = np.zeros((self.num_vertices))
+    #     for i in range(self.num_vertices):
+    #         parent = self.find(i)
+    #         out_arr[i] = parent
+    #     return out_arr
+
 
 # def get_cmap(n, name='hsv'):
 #     '''Returns a function that maps each index in 0, 1, ..., n-1 to a distinct

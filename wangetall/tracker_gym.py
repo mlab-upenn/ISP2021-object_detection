@@ -38,13 +38,15 @@ class Tracker:
 
     def update(self, obs, time):
         if obs["LiDAR"]:
+            self.odom_callback(obs, time)
             self.lidar_callback(obs["scans"][self.id], time)
+
         if obs["Odom"]:
             self.odom_callback(obs, time)
 
     def lidar_callback(self, data, time):
         # dt = time - self.prev_Lidar_callback_time
-        dt = self.dt
+        dt = self.dt*10
         self.prev_Lidar_callback_time = time
         self.lidarUpdater.update(dt, data, self.state)
 
@@ -52,7 +54,6 @@ class Tracker:
         # dt = time - self.prev_Odom_callback_time
         dt =self.dt
         self.prev_Odom_callback_time = time
-
 
         # print("Theta {}".format(theta))
         self.control_input["dt"] = dt
@@ -65,6 +66,8 @@ class Tracker:
         self.control_input["poses_x"] = data["poses_x"][self.id]
         self.control_input["poses_y"] = data["poses_y"][self.id]
         self.control_input["poses_theta"] = data["poses_theta"][self.id]
+        self.control_input["linear_vels_x"] = data["linear_vels_x"][self.id]
+        self.control_input["linear_vels_y"] = data["linear_vels_y"][self.id]
 
         self.odom_updater.update(self.control_input, self.state)
 
@@ -85,12 +88,13 @@ def main():
     start = time.time()
 
     tracker = Tracker(0,env.timestep)
-    plot = False
+    plot = True
     if plot:
         fig, ax = plt.subplots(figsize=(6, 6))
         ax.set_xlim([-30, 30])
         ax.set_ylim([-30,30])
     count = 0
+    # breakpoint()
     while not done:
         speed, steer = planner.plan(obs['poses_x'][0], obs['poses_y'][0], obs['poses_theta'][0], work['tlad'], work['vgain'])
         speed2, steer2 = planner2.plan(obs['poses_x'][1], obs['poses_y'][1], obs['poses_theta'][1], work['tlad'], work['vgain'])
@@ -114,7 +118,7 @@ def main():
             for idx, track in tracker.state.dynamic_tracks.items():
                 ax.scatter(track.kf.x[0], track.kf.x[1], color="purple", label="Dynamic Centroid")
                 ax.scatter(track.xp[:,0]+track.kf.x[0], track.xp[:,1]+track.kf.x[1], s = 1, label="Dynamic B Points")
-                trackspeed = np.sqrt(track.kf.x[3]**2+track.kf.x[4]**2)
+                trackspeed = round(np.sqrt(track.kf.x[3]**2+track.kf.x[4]**2), 2)
                 ax.text(track.kf.x[0], track.kf.x[1], "T{} S:{}".format(idx, trackspeed), size = "x-small")
             plt.legend()
 

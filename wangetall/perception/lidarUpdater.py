@@ -7,13 +7,10 @@ from perception.jcbb import JCBB
 from perception.helper import Helper
 from perception.init_and_merge import InitAndMerge
 from cleanupstates import CleanUpStates
-
-import cv2
+import time
+from skimage.transform import estimate_transform
 import sys
 import matplotlib.pyplot as plt
-
-# from pdb import set_trace as bp
-
 class lidarUpdater:
     def __init__(self):
         self.jcbb = JCBB()
@@ -21,11 +18,10 @@ class lidarUpdater:
         self.InitAndMerge = InitAndMerge()
         # self.clean_up_states = CleanUpStates()
         self.num_beams = 1080
-        self.fov = 4.7
+        self.fov = 5.5 #was 4.7
         self.theta_init = np.linspace(-self.fov/2., self.fov/2., num=self.num_beams)
         self.i = 0
         self.i2 = 0
-        self.frame_no = 0
 
 
 
@@ -36,28 +32,29 @@ class lidarUpdater:
         self.polar_laser_points = np.zeros((len(data), 2))
         self.polar_laser_points[:,0] = data
         self.polar_laser_points[:,1] = self.theta
-
         # self.clean_up_states.run()
         self.forward(dt)
         x, y = Helper.convert_scan_polar_cartesian(np.array(data), self.theta)
         self.laserpoints= np.vstack((x, y)).T
 
         # self.state.laserpoints = laserpoints
+
+        # self.state.laserpoints = laserpoints
         new_tracks = self.associate_and_update(data, dt)
+
         for key, points in new_tracks.items():
             idx = self.state.create_new_track(self.laserpoints, points)
+            print("Created new track {}".format(idx))
 
         tracks_to_init_and_merge = []
         # print("to init: {}".format(tracks_to_init_and_merge))
         for track_id, track in self.state.dynamic_tracks.items():
-            # print("Track id {}, num_viewings {}".format(track_id, track.num_viewings))
-            if track.num_viewings == track.mature_threshold:
+            print("Track id {}, num_viewings {}".format(track_id, track.num_viewings))
+            if track.num_viewings >= track.mature_threshold:
                 tracks_to_init_and_merge.append(track_id)
         if len(tracks_to_init_and_merge) > 0:
+            print("Tracks to init and merge {}".format(tracks_to_init_and_merge))
             self.InitAndMerge.run(tracks_to_init_and_merge, self.state)
-        self.frame_no = self.frame_no + 1
-        self.prev_laserpoints = self.laserpoints
-
     def clean_up_states(self):
         pass
 
@@ -67,7 +64,7 @@ class lidarUpdater:
         F = self.calc_F(dt)
         Q = self.calc_Q(dt)
 
-        for id, track in self.state.dynamic_tracks.items():
+        for idx, track in self.state.dynamic_tracks.items():
             track.kf.F = F
             track.kf.Q = Q
             track.kf.predict()
@@ -79,29 +76,32 @@ class lidarUpdater:
 
 
     def associate_and_update(self, data, dt):
-
+        clusters = self.cl.cluster(self.laserpoints)
+        # plt.figure()
         # for key in clusters.keys():
         #     selected_points = self.laserpoints[clusters[key]]
         #     plt.scatter(selected_points[:,0], selected_points[:,1])
         # plt.savefig("output_plots/cluster_idx{}.png".format(self.i2))
         # self.i2 += 1
+
         #First, do the static points.
-        static_association, static_point_pairs, dynamic_association, dynamic_point_pairs, new_tracks = Coarse_Association().run(self.laserpoints, self.state)
+        static_association, static_point_pairs, dynamic_association, dynamic_point_pairs, new_tracks = Coarse_Association(clusters).run(self.laserpoints, self.state)
+
         #check how the dynamic point pairs is working... don't want just rough associations for all the dynamic tracks.
-        if len(static_point_pairs) > 0:
+        if len(static_association) > 0:
             # print("Stat point pairs {}".format(static_point_pairs.size))
             P_static_sub = self.state.static_background.kf.P
-            tgt_points = []
-            for key, value in static_association.items():
-                tgt_points = tgt_points+value
-            print("Tgt pts shape {}".format(len(tgt_points)))
+            tgt_points = [point for association in list(static_association.values()) for point in association]
+
+            # print("Tgt pts shape {}".format(len(tgt_points)))
             pairs = np.array([*static_point_pairs]).T
-            print("pairs shape {}".format(pairs.shape))
+            # print("pairs shape {}".format(pairs.shape))
             initial_association = np.zeros((2, len(tgt_points)))
             initial_association[0] = np.arange(len(tgt_points))
-            #tiebreaker?
-            # bp()
-            initial_association[1, pairs[:,0]] = pairs[:,1]
+            xy, x_ind, y_ind = np.intersect1d(pairs[:,0], np.array(tgt_points), return_indices=True)
+            initial_association[1, y_ind] = pairs[x_ind, 1]
+            # print("Scan data static shape{}".format(self.polar_laser_points[tgt_points].shape))
+            # breakpoint()
             self.jcbb.assign_values(xs = self.state.xs, scan_data = self.polar_laser_points[tgt_points], track=None, P = P_static_sub, static=True, psi=self.state.xs[2])
             association = self.jcbb.run(initial_association, self.state.static_background.xb)
 
@@ -114,47 +114,53 @@ class lidarUpdater:
             new_pts_x, new_pts_y = Helper.convert_scan_polar_cartesian_joint(self.polar_laser_points[list(new_pts)])
             new_pts = np.vstack((new_pts_x, new_pts_y)).T+self.state.xs[0:2]
             self.state.static_background.xb = np.concatenate((self.state.static_background.xb, new_pts))
-
         #then, do dynamic tracks
+
         for track_id, dyn_association in dynamic_association.items():
-            # for key in dynamic_association.keys():
-            #     selected_points = self.laserpoints[dynamic_association[key]]
-            #     plt.scatter(selected_points[:,0], selected_points[:,1])
-            # plt.show()
             if dyn_association != {}:
+                # if track_id == 1:
+                #     breakpoint()
+
                 track = self.state.dynamic_tracks[track_id]
                 # print("Track id {}, Track boundary std {}".format(track_id, np.std(track.xp, axis = 0)))
-                print("dynamic point pairs:",dynamic_point_pairs)
+
                 track.update_num_viewings()
-                tgt_points = list(dyn_association.values())[0]
-                print(track_id)
-                #   dynamic_point_pairs cointains # of pairs matched from one cluster to another (can be more than
-                #   #of points in the dynamic track - len(dynamic_association) )
+                tgt_points = np.array([point for association in list(dyn_association.values()) for point in association])
+
                 pairs = np.array([*dynamic_point_pairs[track_id]])
+
+                # if tgt_points.shape[0] > 100:
+                #     tgt_points = tgt_points[np.random.choice(len(tgt_points), 10, replace=False)]
                 initial_association = np.zeros((2, len(tgt_points)))
                 initial_association[0] = np.arange(len(tgt_points))
                 xy, x_ind, y_ind = np.intersect1d(pairs[:,0], np.array(tgt_points), return_indices=True)
-                try:
-                    initial_association[1] = pairs[x_ind, 1]
-                except:
-                    print("Here's the error I was talking about. Print pairs and tgt_points")
-                    breakpoint()
+                initial_association[1, y_ind] = pairs[x_ind, 1]
+                print("Scan data dyn shape{}".format(self.polar_laser_points[tgt_points].shape))
+                scan_data = self.polar_laser_points[tgt_points]
+                # if scan_data.shape[0] > 100:
+                #     scan_data = scan_data[np.random.choice(scan_data.shape[0], 100, replace=False)]
+                # boundary_points = track.xp
 
-                self.jcbb.assign_values(xs = self.state.xs, scan_data = self.polar_laser_points[tgt_points], track = track.kf.x, P = track.kf.P[0:2,0:2], static=False, psi=self.state.xs[2])
+                # if boundary_points.shape[0] > 100:
+                #     boundary_points = boundary_points[np.random.choice(boundary_points.shape[0], 100, replace=False)]
+                self.jcbb.assign_values(xs = self.state.xs, scan_data = scan_data, track = track.kf.x, P = track.kf.P[0:2,0:2], static=False, psi=self.state.xs[2])
                 # if track.id == 1:
                 #     scan_x, scan_y = Helper.convert_scan_polar_cartesian_joint(self.polar_laser_points[tgt_points])
                 #     plt.figure()
-                #     plt.scatter(scan_x, scan_y, c="b", marker="o", alpha = 0.5, label="Scan Data")
-                #     plt.scatter(track.xp[:,0]+track.kf.x[0], track.xp[:,1]+track.kf.x[1], c="orange", marker="o", alpha = 0.1, label="Boundary Points")
-                #     plt.savefig("output_plots/{}.png".format(self.i))
-                #     self.i += 1
+                #     # plt.xlim(-15,15)
+                #     # plt.ylim(-15,15)
+                #     plt.scatter(scan_x+self.state.xs[0], scan_y+self.state.xs[1], c="red", marker="o", alpha = 0.5, label="Scan Data")
+                #     plt.scatter(track.xp[:,0]+track.kf.x[0], track.xp[:,1]+track.kf.x[1], c="purple", marker="o", alpha = 0.5, label="Boundary Points")
+                #     # plt.show()
+                #     # breakpoint()
+                #     # plt.savefig("output_plots/{}.png".format(self.i))
+                #     # self.i += 1
 
                 association = self.jcbb.run(initial_association, track.xp)
                 # sys.exit()
-                # breakpoint()
-
                 association[0] = tgt_points
                 pairings = association[:,~np.isnan(association[1])]
+
                 if pairings.shape[1] >= 3: #need 3 points to compute rigid transformation
                     self.Updater.assign_values(track, association, self.state, static=False)
 
@@ -163,20 +169,48 @@ class lidarUpdater:
 
                     selected_scan_x, selected_scan_y = Helper.convert_scan_polar_cartesian_joint(selected_scan_pts)
                     selected_scan_cartesian = np.vstack((selected_scan_x, selected_scan_y)).T+self.state.xs[0:2]
-                    M = cv2.estimateAffinePartial2D(selected_bndr_pts, selected_scan_cartesian)
-                    T = M[0]
-                    angle= np.arctan2(T[1,0], T[0,0])
+                    boundaries_centroid = np.mean(selected_bndr_pts, axis = 0)
+                    boundaries_adjusted = selected_bndr_pts
+                    scans_adjusted = selected_scan_cartesian
+                    # if track_id == 1:
+                    #     np.save("scan.npy", selected_scan_cartesian)
+                    #     np.save("boundaries.npy", selected_bndr_pts)
+                    #     sys.exit()
+                    tform = estimate_transform("euclidean", boundaries_adjusted, scans_adjusted)
+                    # if track_id == 1:
+                    #     print("ahhh")
+                    #     # plt.figure()
+
+                    #     plt.scatter(selected_scan_cartesian[:,0],selected_scan_cartesian[:,1],alpha=0.5, s=4,c="red")
+                    #     for i in range(selected_scan_cartesian.shape[0]):
+                    #         plt.text(selected_scan_cartesian[i,0], selected_scan_cartesian[i,1], str(i), size = "xx-small")
+
+
+                    #     plt.scatter(selected_bndr_pts[:,0],selected_bndr_pts[:,1],alpha=0.5, s = 4,c="purple")
+                    #     for i in range(selected_bndr_pts.shape[0]):
+                    #         plt.text(selected_bndr_pts[i,0], selected_bndr_pts[i,1], str(i), size = "xx-small")
+                    #     ### plt.scatter(scans_adjusted[:,0],scans_adjusted[:,1],alpha=0.5, c="red")
+                    #     ### plt.scatter(boundaries_adjusted[:,0],boundaries_adjusted[:,1],alpha=0.5, c="purple")
+                    #     plt.show()
+                    #     breakpoint()
+
+                    # breakpoint()
+
+                    angle= tform.rotation
                     measurement = np.zeros((6))
-                    measurement[0] = track.kf.x[0]+T[0,2]
-                    measurement[1] = track.kf.x[1]+T[1,2]
+                    measurement[0] = track.kf.x[0]+tform.translation[0]
+                    measurement[1] = track.kf.x[1]+tform.translation[1]
                     measurement[2] = (track.kf.x[2]+angle)%np.pi
-                    measurement[3] = T[0,2]/dt
-                    measurement[4] = T[1,2]/dt
-                    measurement[5] = angle/dt
-                    if track.id == 1:
-                        print("T {}".format(T))
-                        print("Measurement {}".format(measurement))
+                    measurement[3] = tform.translation[0]/dt
+                    measurement[4] = tform.translation[1]/dt
+                    measurement[5] = angle
+                    print("Track {} received a new reading! {}".format(track.id, tform.translation))
+                    # print("Self state vel x {}, vely {}".format(self.state.xs[3], self.state.xs[4]))
+                    # print("Tform {}".format(tform))
+                    print("Measurement {}".format(measurement[3:5]))
                     self.Updater.run(measurement)
+                    # print("Track {} new state {}".format(track.id, track.kf.x[0:4]))
+
 
             # track.xp = np.append(track.xp, unassociated_boundarypts = ??) #add to track
 
