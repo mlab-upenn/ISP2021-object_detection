@@ -7,24 +7,40 @@ import matplotlib.pyplot as plt
 from numba import njit
 
 class CleanUpStates():
-    def __init__(self, lidar_center_x, lidar_center_y, lidar_range):
+    def __init__(self):
+        pass
+
+    def run(self, lidar_center_x, lidar_center_y, lidar, state, lidar_range=30.0):
         self.lidar_center_x = lidar_center_x
         self.lidar_center_y = lidar_center_y
         self.lidar_range = lidar_range
+        self.state = state
 
-    def run(self, lidar, tracks):
-        valid_points_in_radius = self.removeOutOfRange(lidar, tracks)
+        self.removeOutOfRange(lidar, state)
 
+        # how to remove obsucred tracks?
         #cleaned_points = self.removeObscured(valid_points_in_radius)
 
-        return valid_points_in_radius
 
 
-    def removeOutOfRange(self):
-        mask = (lidar[:,0] - self.lidar_center_x)**2 + (lidar[:,1] - self.lidar_center_y)**2 < self.lidar_range**2
-        within_radius = lidar[mask,:]
+    def removeOutOfRange(self, lidar, state):
+        #check only if centroid is outside? easier? or check if some of the points of the track are outside?
+        for idx, track in list(self.state.dynamic_tracks.items()):
+            mask = (track.kf.x[0] - self.lidar_center_x)**2 + (track.kf.x[1] - self.lidar_center_y)**2 < self.lidar_range**2
+            if(mask == False):
+                self.state.cull_dynamic_track(idx)
+                print(idx, "outside of lidar_range.... removing")
+            # within_radius = track.kf.x[mask,:]
+            # dynamic_P = track.xp+track.kf.x[0:2]
+            # plt.scatter(dynamic_P[:,0],dynamic_P[:,1],s=8, label="dynamic track")
+            # plt.scatter(track.kf.x[0], track.kf.x[1], color="purple", label="Dynamic Centroid")
+            # plt.scatter(within_radius[:,0], within_radius[:,1], c="g", label="within radius", s=8 )
+        # for idx, track in self.state.dynamic_tracks.items():
+        #     print(idx)
+        # plt.scatter(self.lidar_center_x, self.lidar_center_y, c="r", label="ego vehicle center")
+        # plt.legend()
+        # plt.show()
 
-        return within_radius
 
     def removeObscured(self, within_radius):
         lidar_center_x = self.lidar_center_x

@@ -35,7 +35,7 @@ class Tracker:
         self.id = idx
         self.state = State()
         self.dt = dt
-        
+
     def update(self, obs, time):
         if obs["LiDAR"]:
             self.odom_callback(obs, time)
@@ -43,7 +43,7 @@ class Tracker:
 
         if obs["Odom"]:
             self.odom_callback(obs, time)
-    
+
     def lidar_callback(self, data, time):
         # dt = time - self.prev_Lidar_callback_time
         dt = self.dt*10
@@ -88,7 +88,7 @@ def main():
     start = time.time()
 
     tracker = Tracker(0,env.timestep)
-    plot = True
+    plot = False
     if plot:
         fig, ax = plt.subplots(figsize=(6, 6))
         ax.set_xlim([-30, 30])
