@@ -7,7 +7,7 @@ class State:
         self.static_background = StaticTrack(0, status=1)
 
         # self.laserpoints = [] #if in ROS, laserpoints will be published.
-        self.xs = np.zeros((3)) #xs ego vehicle pose-- [x, y, theta]; global frame
+        self.xs = np.zeros((5)) #xs ego vehicle pose-- [x, y, theta]; global frame
         self.Pxs = np.eye(3) #covariance of ego vehicle pose
         self.xc = np.zeros((3)) #
         self.Pxc = np.eye(3)

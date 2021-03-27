@@ -7,6 +7,8 @@ import random
 import sys
 import time
 import matplotlib.pyplot as plt
+from numba import njit
+from numba import jitclass
 
 
 #Sample code:
@@ -16,7 +18,7 @@ class RecursionStop(Exception):
 
 class JCBB:
     def __init__(self):
-        self.alpha = 1-0.95
+        self.alpha = 1-0.98
 
     def assign_values(self, xs, scan_data, track, P, static, psi):
         self.xs = xs
@@ -42,7 +44,7 @@ class JCBB:
         assert boundary_points.shape[1] == 2
         assert self.scan_data.shape[1] == 2
         # print("Boundary points shape {}".format(boundary_points.shape))
-
+        # print("Scan data shape {}".format(self.scan_data.shape))
         individual_compatibilities = self.compute_compatibility(boundary_points)
         # np.save("P.npy", self.P)
         # np.save("xs.npy", self.xs)
@@ -77,9 +79,12 @@ class JCBB:
         JNIS_delta = 0
         dof = np.count_nonzero(~np.isnan(pruned_associations[1]))*2
         chi2 = stats.chi2.ppf(self.alpha, df=dof)
-        max_iter = 10
+        max_iter = 5
         i = 0
-        while True:
+        minimal_association = np.zeros((pruned_associations.shape))
+        minimal_association[0] = np.arange(len(self.scan_data))
+        minimal_association[1] = np.nan
+        while i < max_iter:
             curr_association = np.copy(pruned_associations)
             for index in np.arange(pruned_associations.shape[1])[~np.isnan(pruned_associations[1])]:
                 curr_pairing = pruned_associations[1, index]
@@ -120,7 +125,7 @@ class JCBB:
 
             compat_boundaries[measurement] = list(selected_boundaries)
         assigned_associations = self.branch_and_bound(unassociated_measurements, minimal_association, compat_boundaries, boundary_points)
-    
+
         return assigned_associations
     
     def branch_and_bound(self, unassociated_measurements, minimal_association, compat_boundaries, boundary_points):
@@ -137,6 +142,7 @@ class JCBB:
         jnis = self.calc_JNIS(self.best_association, boundary_points)
         joint_compat = self.check_compat(jnis, DOF =np.count_nonzero(~np.isnan(self.best_association[1]))*2)
         if joint_compat:
+            print("Best JNIS {}".format(self.best_JNIS))
             return self.best_association
         else:
             return np.zeros((self.best_association.shape))
@@ -145,7 +151,6 @@ class JCBB:
         self.recursion += 1
         if self.recursion >= 200:
             raise RecursionStop
-
         boundaries_taken = boundaries_taken.copy()
         avail_boundaries = compat_boundaries[self.unassociated_measurements[level]]
         # print(avail_boundaries)
@@ -176,6 +181,7 @@ class JCBB:
                         self.DFS(level+1, np.copy(test_association), compat_boundaries, boundary_points, boundaries_taken)
                     except RecursionStop:
                         raise RecursionStop
+    
     def check_compat(self, JNIS, DOF):
         if DOF == 0:
             return True
@@ -185,15 +191,17 @@ class JCBB:
  
     def compute_compatibility(self, boundary_points):
         #returns MxN matrix of compatibility boolean
+
         individual_compatabilities = np.zeros((self.scan_data.shape[0], boundary_points.shape[0]))
         chi2_val = stats.chi2.ppf(self.alpha, df=2)
         for i in range(self.scan_data.shape[0]):
-                
+            #Code optimization: can I do all this in one swoop with a 4d matrix??
             association = np.zeros((2, boundary_points.shape[0]))
             association[0] = i
             association[1] = np.arange(boundary_points.shape[0])
             JNIS = self.calc_JNIS(association, boundary_points, indiv=True, i = i)
             individual_compatabilities[i, np.where(JNIS<=chi2_val)] = 1
+
         return individual_compatabilities
 
 
@@ -242,12 +250,13 @@ class JCBB:
         else:
             z_hat = self.scan_data[z_hat_idx].flatten()
             h = h.flatten()
+
             JNIS = (z_hat-h).T@np.linalg.inv(S)@(z_hat-h)
         return JNIS
 
     def calc_R(self, associated_points, indiv):
         #https://dspace.mit.edu/handle/1721.1/32438#files-area
-        R_indiv = np.array([[0.1, 0], [0,0.1]])
+        R_indiv = np.array([[0.001, 0], [0,0.001]])
         if indiv:
             R_stacked = np.zeros((len(associated_points), 2,2))
             R_stacked[:] = R_indiv
@@ -310,21 +319,15 @@ class JCBB:
             y = point[1]
 
             if self.static:
-                g[index] = R_psi.T @ np.array(np.array([x, y])- alpha_beta_arr).T
+                g[index] = np.array(np.array([x, y])- alpha_beta_arr).T
             else:
-                g[index] = R_psi.T@(R_phi@np.array([x, y])+np.array([gamma, delta])-alpha_beta_arr)
+                g[index] = np.array([x, y])+np.array([gamma, delta])-alpha_beta_arr
             if indiv:
                 # G[index] = -R_psi.T-R_pi_by_2@g[index]
-                if self.static:
-                    G[index] = R_psi.T
-                else:
-                    G[index] = R_psi.T@R_phi
+                G[index] = np.eye(2).T
             else:
                 # G[index*2:index*2+2] = -R_psi.T-R_pi_by_2@g[index]
-                if self.static:
-                     G[index*2:index*2+2] = R_psi.T
-                else:
-                    G[index*2:index*2+2] = R_psi.T@R_phi
+                G[index*2:index*2+2] = np.eye(2).T
         return g, G
 
 
@@ -395,19 +398,19 @@ def plot_association(asso, polar):
         boundary_r, boundary_phi = convert_cartesian_to_polar(boundary_points)
         fig = plt.figure()
         ax = fig.add_subplot(111, projection='polar')
-        c = ax.scatter(boundary_phi, boundary_r, c="orange",marker = "o", alpha=0.5, label="Boundary Points")
-        c = ax.scatter(scan_data[:,1], scan_data[:,0], c="b", marker="o", alpha=0.5,label="Scan Data")
+        ax.scatter(boundary_phi, boundary_r, c="orange",marker = "o", alpha=0.5, label="Boundary Points")
+        ax.scatter(scan_data[:,1], scan_data[:,0], c="b", marker="o", alpha=0.5,label="Scan Data")
 
-        c = ax.scatter(selected_boundary_phi, selected_boundary_r, c="black",marker = "v", alpha=0.5)
+        ax.scatter(selected_boundary_phi, selected_boundary_r, c="black",marker = "v", alpha=0.5)
         for i in range(selected_boundary_phi.shape[0]):
             plt.text(selected_boundary_phi[i], selected_boundary_r[i], str(i))
 
-        c = ax.scatter(selected_scan_pts[:,1], selected_scan_pts[:,0], c="red", marker = "v",label="Paired Scan Points")
+        ax.scatter(selected_scan_pts[:,1], selected_scan_pts[:,0], c="red", marker = "v",label="Paired Scan Points")
         for i in range(selected_scan_pts[:,1].shape[0]):
             plt.text(selected_scan_pts[:,1][i], selected_scan_pts[:,0][i], str(i))
 
-        ax.set_xlim(0.18*np.pi, 0.35*np.pi)
-        ax.set_ylim(27, 38)
+        ax.set_xlim(0.7*np.pi, 0.9*np.pi)
+        # ax.set_ylim(27, 38)
 
         plt.title("Runtime: {}".format(runtime))
         plt.show()
@@ -427,6 +430,18 @@ if __name__ == "__main__":
     import matplotlib.pyplot as plt
 
     jc = JCBB()
+
+
+    initial_association= np.load("init_asso.npy")
+    P = np.load("P.npy")
+    psi = np.load("psi.npy")
+    scan_data = np.load("scan_data.npy")
+    xs = np.load("xs.npy")
+    track = np.load("track.npy")
+    boundary_points = np.load("trackxp.npy")
+
+    jc.assign_values(xs = xs, scan_data = scan_data, track = track, P = P, static=False, psi=psi)
+
     # for i in range(100):
     # np.random.seed(2003)
     # xs = [0,0]
@@ -456,25 +471,25 @@ if __name__ == "__main__":
     # static = False
     # psi = 0 #sensor angle. Will work if adjusted for JCBB running purposes, but 
     #         #don't change-- need to refactor a bit to make the plot look nice too.
-    xs = np.load("xs.npy")
-    scan_data = np.load("scan_data.npy")
+    # xs = np.load("xs.npy")
+    # scan_data = np.load("scan_data.npy")
     # scan_x, scan_y = Helper.convert_scan_polar_cartesian_joint(scan_data)
     # plt.scatter(scan_x, scan_y, c="b", marker="o", alpha = 0.5, label="Scan Data")
     # plt.xlim(-10,3)
     # plt.ylim(-1, 9)
 
-    P = np.load("P.npy")
-    track = np.load("track.npy")
-    static = False
-    psi = np.load("psi.npy")
-    initial_association = np.load("initial_association.npy")
-    boundary_points = np.load("boundary_points.npy")
+    # P = np.load("P.npy")
+    # track = np.load("track.npy")
+    # static = False
+    # psi = np.load("psi.npy")
+    # initial_association = np.load("initial_association.npy")
+    # boundary_points = np.load("boundary_points.npy")
     # plt.scatter(boundary_points[:,0]+track[0], boundary_points[:,1]+track[1], c="orange", marker="o", alpha = 0.5, label="Scan Data")
     # plt.xlim(-10,3)
     # plt.ylim(-1, 9)
     # plt.show()
 
-    jc.assign_values(xs, scan_data, track, P, static, psi)
+    # jc.assign_values(xs, scan_data, track, P, static, psi)
 
 
     starttime = time.time()
@@ -483,7 +498,7 @@ if __name__ == "__main__":
     runtime = endtime-starttime
 
     if np.any(asso):
-        plot_association(asso, polar=False)
+        plot_association(asso, polar=True)
     else:
         print("No associations found.")
         # plot_association(asso)

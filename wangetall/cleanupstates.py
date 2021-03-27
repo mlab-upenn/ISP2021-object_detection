@@ -7,25 +7,49 @@ import matplotlib.pyplot as plt
 from numba import njit
 
 class CleanUpStates():
-    def __init__(self, Q_s, lidar_center_x, lidar_center_y, lidar_range):
-        self.Q_s = Q_s
+    def __init__(self):
+        pass
+
+    def run(self, lidar_center_x, lidar_center_y, lidar, state, lidar_range=30.0):
         self.lidar_center_x = lidar_center_x
         self.lidar_center_y = lidar_center_y
         self.lidar_range = lidar_range
+        self.state = state
 
-    def run(self):
-        valid_points_in_radius = self.removeOutOfRange()
+        self.removeOutOfRange(lidar, state)
 
+        # how to remove obsucred tracks?
         #cleaned_points = self.removeObscured(valid_points_in_radius)
 
-        return valid_points_in_radius
 
 
-    def removeOutOfRange(self):
-        mask = (self.Q_s[0][:,0] - self.lidar_center_x)**2 + (self.Q_s[0][:,1] - self.lidar_center_y)**2 < self.lidar_range**2
-        within_radius = self.Q_s[0][mask,:]
+    def removeOutOfRange(self, lidar, state):
+        #check only if centroid is outside? easier? or check if some of the points of the track are outside?
+        if self.state.static_background.xb.size != 0:
+            print("---------static backgroud----------")
+            print("static size before:",self.state.static_background.xb.size)
+            mask = (self.state.static_background.xb[:,0] - self.lidar_center_x)**2 + (self.state.static_background.xb[:,1] - self.lidar_center_y)**2 < self.lidar_range**2
+            self.state.static_background.xb = self.state.static_background.xb[mask,:]
+            print("static size after:",self.state.static_background.xb.size)
+        for idx, track in list(self.state.dynamic_tracks.items()):
+            mask = (track.kf.x[0] - self.lidar_center_x)**2 + (track.kf.x[1] - self.lidar_center_y)**2 < self.lidar_range**2
+            if(mask == False):
+                self.state.cull_dynamic_track(idx)
+                print("Track", idx, "outside of lidar_range.... removing")
+            #within_radius = track.kf.x[mask,:]
 
-        return within_radius
+            #plt.scatter(track.kf.x[0], track.kf.x[1], color="purple", label="Dynamic Centroid")
+            #plt.scatter(within_radius[:,0], within_radius[:,1], c="g", label="within radius", s=8 )
+        # for idx, track in self.state.dynamic_tracks.items():
+        #     print(idx)
+        for idx, track in list(self.state.dynamic_tracks.items()):
+            dynamic_P = track.xp+track.kf.x[0:2]
+            plt.scatter(dynamic_P[:,0],dynamic_P[:,1],s=8, label="dynamic track")
+        plt.scatter(self.lidar_center_x, self.lidar_center_y, c="r", label="ego vehicle center")
+        plt.scatter(self.state.static_background.xb[:,0],self.state.static_background.xb[:,1], c="g", s=5, label="static")
+        plt.legend()
+        plt.show()
+
 
     def removeObscured(self, within_radius):
         lidar_center_x = self.lidar_center_x
