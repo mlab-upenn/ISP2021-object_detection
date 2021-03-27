@@ -25,19 +25,28 @@ class CleanUpStates():
 
     def removeOutOfRange(self, lidar, state):
         #check only if centroid is outside? easier? or check if some of the points of the track are outside?
+        if self.state.static_background.xb.size != 0:
+            #print("---------static backgroud----------")
+            #print(self.state.static_background.xb.size)
+            mask = (self.state.static_background.xb[:,0] - self.lidar_center_x)**2 + (self.state.static_background.xb[:,1] - self.lidar_center_y)**2 < self.lidar_range**2
+            self.state.static_background.xb = self.state.static_background.xb[mask,:]
+            #print(self.state.static_background.xb.size)
         for idx, track in list(self.state.dynamic_tracks.items()):
             mask = (track.kf.x[0] - self.lidar_center_x)**2 + (track.kf.x[1] - self.lidar_center_y)**2 < self.lidar_range**2
             if(mask == False):
                 self.state.cull_dynamic_track(idx)
-                print(idx, "outside of lidar_range.... removing")
-            # within_radius = track.kf.x[mask,:]
-            # dynamic_P = track.xp+track.kf.x[0:2]
-            # plt.scatter(dynamic_P[:,0],dynamic_P[:,1],s=8, label="dynamic track")
-            # plt.scatter(track.kf.x[0], track.kf.x[1], color="purple", label="Dynamic Centroid")
-            # plt.scatter(within_radius[:,0], within_radius[:,1], c="g", label="within radius", s=8 )
+                print("Track", idx, "outside of lidar_range.... removing")
+            #within_radius = track.kf.x[mask,:]
+
+            #plt.scatter(track.kf.x[0], track.kf.x[1], color="purple", label="Dynamic Centroid")
+            #plt.scatter(within_radius[:,0], within_radius[:,1], c="g", label="within radius", s=8 )
         # for idx, track in self.state.dynamic_tracks.items():
         #     print(idx)
+        # for idx, track in list(self.state.dynamic_tracks.items()):
+        #     dynamic_P = track.xp+track.kf.x[0:2]
+        #     plt.scatter(dynamic_P[:,0],dynamic_P[:,1],s=8, label="dynamic track")
         # plt.scatter(self.lidar_center_x, self.lidar_center_y, c="r", label="ego vehicle center")
+        # plt.scatter(self.state.static_background.xb[:,0],self.state.static_background.xb[:,1], c="g", s=5, label="static")
         # plt.legend()
         # plt.show()
 
