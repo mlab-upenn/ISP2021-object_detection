@@ -18,7 +18,7 @@ class lidarUpdater:
         self.Updater = Updater()
         self.InitAndMerge = InitAndMerge()
         self.num_beams = 1080
-        self.fov = 5.5 #was 4.7
+        self.fov = 4.7
         self.theta_init = np.linspace(-self.fov/2., self.fov/2., num=self.num_beams)
         self.i = 0
         self.i2 = 0
@@ -60,8 +60,7 @@ class lidarUpdater:
         if len(tracks_to_init_and_merge) > 0:
             print("Tracks to init and merge {}".format(tracks_to_init_and_merge))
             self.InitAndMerge.run(tracks_to_init_and_merge, self.state)
-    def clean_up_states(self):
-        pass
+
 
     def forward(self, dt):
         """Propagates forward all tracks
@@ -109,7 +108,7 @@ class lidarUpdater:
             # breakpoint()
             self.jcbb.assign_values(xs = self.state.xs, scan_data = self.polar_laser_points[tgt_points], track=None, P = P_static_sub, static=True, psi=self.state.xs[2])
             association = self.jcbb.run(initial_association, self.state.static_background.xb)
-
+            association[0] = tgt_points
             pairings = association[:,~np.isnan(association[1])]
             update_x, update_y = Helper.convert_scan_polar_cartesian_joint(self.polar_laser_points[pairings[0].astype(int)])
             update_points = np.vstack((update_x, update_y)).T +self.state.xs[0:2]
