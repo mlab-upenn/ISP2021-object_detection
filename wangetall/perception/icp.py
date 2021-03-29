@@ -5,7 +5,9 @@ from skimage.transform import estimate_transform
 from scipy.spatial.distance import cdist
 from scipy.optimize import linear_sum_assignment
 import matplotlib.pyplot as plt
+
 import sys
+
 class ICP:
     """
     Class Based on the ICP implementation of https://github.com/richardos/icp/blob/master/icp.py and Besl and
@@ -37,7 +39,9 @@ class ICP:
         self.range_threshold = 3
         self.match_ratio_threshold = 0.8
 
+
     def run(self, reference_points, points, key = None, trackid = None):
+
         self.reference_points = reference_points
         self.points = points
         # nbrs = NearestNeighbors(n_neighbors=1, algorithm='kd_tree').fit(self.reference_points)
@@ -127,6 +131,8 @@ class ICP:
                 #     breakpoint()
 
                 break
+
+
         #The association upon convergence is taken as the final association, with outlier rejection from P to Q.
         # -- outliers not in points now
         return static, closest_point_pairs_idxs

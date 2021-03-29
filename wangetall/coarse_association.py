@@ -2,7 +2,9 @@ import random
 import numpy as np
 import matplotlib.pyplot as plt
 import perception.icp
+
 import perception.cluster
+
 
 class Coarse_Association():
     def __init__(self, C):
@@ -45,8 +47,10 @@ class Coarse_Association():
             dynamic_point_pairs = {}
             dynamic_associations = {}
             for key, track in self.state.dynamic_tracks.items():
+
                 dynamic_P = track.xp+track.kf.x[0:2]
                 A_d, point_pairs = self.associateAndUpdateWithDynamic(Z, dynamic_P, track.id)
+
                 dynamic_associations[key] = A_d
                 dynamic_point_pairs[key] = point_pairs
                 #7. C <- C/A
@@ -61,6 +65,7 @@ class Coarse_Association():
         new_tracks = {}
         for key in self.C.keys():
             #10. (x, P) INITIALISENEWTRACK(x, P, C)
+
             # new_tracks[key] = self.C[key]
             if key not in used_clusters:
                 new_tracks[key] = self.C[key]
