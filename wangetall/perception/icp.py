@@ -108,12 +108,12 @@ class ICP:
             # print("Match ratio {}".format(match_ratio))
             # #print(C)
             plt.plot(self.points[:,0], self.points[:,1],'bo', markersize = 10)
-            plt.plot(self.reference_points[:,0], self.reference_points[:,1],'rs',  markersize = 7)
-            for p in range(N):
-                plt.plot([self.points[p,0], self.reference_points[assignment[p],0]], [self.points[p,1], self.reference_points[assignment[p],1]], 'k')
-            plt.show()
-            print("Match ratio {}".format(match_ratio))
-            breakpoint()
+            # plt.plot(self.reference_points[:,0], self.reference_points[:,1],'rs',  markersize = 7)
+            # for p in range(N):
+            #     plt.plot([self.points[p,0], self.reference_points[assignment[p],0]], [self.points[p,1], self.reference_points[assignment[p],1]], 'k')
+            # plt.show()
+            # print("Match ratio {}".format(match_ratio))
+            #breakpoint()
             if (abs(closest_rot_angle) < self.convergence_rotation_threshold) \
                     and (abs(closest_translation_x) < self.convergence_translation_threshold) \
                     and (abs(closest_translation_y) < self.convergence_translation_threshold) \
