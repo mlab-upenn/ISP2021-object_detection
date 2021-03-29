@@ -5,6 +5,8 @@ import numpy as np
 from argparse import Namespace
 import matplotlib.pyplot as plt
 from numba import njit
+from perception.helper import Helper
+import math
 
 class CleanUpStates():
     def __init__(self):
@@ -31,6 +33,18 @@ class CleanUpStates():
             mask = (self.state.static_background.xb[:,0] - self.lidar_center_x)**2 + (self.state.static_background.xb[:,1] - self.lidar_center_y)**2 < self.lidar_range**2
             self.state.static_background.xb = self.state.static_background.xb[mask,:]
             print("static size after:",self.state.static_background.xb.size)
+            rads = []
+            last = 0
+            for i in range(int(self.state.static_background.xb.size/2)):
+                #math.atan2 return [pi, -pi] ---> converting to [2pi, -2pi]
+                angle = math.atan2(self.state.static_background.xb[i,1] - self.lidar_center_y, self.state.static_background.xb[i,0] - self.lidar_center_x)
+                angle = (angle-last + math.pi)%(2*math.pi)-math.pi + last
+                last = angle
+                rads.append(angle)
+            breakpoint()
+            rads = np.array(rads)
+            self.state.static_background.xb = self.state.static_background.xb[np.where(abs(rads - self.state.xs[2]) <= 4.7/2)]
+            print("static size after fov cleaning:",self.state.static_background.xb.size)
         for idx, track in list(self.state.dynamic_tracks.items()):
             mask = (track.kf.x[0] - self.lidar_center_x)**2 + (track.kf.x[1] - self.lidar_center_y)**2 < self.lidar_range**2
             if(mask == False):
@@ -42,6 +56,8 @@ class CleanUpStates():
             #plt.scatter(within_radius[:,0], within_radius[:,1], c="g", label="within radius", s=8 )
         # for idx, track in self.state.dynamic_tracks.items():
         #     print(idx)
+        scan, angle = Helper.convert_scan_polar_cartesian_joint(lidar)
+
         for idx, track in list(self.state.dynamic_tracks.items()):
             dynamic_P = track.xp+track.kf.x[0:2]
             plt.scatter(dynamic_P[:,0],dynamic_P[:,1],s=8, label="dynamic track")
