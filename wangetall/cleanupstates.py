@@ -18,14 +18,14 @@ class CleanUpStates():
         self.lidar_range = lidar_range
         self.state = state
 
-        self.removeOutOfRange(lidar, state)
+        self.removeOutOfRangeAndOutOfView(lidar, state)
 
         # how to remove obsucred tracks?
         #cleaned_points = self.removeObscured(valid_points_in_radius)
 
 
 
-    def removeOutOfRange(self, lidar, state):
+    def removeOutOfRangeAndOutOfView(self, lidar, state):
         #check only if centroid is outside? easier? or check if some of the points of the track are outside?
         if self.state.static_background.xb.size != 0:
             print("---------static backgroud----------")
@@ -50,21 +50,14 @@ class CleanUpStates():
             if(mask == False):
                 self.state.cull_dynamic_track(idx)
                 print("Track", idx, "outside of lidar_range.... removing")
-            #within_radius = track.kf.x[mask,:]
 
-            #plt.scatter(track.kf.x[0], track.kf.x[1], color="purple", label="Dynamic Centroid")
-            #plt.scatter(within_radius[:,0], within_radius[:,1], c="g", label="within radius", s=8 )
-        # for idx, track in self.state.dynamic_tracks.items():
-        #     print(idx)
-        scan, angle = Helper.convert_scan_polar_cartesian_joint(lidar)
-
-        for idx, track in list(self.state.dynamic_tracks.items()):
-            dynamic_P = track.xp+track.kf.x[0:2]
-            plt.scatter(dynamic_P[:,0],dynamic_P[:,1],s=8, label="dynamic track")
-        plt.scatter(self.lidar_center_x, self.lidar_center_y, c="r", label="ego vehicle center")
-        plt.scatter(self.state.static_background.xb[:,0],self.state.static_background.xb[:,1], c="g", s=5, label="static")
-        plt.legend()
-        plt.show()
+        # for idx, track in list(self.state.dynamic_tracks.items()):
+        #     dynamic_P = track.xp+track.kf.x[0:2]
+        #     plt.scatter(dynamic_P[:,0],dynamic_P[:,1],s=8, label="dynamic track")
+        # plt.scatter(self.lidar_center_x, self.lidar_center_y, c="r", label="ego vehicle center")
+        # plt.scatter(self.state.static_background.xb[:,0],self.state.static_background.xb[:,1], c="g", s=5, label="static")
+        # plt.legend()
+        # plt.show()
 
 
     def removeObscured(self, within_radius):
