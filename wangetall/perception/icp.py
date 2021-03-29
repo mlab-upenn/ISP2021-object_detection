@@ -107,7 +107,7 @@ class ICP:
             match_ratio = min(len(closest_point_pairs)/self.reference_points.shape[0],len(closest_point_pairs)/self.points.shape[0])
             # print("Match ratio {}".format(match_ratio))
             # #print(C)
-            plt.plot(self.points[:,0], self.points[:,1],'bo', markersize = 10)
+            #plt.plot(self.points[:,0], self.points[:,1],'bo', markersize = 10)
             # plt.plot(self.reference_points[:,0], self.reference_points[:,1],'rs',  markersize = 7)
             # for p in range(N):
             #     plt.plot([self.points[p,0], self.reference_points[assignment[p],0]], [self.points[p,1], self.reference_points[assignment[p],1]], 'k')
