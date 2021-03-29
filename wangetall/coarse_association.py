@@ -50,7 +50,11 @@ class Coarse_Association():
 
                 dynamic_P = track.xp+track.kf.x[0:2]
                 A_d, point_pairs = self.associateAndUpdateWithDynamic(Z, dynamic_P, track.id)
-
+                # plt.scatter(dynamic_P[:,0],dynamic_P[:,1], label="dynamic_p")
+                # for key in A_d.keys():
+                #     plt.scatter(Z[self.C[key]][:,0],Z[self.C[key]][:,1], label="association")
+                # plt.legend()
+                # plt.show()
                 dynamic_associations[key] = A_d
                 dynamic_point_pairs[key] = point_pairs
                 #7. C <- C/A

@@ -88,7 +88,7 @@ def main():
     start = time.time()
 
     tracker = Tracker(0,env.timestep)
-    plot = False
+    plot = True
     if plot:
         fig, ax = plt.subplots(figsize=(6, 6))
         ax.set_xlim([-30, 30])
@@ -111,12 +111,12 @@ def main():
             ax.clear()
             ax.set_xlim([-15, 15])
             ax.set_ylim([-15,15])
+            static_background_state = tracker.state.static_background
+            ax.scatter(static_background_state.xb[:,0], static_background_state.xb[:,1], color="black", label="Static Background", s=20)
 
             ax.scatter(tracker.state.xs[0], tracker.state.xs[1], color="blue")
-            static_background_state = tracker.state.static_background
-            ax.scatter(static_background_state.xb[:,0], static_background_state.xb[:,1], s = 1, color="orange", label="Static Background")
             for idx, track in tracker.state.dynamic_tracks.items():
-                ax.scatter(track.kf.x[0], track.kf.x[1], color="purple", label="Dynamic Centroid")
+                ax.scatter(track.kf.x[0], track.kf.x[1], color="purple", label="Dynamic Centroid", s=60)
                 ax.scatter(track.xp[:,0]+track.kf.x[0], track.xp[:,1]+track.kf.x[1], s = 1, label="Dynamic B Points")
                 trackspeed = round(np.sqrt(track.kf.x[3]**2+track.kf.x[4]**2), 2)
                 ax.text(track.kf.x[0], track.kf.x[1], "T{} S:{}".format(idx, trackspeed), size = "x-small")
