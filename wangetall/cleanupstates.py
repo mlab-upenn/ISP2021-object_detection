@@ -12,7 +12,7 @@ class CleanUpStates():
     def __init__(self):
         pass
 
-    def run(self, lidar_center_x, lidar_center_y, lidar, state, lidar_range=15.0):
+    def run(self, lidar_center_x, lidar_center_y, lidar, state, lidar_range=10.0):
         self.lidar_center_x = lidar_center_x
         self.lidar_center_y = lidar_center_y
         self.lidar_range = lidar_range
@@ -33,17 +33,19 @@ class CleanUpStates():
             mask = (self.state.static_background.xb[:,0] - self.lidar_center_x)**2 + (self.state.static_background.xb[:,1] - self.lidar_center_y)**2 < self.lidar_range**2
             self.state.static_background.xb = self.state.static_background.xb[mask,:]
             print("static size after:",self.state.static_background.xb.size)
-            rads = []
+            angles = []
             last = 0
             for i in range(int(self.state.static_background.xb.size/2)):
                 #math.atan2 return [pi, -pi] ---> converting to [2pi, -2pi]
-                angle = math.atan2(self.state.static_background.xb[i,1] - self.lidar_center_y, self.state.static_background.xb[i,0] - self.lidar_center_x)
-                angle = (angle-last + math.pi)%(2*math.pi)-math.pi + last
-                last = angle
-                rads.append(angle)
+                angle = math.degrees(math.atan2(self.state.static_background.xb[i,1] - self.lidar_center_y, self.state.static_background.xb[i,0] - self.lidar_center_x))
+                if(angle - math.degrees(self.state.xs[2])) <= -180:
+                    angle = abs((angle - math.degrees(self.state.xs[2]))%180)
+                else:
+                    angle = abs((angle - math.degrees(self.state.xs[2])))
+                angles.append(angle)
             #breakpoint()
-            rads = np.array(rads)
-            self.state.static_background.xb = self.state.static_background.xb[np.where(abs(rads - self.state.xs[2]) <= 4.7/2)]
+            angles = np.array(angles)
+            self.state.static_background.xb = self.state.static_background.xb[np.where(angles <= math.degrees(4.7/2))]
             print("static size after fov cleaning:",self.state.static_background.xb.size)
 
         for idx, track in list(self.state.dynamic_tracks.items()):
@@ -51,11 +53,15 @@ class CleanUpStates():
             if(mask == False):
                 self.state.cull_dynamic_track(idx)
                 print("Track", idx, "outside of lidar_range.... removing")
-            angle = math.atan2(track.kf.x[1] - self.lidar_center_y, track.kf.x[0]- self.lidar_center_x)
-            angle = (angle + math.pi)%(2*math.pi)-math.pi
-            if(abs(angle - self.state.xs[2]) >= 4.7/2):
+            angle = math.degrees(math.atan2(track.kf.x[1] - self.lidar_center_y, track.kf.x[0]- self.lidar_center_x))
+            if(angle - math.degrees(self.state.xs[2])) <= -180:
+                angle = abs((angle - math.degrees(self.state.xs[2]))%180)
+            else:
+                angle = abs((angle - math.degrees(self.state.xs[2])))
+            #breakpoint()
+            if(angle > math.degrees(4.7/2)):
                 self.state.cull_dynamic_track(idx)
-                print("Track", idx, "outside of field of view (in angle", math.degrees(angle - self.state.xs[2]),").... removing")
+                print("Track", idx, "outside of field of view (in angle", angle,").... removing")
 
             #self.state.static_background.xb = self.state.static_background.xb[np.where(abs(rads - self.state.xs[2]) <= 4.7/2)]
             #print("static size after fov cleaning:",self.state.static_background.xb.size)
