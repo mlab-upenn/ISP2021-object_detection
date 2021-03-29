@@ -119,7 +119,7 @@ class Cluster:
         return components, roots_arr
 
     def get_tau(self, size):
-        k = 100
+        k = 50
         return k/size
 
 class Universe:
@@ -166,6 +166,13 @@ class Universe:
 
         return out_arr
 
+    # def get_components(self):
+    #     out_arr = np.zeros((self.num_vertices))
+    #     for i in range(self.num_vertices):
+    #         parent = self.find(i)
+    #         out_arr[i] = parent
+    #     return out_arr
+
 
 # def get_cmap(n, name='hsv'):
 #     '''Returns a function that maps each index in 0, 1, ..., n-1 to a distinct
@@ -178,9 +185,15 @@ if __name__ == "__main__":
 #     points = np.array((0 + np.random.random((1000,2)) * (100 - 0)))
 #     cl = Cluster()
 
+<<<<<<< HEAD
 #     clusters = cl.cluster(points)
 #     print(clusters.keys())
 #     # print(clusters)
+=======
+    clusters = cl.cluster(points)
+    # print(clusters.keys())
+    # print(clusters)
+>>>>>>> 1095061cf1bb5b2afe296789ca2872ca329a9dff
 
 
 

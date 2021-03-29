@@ -1,14 +1,16 @@
 import numpy as np
-from scipy.sparse import block_diag
+from scipy.linalg import block_diag
 
-from cluster import Cluster
+from perception.cluster import Cluster
 from coarse_association import Coarse_Association
-from jcbb_Cartesian import JCBB
-from helper import Helper
-from init_and_merge import InitAndMerge
+from perception.jcbb import JCBB
+from perception.helper import Helper
+from perception.init_and_merge import InitAndMerge
 from cleanupstates import CleanUpStates
-
-import cv2
+import time
+from skimage.transform import estimate_transform
+import sys
+import matplotlib.pyplot as plt
 
 class lidarUpdater:
     def __init__(self):
@@ -16,104 +18,218 @@ class lidarUpdater:
         self.jcbb = JCBB()
         self.Updater = Updater()
         self.InitAndMerge = InitAndMerge()
-        self.clean_up_states = CleanUpStates(Q_s_cart, agent_x, agent_y, lidar_range=30.0)
+        self.num_beams = 1080
+        self.fov = 4.7
+        self.theta_init = np.linspace(-self.fov/2., self.fov/2., num=self.num_beams)
+        self.i = 0
+        self.i2 = 0
+        self.clean_up_states = CleanUpStates()
+
+
 
     def update(self, dt, data, state):
         self.state = state
-        self.clean_up_states.run()
+        self.theta = self.theta_init+self.state.xs[2] #do I need to correct for current heading?
+        # self.theta = self.theta_init
+        self.polar_laser_points = np.zeros((len(data), 2))
+        self.polar_laser_points[:,0] = data
+        self.polar_laser_points[:,1] = self.theta
         self.forward(dt)
+        x, y = Helper.convert_scan_polar_cartesian(np.array(data), self.theta)
+        self.laserpoints= np.vstack((x, y)).T
+        self.clean_up_states.run(self.state.xs[0], self.state.xs[1], self.laserpoints, self.state)
+
+        # plt.scatter(self.laserpoints[:,0], self.laserpoints[:,1], c="b", label="test")
+        # plt.scatter(self.state.xs[0], self.state.xs[1], c="r", label="car")
+        # plt.legend()
+        # plt.show()
+
+        # self.state.laserpoints = laserpoints
 
         new_tracks = self.associate_and_update(data, dt)
-        for cluster in new_tracks:
-            self.state.create_new_track(data, cluster)
-        self.InitAndMerge.run(new_tracks, self.state)
 
-    def clean_up_states(self):
-        pass
+        for key, points in new_tracks.items():
+            idx = self.state.create_new_track(self.laserpoints, points)
+            print("Created new track {}".format(idx))
+
+        tracks_to_init_and_merge = []
+        # print("to init: {}".format(tracks_to_init_and_merge))
+        for track_id, track in self.state.dynamic_tracks.items():
+            print("Track id {}, num_viewings {}".format(track_id, track.num_viewings))
+            if track.num_viewings >= track.mature_threshold:
+                tracks_to_init_and_merge.append(track_id)
+        if len(tracks_to_init_and_merge) > 0:
+            print("Tracks to init and merge {}".format(tracks_to_init_and_merge))
+            self.InitAndMerge.run(tracks_to_init_and_merge, self.state)
+
 
     def forward(self, dt):
-        """Propagates forward all tracks 
+        """Propagates forward all tracks
         based on current transition model"""
         F = self.calc_F(dt)
         Q = self.calc_Q(dt)
 
-        for id, track in self.state.dynamic_tracks.items():
+        for idx, track in self.state.dynamic_tracks.items():
             track.kf.F = F
             track.kf.Q = Q
             track.kf.predict()
 
-        self.state.static_background.kf.F = F
-        self.state.static_background.kf.Q = Q
-        self.state.static_background.kf.predict()        
+        #Static background doesn't move, so no need for propagation step...
+        # self.state.static_background.kf.F = F
+        # self.state.static_background.kf.Q = Q
+        # self.state.static_background.kf.predict()
 
 
     def associate_and_update(self, data, dt):
-
-        points_x = ranges*cos(angles)
-        points_y = ranges*cos(angles)
-        points = np.vstack((points_x, points_y)).T
-        clusters = self.cl.cluster(data)
+        clusters = self.cl.cluster(self.laserpoints)
+        # plt.figure()
+        # for key in clusters.keys():
+        #     selected_points = self.laserpoints[clusters[key]]
+        #     plt.scatter(selected_points[:,0], selected_points[:,1])
+        # plt.savefig("output_plots/cluster_idx{}.png".format(self.i2))
+        # self.i2 += 1
 
         #First, do the static points.
-        static_association, dynamic_association, new_tracks = Coarse_Association(clusters).run(points, state)
-        P_static_sub = self.state.static_background.kf.P
-        self.jcbb.assign_values(self.state.xs, self.state.static_background.xb, self.state.static_background.xs, P_static_sub, True, psi)
-        association = self.jcbb.run(static_association, self.state.static_background.xb)
-       
-        if len(association) >= 3:
-            pairings = association[:,~np.isnan(asso[1])]
-            selected_bndr_pts = track.xb[pairings[1].astype(int)]
-            selected_scan_pts = data[pairings[0].astype(int)]
-            M = cv2.estimateRigidTransform(selected_bndr_pts, selected_scan_pts, fullAffine=False)
-            angle= np.atan2(M[1,0], M[0,0])
-            measurement = np.zeros((6))
-            measurement[0] = track.kf.x[0]+M[0,2]
-            measurement[1] = track.kf.x[1]+M[1,2]
-            measurement[2] = track.kf.x[1]+angle
-            measurement[3] = M[0,2]/dt
-            measurement[4] = M[1,2]/dt
-            measurement[5] = angle/dt
-            self.updater.assign_values(self.state.static_background.kf.x, P_static_sub, self.state.xs, association, static=True)
-            self.updater.run(measurement)
-        
-        self.state.static_background.xb = np.append(self.state.static_background.xb, unassociated_boundarypts = ??) 
-        
+        static_association, static_point_pairs, dynamic_association, dynamic_point_pairs, new_tracks = Coarse_Association(clusters).run(self.laserpoints, self.state)
+
+        #check how the dynamic point pairs is working... don't want just rough associations for all the dynamic tracks.
+        if len(static_association) > 0:
+            # print("Stat point pairs {}".format(static_point_pairs.size))
+            P_static_sub = self.state.static_background.kf.P
+
+            tgt_points = [point for association in list(static_association.values()) for point in association]
+
+            # print("Tgt pts shape {}".format(len(tgt_points)))
+            pairs = np.array([*static_point_pairs]).T
+            # print("pairs shape {}".format(pairs.shape))
+
+            initial_association = np.zeros((2, len(tgt_points)))
+            initial_association[0] = np.arange(len(tgt_points))
+            #breakpoint()
+            xy, x_ind, y_ind = np.intersect1d(pairs[:,0], np.array(tgt_points), return_indices=True)
+            initial_association[1, y_ind] = pairs[x_ind, 1]
+
+            # print("Scan data static shape{}".format(self.polar_laser_points[tgt_points].shape))
+            # breakpoint()
+
+            self.jcbb.assign_values(xs = self.state.xs, scan_data = self.polar_laser_points[tgt_points], track=None, P = P_static_sub, static=True, psi=self.state.xs[2])
+            association = self.jcbb.run(initial_association, self.state.static_background.xb)
+            association[0] = tgt_points
+            pairings = association[:,~np.isnan(association[1])]
+            update_x, update_y = Helper.convert_scan_polar_cartesian_joint(self.polar_laser_points[pairings[0].astype(int)])
+            update_points = np.vstack((update_x, update_y)).T +self.state.xs[0:2]
+            self.state.static_background.xb[pairings[1].astype(int)] = update_points
+
+            new_pts = set(tgt_points)-set(pairings[0].astype(int))
+            new_pts_x, new_pts_y = Helper.convert_scan_polar_cartesian_joint(self.polar_laser_points[list(new_pts)])
+            new_pts = np.vstack((new_pts_x, new_pts_y)).T+self.state.xs[0:2]
+            self.state.static_background.xb = np.concatenate((self.state.static_background.xb, new_pts))
         #then, do dynamic tracks
-        for idx, track in self.state.dynamic_tracks.items():
-            track.update_num_viewings()
-            initial_association = dynamic_association[idx]#output of ICP that's associated with this track
-            self.jcbb.assign_values(self.state.xs, track.xp, track.kf.x, track.kf.P, False, psi)
-            association = self.jcbb.run(initial_association, track.xp)
+
+        for track_id, dyn_association in dynamic_association.items():
+            if dyn_association != {}:
+                # if track_id == 1:
+                #     breakpoint()
+
+                track = self.state.dynamic_tracks[track_id]
+                # print("Track id {}, Track boundary std {}".format(track_id, np.std(track.xp, axis = 0)))
 
 
-            if len(association) >= 3: #need 3 points to compute rigid transformation
-                self.updater.assign_values(track.kf.x, track.kf.P, association, static=False)
-                
-                pairings = association[:,~np.isnan(asso[1])]
-                selected_bndr_pts = tracker.xp[pairings[1].astype(int)]
-                selected_scan_pts = data[pairings[0].astype(int)]
-
-                selected_scan_cartesian = Helper.convert_scan_polar_cartesian(selected_scan_pts)
-                M = cv2.estimateRigidTransform(selected_bndr_pts, selected_scan_pts, fullAffine=False)
-                angle= np.atan2(M[1,0], M[0,0])
-                measurement = np.zeros((6))
-                measurement[0] = track.kf.x[0]+M[0,2]
-                measurement[1] = track.kf.x[1]+M[1,2]
-                measurement[2] = track.kf.x[1]+angle
-                measurement[3] = M[0,2]/dt
-                measurement[4] = M[1,2]/dt
-                measurement[5] = angle/dt
-
-                self.updater.run(measurement)
-            
-            track.xp = np.append(track.xp, unassociated_boundarypts = ??) #add to track
-
-        return new_tracks #need to feed remaining clusters into initialize and update 
-        
+                track.update_num_viewings()
+                tgt_points = np.array([point for association in list(dyn_association.values()) for point in association])
 
 
-    def compute_H(self):
-        pass
+                pairs = np.array([*dynamic_point_pairs[track_id]])
+
+                # if tgt_points.shape[0] > 100:
+                #     tgt_points = tgt_points[np.random.choice(len(tgt_points), 10, replace=False)]
+                initial_association = np.zeros((2, len(tgt_points)))
+                initial_association[0] = np.arange(len(tgt_points))
+                xy, x_ind, y_ind = np.intersect1d(pairs[:,0], np.array(tgt_points), return_indices=True)
+                initial_association[1, y_ind] = pairs[x_ind, 1]
+
+                print("Scan data dyn shape{}".format(self.polar_laser_points[tgt_points].shape))
+                scan_data = self.polar_laser_points[tgt_points]
+                # if scan_data.shape[0] > 100:
+                #     scan_data = scan_data[np.random.choice(scan_data.shape[0], 100, replace=False)]
+                # boundary_points = track.xp
+
+                # if boundary_points.shape[0] > 100:
+                #     boundary_points = boundary_points[np.random.choice(boundary_points.shape[0], 100, replace=False)]
+                self.jcbb.assign_values(xs = self.state.xs, scan_data = scan_data, track = track.kf.x, P = track.kf.P[0:2,0:2], static=False, psi=self.state.xs[2])
+
+                # if track.id == 1:
+                #     scan_x, scan_y = Helper.convert_scan_polar_cartesian_joint(self.polar_laser_points[tgt_points])
+                #     plt.figure()
+                #     # plt.xlim(-15,15)
+                #     # plt.ylim(-15,15)
+                #     plt.scatter(scan_x+self.state.xs[0], scan_y+self.state.xs[1], c="red", marker="o", alpha = 0.5, label="Scan Data")
+                #     plt.scatter(track.xp[:,0]+track.kf.x[0], track.xp[:,1]+track.kf.x[1], c="purple", marker="o", alpha = 0.5, label="Boundary Points")
+                #     # plt.show()
+                #     # breakpoint()
+                #     # plt.savefig("output_plots/{}.png".format(self.i))
+                #     # self.i += 1
+
+                association = self.jcbb.run(initial_association, track.xp)
+                # sys.exit()
+                association[0] = tgt_points
+                pairings = association[:,~np.isnan(association[1])]
+
+                if pairings.shape[1] >= 3: #need 3 points to compute rigid transformation
+                    self.Updater.assign_values(track, association, self.state, static=False)
+
+                    selected_bndr_pts = track.xp[pairings[1].astype(int)]+track.kf.x[0:2]
+                    selected_scan_pts = self.polar_laser_points[pairings[0].astype(int)]
+
+                    selected_scan_x, selected_scan_y = Helper.convert_scan_polar_cartesian_joint(selected_scan_pts)
+                    selected_scan_cartesian = np.vstack((selected_scan_x, selected_scan_y)).T+self.state.xs[0:2]
+                    boundaries_centroid = np.mean(selected_bndr_pts, axis = 0)
+                    boundaries_adjusted = selected_bndr_pts
+                    scans_adjusted = selected_scan_cartesian
+                    # if track_id == 1:
+                    #     np.save("scan.npy", selected_scan_cartesian)
+                    #     np.save("boundaries.npy", selected_bndr_pts)
+                    #     sys.exit()
+                    tform = estimate_transform("euclidean", boundaries_adjusted, scans_adjusted)
+                    # if track_id == 1:
+                    #     print("ahhh")
+                    #     # plt.figure()
+
+                    #     plt.scatter(selected_scan_cartesian[:,0],selected_scan_cartesian[:,1],alpha=0.5, s=4,c="red")
+                    #     for i in range(selected_scan_cartesian.shape[0]):
+                    #         plt.text(selected_scan_cartesian[i,0], selected_scan_cartesian[i,1], str(i), size = "xx-small")
+
+
+                    #     plt.scatter(selected_bndr_pts[:,0],selected_bndr_pts[:,1],alpha=0.5, s = 4,c="purple")
+                    #     for i in range(selected_bndr_pts.shape[0]):
+                    #         plt.text(selected_bndr_pts[i,0], selected_bndr_pts[i,1], str(i), size = "xx-small")
+                    #     ### plt.scatter(scans_adjusted[:,0],scans_adjusted[:,1],alpha=0.5, c="red")
+                    #     ### plt.scatter(boundaries_adjusted[:,0],boundaries_adjusted[:,1],alpha=0.5, c="purple")
+                    #     plt.show()
+                    #     breakpoint()
+
+                    # breakpoint()
+
+                    angle= tform.rotation
+                    measurement = np.zeros((6))
+                    measurement[0] = track.kf.x[0]+tform.translation[0]
+                    measurement[1] = track.kf.x[1]+tform.translation[1]
+                    measurement[2] = (track.kf.x[2]+angle)%np.pi
+                    measurement[3] = tform.translation[0]/dt
+                    measurement[4] = tform.translation[1]/dt
+                    measurement[5] = angle
+                    print("Track {} received a new reading! {}".format(track.id, tform.translation))
+                    # print("Self state vel x {}, vely {}".format(self.state.xs[3], self.state.xs[4]))
+                    # print("Tform {}".format(tform))
+                    print("Measurement {}".format(measurement[3:5]))
+                    self.Updater.run(measurement)
+                    # print("Track {} new state {}".format(track.id, track.kf.x[0:4]))
+
+
+            # track.xp = np.append(track.xp, unassociated_boundarypts = ??) #add to track
+
+        return new_tracks #need to feed remaining clusters into initialize and update
+
 
     def calc_F(self, dt):
         F = np.zeros((6,6))
@@ -137,7 +253,7 @@ class lidarUpdater:
         #but I can't find it.
 
         #I think it's a 3x3 diagonal...
-        sigma_a = 100
+        sigma_a = 0.1
         V = np.eye(3)*sigma_a
 
         return V
@@ -147,97 +263,95 @@ class Updater:
     """Can I do this in one calculation for all objects? At least
     all dynamic objects at a time?"""
     """Maybe. Explore using 3D block diagonals?"""
-    
+
 
     """Takes in associated output boundary points. What do we do about
     boundary points that don't have association?
-    
+
     Returns updated state and covariance per object (static and dynamic)"""
 
     def __init__(self):
         pass
-    def assign_values(self, track,associated_points, static):
+    def assign_values(self, track,associated_points, state, static):
+        self.state = state
         self.track = track
         self.xs = self.state.xs
+        # self.psi = self.state.xs[2]
+        self.psi = 0
+
         self.associated_points = associated_points
         #HOW DO WE USE ASSOCIATED POINTS AS MEASUREMENT?
         self.static = static
 
     def run(self, measurement):
         R = self.calc_R(self.associated_points)
-        g, G = self.calc_g_and_G(self.associated_points)
-        H = self.calc_Jacobian_H(g, G, self.associated_points)
+        # g, G = self.calc_g_and_G(self.associated_points)
+        # H = self.calc_Jacobian_H(x, g, G)
 
-        self.track.kf.R = R
-        self.track.kf.H = R
-        self.track.kf.update(measurement) #what do we pass in as measurement??
+        #May need to come up with custom measurement model for the
+        #special measurement we created..
+        self.track.kf.update(measurement, self.calc_Hj, self.calc_hx, R)
+
+    def calc_Hj(self, x):
+        return np.eye(6)
+
+    def calc_hx(self, x):
+        return x
+
 
 
     def calc_R(self, associated_points):
         #https://dspace.mit.edu/handle/1721.1/32438#files-area
-        R_indiv = np.array([[0.1, 0], [0,0.1]])
-
+        R = np.eye(6)*0.1
         return R
 
-    def compute_Kalman_gain(self, H, P, R):
-        K = P@H.T@ np.linalg.inv(H@P@H.T + R)
-        ##Make 3D? Stack K's on top of each other for every dynamic object.
-        return K
+    # def compute_Kalman_gain(self, H, P, R):
+    #     K = P@H.T@ np.linalg.inv(H@P@H.T + R)
+    #     ##Make 3D? Stack K's on top of each other for every dynamic object.
+    #     return K
 
-    def calc_Jacobian_H(self, g, G, associated_points):
-        U = self.calc_U(g, len(associated_points))
-        H = U.T @ G
-        return H
+    # def calc_Jacobian_H(self, x, g, G):
+    #     U = self.calc_U(x, g)
+    #     H = U.T @ G
+    #     return H
 
-    def calc_U(self, g, num_tiles):
-        r = np.sqrt(g[:,0]**2+g[:,1]**2)
-        U = (np.array([[r*g[:,0], r*g[:,1]],[-g[:,1], g[:,0]]]))/r**2
-            
-        U_matrices = tuple([U[:,:,i] for i in range(U.shape[2])])
-        U =  block_diag(*U_matrices)
-        ###Make 3D? Stack U's on top of each other for every dynamic object.
-        return U
+    # def calc_U(self, x, g):
+    #     r = np.sqrt(g[:,0]**2+g[:,1]**2)
+    #     U = (np.array([[r*g[:,0], r*g[:,1]],[-g[:,1], g[:,0]]]))/r**2
 
-
-    def calc_g_and_G(self, associated_points):
-        """inputs: xs, measured laserpoint
-        
-        xs is dict of measurements with xs["alpha"] = const, xs["beta"] = const maybe?
-        
-        measured_laserpoint is 2d matrix with one col of angles, one col of x coords, one col of y coords 
-        where psi is the current rotation angle
-        """
+    #     U_matrices = tuple([U[:,:,i] for i in range(U.shape[2])])
+    #     U =  block_diag(*U_matrices)
+    #     ###Make 3D? Stack U's on top of each other for every dynamic object.
+    #     return U
 
 
-        """How to generalize to compute all objects at once, if
-        the length of associated_points is not the same per object?"""
-        g = np.zeros((associated_points.shape[0], 2))
-        #make 3d?
-        G = np.zeros((associated_points.shape[0]*2, 2))
-        #make 3d?
+    # def calc_g_and_G(self, associated_points):
+    #     g = np.zeros((associated_points.shape[0], 2))
+    #     #make 3d?
+    #     G = np.zeros((associated_points.shape[0]*2, 2))
+    #     #make 3d?
 
-        alpha = self.xs["alpha"]
-        beta = self.xs["beta"]
-        alpha_beta_arr = np.array([alpha, beta])
-        phi = self.track.kf.x[0]
-        gamma = self.track.kf.x[2]
-        delta = self.track.kf.x[1]
+    #     alpha = self.xs[0]
+    #     beta = self.xs[1]
+    #     alpha_beta_arr = np.array([alpha, beta])
+    #     phi = self.track.kf.x[0]
+    #     gamma = self.track.kf.x[2]
+    #     delta = self.track.kf.x[1]
 
-        ##Make 2D? have phi, gamma, delta be 2D matrices for every object
+    #     ##Make 2D? have phi, gamma, delta be 2D matrices for every object
 
-        R_pi_by_2 = Helper.compute_rot_matrix(np.pi/2)
-        R_psi = Helper.compute_rot_matrix(self.psi)
-        R_phi = Helper.compute_rot_matrix(phi)
-        #naive way-- with for loops. need to think how to get rid of.
-        for index, point in enumerate(associated_points):
-            x = point[0]
-            y = point[1]
+    #     R_pi_by_2 = Helper.compute_rot_matrix(np.pi/2)
+    #     R_psi = Helper.compute_rot_matrix(self.psi)
+    #     R_phi = Helper.compute_rot_matrix(phi)
+    #     #naive way-- with for loops. need to think how to get rid of.
+    #     for index, point in enumerate(associated_points):
+    #         x = point[0]
+    #         y = point[1]
 
-            if self.static:
-                g[index] = R_psi.T @ np.array(np.array([x, y])- alpha_beta_arr).T
-            else:
-                g[index] = R_psi.T@(R_phi@np.array([x, y])+np.array([gamma, delta])-alpha_beta_arr)
-            
-            G[index*2:index*2+2] = -R_psi.T-R_pi_by_2@g[index]
-        return g, G
+    #         if self.static:
+    #             g[index] = R_psi.T @ np.array(np.array([x, y])- alpha_beta_arr).T
+    #         else:
+    #             g[index] = R_psi.T@(R_phi@np.array([x, y])+np.array([gamma, delta])-alpha_beta_arr)
 
+    #         G[index*2:index*2+2] = -R_psi.T-R_pi_by_2@g[index]
+    #     return g, G
