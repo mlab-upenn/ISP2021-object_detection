@@ -31,10 +31,8 @@ class ICP:
         """
         Testing out with the params
         """
-        self.max_iterations=30
-        self.distance_threshold=1.4
-        self.convergence_translation_threshold=1e-3
-        self.convergence_rotation_threshold=1e-4
+        self.max_iterations=1
+        self.distance_threshold=1
         self.match_ratio_threshold = 0.5
 
 
@@ -107,17 +105,14 @@ class ICP:
             match_ratio = min(len(closest_point_pairs)/self.reference_points.shape[0],len(closest_point_pairs)/self.points.shape[0])
             # print("Match ratio {}".format(match_ratio))
             # #print(C)
-            #plt.plot(self.points[:,0], self.points[:,1],'bo', markersize = 10)
+            # plt.plot(self.points[:,0], self.points[:,1],'bo', markersize = 10)
             # plt.plot(self.reference_points[:,0], self.reference_points[:,1],'rs',  markersize = 7)
             # for p in range(N):
             #     plt.plot([self.points[p,0], self.reference_points[assignment[p],0]], [self.points[p,1], self.reference_points[assignment[p],1]], 'k')
             # plt.show()
             # print("Match ratio {}".format(match_ratio))
-            #breakpoint()
-            if (abs(closest_rot_angle) < self.convergence_rotation_threshold) \
-                    and (abs(closest_translation_x) < self.convergence_translation_threshold) \
-                    and (abs(closest_translation_y) < self.convergence_translation_threshold) \
-                    and match_ratio > self.match_ratio_threshold:
+            # breakpoint()
+            if(match_ratio > self.match_ratio_threshold):
 
                 converged = True
                 # if key == 190 and trackid == 2:

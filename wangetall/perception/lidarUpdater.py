@@ -105,7 +105,7 @@ class lidarUpdater:
 
             initial_association = np.zeros((2, len(tgt_points)))
             initial_association[0] = np.arange(len(tgt_points))
-            breakpoint()
+            #breakpoint()
             xy, x_ind, y_ind = np.intersect1d(pairs[:,0], np.array(tgt_points), return_indices=True)
             initial_association[1, y_ind] = pairs[x_ind, 1]
 
