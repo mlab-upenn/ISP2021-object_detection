@@ -89,7 +89,7 @@ class Coarse_Association():
     def associateAndUpdateWithStatic(self, Z):
         #print(Q)
         static_C = {}
-        point_pairs = []
+        point_pairs_list = []
         if self.state.static_background.xb.size != 0:
             for key in self.C.keys():
                 P = Z[self.C[key]]+self.state.xs[0:2]
@@ -97,7 +97,8 @@ class Coarse_Association():
                 # print("static? {}".format(static))
                 if static:
                     static_C[key] = self.C[key]
-        return static_C, point_pairs
+                    point_pairs_list = point_pairs_list+point_pairs
+        return static_C, point_pairs_list
 
     def associateAndUpdateWithDynamic(self, Z, points, trackid):
         dynamic_C = {}
