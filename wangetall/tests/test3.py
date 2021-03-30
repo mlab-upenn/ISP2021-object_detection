@@ -1,8 +1,8 @@
 import numpy as np
+from scipy.linalg import block_diag
 
-x = np.arange(10)
-print(x)
-y = np.zeros((x.shape[0]*2))
-y[::2] = x
-y[1::2]=x+1
-print(y)
+x = np.ones((10, 2, 2))
+# Rs = block_diag(*R_matrices)
+
+R = block_diag(*x)
+print(R)

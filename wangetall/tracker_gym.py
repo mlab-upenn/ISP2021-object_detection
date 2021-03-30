@@ -87,7 +87,7 @@ def main():
     laptime = 0.0
     start = time.time()
 
-    tracker = Tracker(1,env.timestep)
+    tracker = Tracker(0,env.timestep)
     plot = True
     if plot:
         fig, ax = plt.subplots(figsize=(6, 6))

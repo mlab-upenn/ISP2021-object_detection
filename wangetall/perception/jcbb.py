@@ -21,7 +21,7 @@ class JCBB:
     def __init__(self):
         self.alpha = 1-0.98
         self.g = None
-        self.firstrun = 1
+        self.firstrun = True
 
 
     def assign_values(self, xs, scan_data, track, P, static, psi):
@@ -249,32 +249,33 @@ class JCBB:
 
         if len(associated_points) == 0:
             return 0
-
         if indiv:
-            g, G = self.calc_g_and_G(associated_points, indiv)
-            self.h = self.calc_h(g)
-            self.g = g
-
-            R = self.calc_R(associated_points, indiv)
-            H = self.calc_Jacobian_H(g, G, associated_points, indiv)
-            S = self.calc_S(H,R, indiv)
-            h = self.h
-        else:
             if self.firstrun:
                 g, G = self.calc_g_and_G(associated_points, indiv)
+                self.h = self.calc_h(g)
+                self.g = g
+
                 R = self.calc_R(associated_points, indiv)
                 H = self.calc_Jacobian_H(g, G, associated_points, indiv)
+                self.S = self.calc_S(H,R, indiv)
+                h = self.h
 
-                S= self.calc_S(H,R, indiv)
-                self.L = np.linalg.cholesky(S)
-                self.firstrun = 0
-                L = self.L
+                Hs= block_diag(*H)
+                Rs = block_diag(*R)
+                breakpoint()
+                S2= self.calc_S(Hs,Rs, indiv=False)
+                self.L = np.linalg.cholesky(S2)
+                self.firstrun = False
             else:
-                idxs = bndry_points_idx
-                idxs = np.zeros((bndry_points_idx.shape[0]*2), dtype=int)
-                idxs[::2] = bndry_points_idx
-                idxs[1::2]=bndry_points_idx+1
-                L = self.L[idxs[:,None],idxs]
+                S = self.S
+                h = self.h
+        else:
+            # print("Testing123")
+            idxs = bndry_points_idx
+            idxs = np.zeros((bndry_points_idx.shape[0]*2), dtype=int)
+            idxs[::2] = bndry_points_idx
+            idxs[1::2]=bndry_points_idx+1
+            L = self.L[idxs[:,None],idxs]
 
         if indiv:
             z_hat = self.scan_data[z_hat_idx]
@@ -299,14 +300,9 @@ class JCBB:
     def calc_R(self, associated_points, indiv):
         #https://dspace.mit.edu/handle/1721.1/32438#files-area
         R_indiv = np.array([[0.001, 0], [0,0.001]])
-        if indiv:
-            R_stacked = np.zeros((len(associated_points), 2,2))
-            R_stacked[:] = R_indiv
-            return R_stacked
-        else:
-            R_matrices = tuple([R_indiv for i in range(len(associated_points))])
-            Rs = block_diag(*R_matrices)
-            return Rs
+        R_stacked = np.zeros((len(associated_points), 2,2))
+        R_stacked[:] = R_indiv
+        return R_stacked
 
 
     def calc_u(self, f):
@@ -379,9 +375,9 @@ class JCBB:
         r = np.sqrt(g[:,0]**2+g[:,1]**2)
         U = (np.array([[r*g[:,0], r*g[:,1]],[-g[:,1], g[:,0]]]))/r**2
             
-        if not indiv:
-            U_matrices = tuple([U[:,:,i] for i in range(U.shape[2])])
-            U =  block_diag(*U_matrices)
+        # if not indiv:
+        #     U_matrices = tuple([U[:,:,i] for i in range(U.shape[2])])
+        #     Us =  block_diag(*U_matrices)
         return U
 
 
