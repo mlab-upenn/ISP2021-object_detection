@@ -1,6 +1,7 @@
 import numpy as np
 import scipy as sp
 from scipy.linalg import block_diag
+from scipy.linalg import solve_triangular
 from scipy import stats
 from perception.helper import Helper
 import random
@@ -19,6 +20,9 @@ class RecursionStop(Exception):
 class JCBB:
     def __init__(self):
         self.alpha = 1-0.98
+        self.g = None
+        self.firstrun = 1
+
 
     def assign_values(self, xs, scan_data, track, P, static, psi):
         self.xs = xs
@@ -84,19 +88,27 @@ class JCBB:
         minimal_association = np.zeros((pruned_associations.shape))
         minimal_association[0] = np.arange(len(self.scan_data))
         minimal_association[1] = np.nan
+        print("While loop begin.")
         while i < max_iter:
             curr_association = np.copy(pruned_associations)
-            for index in np.arange(pruned_associations.shape[1])[~np.isnan(pruned_associations[1])]:
-                curr_pairing = pruned_associations[1, index]
-                pruned_associations[1, index] = np.nan
-                JNIS_new = self.calc_JNIS(pruned_associations, boundary_points)
-                JNIS_new_delta = JNIS-JNIS_new
+            start = time.time()
+            rm_idx = []
+            testable_idxs = np.arange(pruned_associations.shape[1])[~np.isnan(pruned_associations[1])]
+            for index in testable_idxs:
+                rm_idx.append(index)
 
-                if JNIS_new_delta > JNIS_delta:
-                    JNIS_delta = JNIS_new_delta
-
-                    curr_association = np.copy(pruned_associations)
-                pruned_associations[1, index] = curr_pairing
+                if len(rm_idx) > 10 or len(testable_idxs) <=10:
+                    curr_pairing = pruned_associations[1, rm_idx]
+                    pruned_associations[1, rm_idx] = np.nan
+                    JNIS_new = self.calc_JNIS(pruned_associations, boundary_points)
+                    JNIS_new_delta = JNIS-JNIS_new
+                    if JNIS_new_delta > JNIS_delta:
+                        JNIS_delta = JNIS_new_delta
+                        curr_association = np.copy(pruned_associations)
+                    pruned_associations[1, rm_idx] = curr_pairing
+                    rm_idx = []
+            end = time.time()
+            print("Looptime {}".format(end-start))
 
             dof = np.count_nonzero(~np.isnan(curr_association[1]))*2
             chi2 = stats.chi2.ppf(self.alpha, df=dof)
@@ -105,10 +117,13 @@ class JCBB:
                 minimal_association = np.copy(curr_association)
                 JNIS = JNIS-JNIS_delta
                 # print("MIN ASSO {}".format(minimal_association))
+
                 break
             else:
                 pruned_associations = np.copy(curr_association)
                 i+=1
+        print("While loop complete.")
+
         unassociated_measurements = minimal_association[0, np.isnan(minimal_association[1])]
         compat_boundaries = {}
         for measurement in unassociated_measurements:
@@ -135,8 +150,10 @@ class JCBB:
         boundaries_taken = set()
         self.unassociated_measurements = unassociated_measurements
         try:
+            print("DFS begin.")
             self.DFS(0, minimal_association, compat_boundaries, boundary_points, boundaries_taken)
         except RecursionStop:
+            print("DFS complete!")
             pass
 
         jnis = self.calc_JNIS(self.best_association, boundary_points)
@@ -191,7 +208,6 @@ class JCBB:
  
     def compute_compatibility(self, boundary_points):
         #returns MxN matrix of compatibility boolean
-
         individual_compatabilities = np.zeros((self.scan_data.shape[0], boundary_points.shape[0]))
         chi2_val = stats.chi2.ppf(self.alpha, df=2)
         for i in range(self.scan_data.shape[0]):
@@ -201,7 +217,6 @@ class JCBB:
             association[1] = np.arange(boundary_points.shape[0])
             JNIS = self.calc_JNIS(association, boundary_points, indiv=True, i = i)
             individual_compatabilities[i, np.where(JNIS<=chi2_val)] = 1
-
         return individual_compatabilities
 
 
@@ -226,6 +241,7 @@ class JCBB:
     def calc_JNIS(self, association, boundary_points, indiv= False, i = 0):
         #want JNIS to output vector of JNIS's if individual
         #want single JNIS if joint.
+
         bndry_points_idx = association[1][~np.isnan(association[1])].astype(int)
         z_hat_idx = association[0][~np.isnan(association[1])].astype(int)
 
@@ -234,12 +250,32 @@ class JCBB:
         if len(associated_points) == 0:
             return 0
 
-        g, G = self.calc_g_and_G(associated_points, indiv)
-        h = self.calc_h(g)
+        if indiv:
+            g, G = self.calc_g_and_G(associated_points, indiv)
+            self.h = self.calc_h(g)
+            self.g = g
 
-        R = self.calc_R(associated_points, indiv)
-        H = self.calc_Jacobian_H(g, G, associated_points, indiv)
-        S = self.calc_S(H,R, indiv)
+            R = self.calc_R(associated_points, indiv)
+            H = self.calc_Jacobian_H(g, G, associated_points, indiv)
+            S = self.calc_S(H,R, indiv)
+            h = self.h
+        else:
+            if self.firstrun:
+                g, G = self.calc_g_and_G(associated_points, indiv)
+                R = self.calc_R(associated_points, indiv)
+                H = self.calc_Jacobian_H(g, G, associated_points, indiv)
+
+                S= self.calc_S(H,R, indiv)
+                self.L = np.linalg.cholesky(S)
+                self.firstrun = 0
+                L = self.L
+            else:
+                idxs = bndry_points_idx
+                idxs = np.zeros((bndry_points_idx.shape[0]*2), dtype=int)
+                idxs[::2] = bndry_points_idx
+                idxs[1::2]=bndry_points_idx+1
+                L = self.L[idxs[:,None],idxs]
+
         if indiv:
             z_hat = self.scan_data[z_hat_idx]
 
@@ -248,10 +284,16 @@ class JCBB:
             b = np.linalg.inv(S)
             JNIS = np.einsum('ki,kij,kj->k', a, b, a)
         else:
+            h = self.h[bndry_points_idx]
             z_hat = self.scan_data[z_hat_idx].flatten()
             h = h.flatten()
-
-            JNIS = (z_hat-h).T@np.linalg.inv(S)@(z_hat-h)
+            a = (z_hat-h)
+            try:          
+                y = solve_triangular(L, a)
+            except:
+                breakpoint()
+            JNIS = np.linalg.norm(y)**2
+            
         return JNIS
 
     def calc_R(self, associated_points, indiv):
@@ -298,8 +340,9 @@ class JCBB:
         g = np.zeros((associated_points.shape[0], 2))
         if indiv:
             G  = np.zeros((associated_points.shape[0], 2, 2))
+            G[:] = np.eye(2).T
         else:
-            G = np.zeros((associated_points.shape[0]*2, 2))
+            G = np.tile(np.eye(2).T, (associated_points.shape[0], 1))
 
         alpha = self.xs[0]
         beta = self.xs[1]
@@ -322,22 +365,17 @@ class JCBB:
                 g[index] = np.array(np.array([x, y])- alpha_beta_arr).T
             else:
                 g[index] = np.array([x, y])+np.array([gamma, delta])-alpha_beta_arr
-            if indiv:
-                # G[index] = -R_psi.T-R_pi_by_2@g[index]
-                G[index] = np.eye(2).T
-            else:
-                # G[index*2:index*2+2] = -R_psi.T-R_pi_by_2@g[index]
-                G[index*2:index*2+2] = np.eye(2).T
+
         return g, G
 
 
 
     def calc_Jacobian_H(self, g, G, associated_points, indiv):
-        U = self.calc_U(g, len(associated_points), indiv)
+        U = self.calc_U(g, indiv)
         H = U.T @ G
         return H
 
-    def calc_U(self, g, num_tiles, indiv):
+    def calc_U(self, g, indiv):
         r = np.sqrt(g[:,0]**2+g[:,1]**2)
         U = (np.array([[r*g[:,0], r*g[:,1]],[-g[:,1], g[:,0]]]))/r**2
             
