@@ -12,7 +12,7 @@ class CleanUpStates():
     def __init__(self):
         pass
 
-    def run(self, lidar_center_x, lidar_center_y, lidar, state, lidar_range=10.0):
+    def run(self, lidar_center_x, lidar_center_y, lidar, state, lidar_range=15.0):
         self.lidar_center_x = lidar_center_x
         self.lidar_center_y = lidar_center_y
         self.lidar_range = lidar_range
