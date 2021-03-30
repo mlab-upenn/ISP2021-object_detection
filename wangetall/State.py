@@ -54,18 +54,26 @@ class State:
 
 class Track:
     mature_threshold = 3
+    seen_threshold = 5
     def __init__(self,idx, status):
         self.num_viewings = 1
         self.status = status #Status: 0, 1 --> tentative, confirmed
+        self.last_seen = 0
         ##Private attributes:
         self.id = idx
+        
 
     def update_num_viewings(self):
         self.num_viewings += 1
         if self.status == 0:
             if self.num_viewings >= self.mature_threshold:
                 self.status = not self.status #mark as confirmed
-        
+    
+    def reset_seen(self):
+        self.last_seen = 0
+    
+    def update_seen(self):
+        self.last_seen += 1
 
 class DynamicTrack(Track):
     def __init__(self, idx, status):

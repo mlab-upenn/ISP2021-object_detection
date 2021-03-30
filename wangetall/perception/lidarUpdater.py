@@ -70,9 +70,15 @@ class lidarUpdater:
         Q = self.calc_Q(dt)
 
         for idx, track in self.state.dynamic_tracks.items():
-            track.kf.F = F
-            track.kf.Q = Q
-            track.kf.predict()
+            if track.last_seen <= track.seen_threshold:
+                track.update_seen()
+                track.kf.F = F
+                track.kf.Q = Q
+                track.kf.predict()
+            elif track.last_seen > 1:
+                track.update_seen()
+                track.kf.P *= 1.1
+
 
         #Static background doesn't move, so no need for propagation step...
         # self.state.static_background.kf.F = F
@@ -106,7 +112,10 @@ class lidarUpdater:
             initial_association = np.zeros((2, len(tgt_points)))
             initial_association[0] = np.arange(len(tgt_points))
             #breakpoint()
-            xy, x_ind, y_ind = np.intersect1d(pairs[:,0], np.array(tgt_points), return_indices=True)
+            try:
+                xy, x_ind, y_ind = np.intersect1d(pairs[:,0], np.array(tgt_points), return_indices=True)
+            except:
+                breakpoint()
             initial_association[1, y_ind] = pairs[x_ind, 1]
 
             # print("Scan data static shape{}".format(self.polar_laser_points[tgt_points].shape))
@@ -136,26 +145,38 @@ class lidarUpdater:
 
 
                 track.update_num_viewings()
+                track.reset_seen()
+
                 tgt_points = np.array([point for association in list(dyn_association.values()) for point in association])
 
 
                 pairs = np.array([*dynamic_point_pairs[track_id]])
 
-                # if tgt_points.shape[0] > 100:
-                #     tgt_points = tgt_points[np.random.choice(len(tgt_points), 10, replace=False)]
+                if tgt_points.shape[0] > 100:
+                    tgt_points = tgt_points[np.random.choice(len(tgt_points), 10, replace=False)]
+                
+
                 initial_association = np.zeros((2, len(tgt_points)))
                 initial_association[0] = np.arange(len(tgt_points))
-                xy, x_ind, y_ind = np.intersect1d(pairs[:,0], np.array(tgt_points), return_indices=True)
+                try:
+                    xy, x_ind, y_ind = np.intersect1d(pairs[:,0], np.array(tgt_points), return_indices=True)
+                except:
+                    breakpoint()
                 initial_association[1, y_ind] = pairs[x_ind, 1]
 
                 print("Scan data dyn shape{}".format(self.polar_laser_points[tgt_points].shape))
                 scan_data = self.polar_laser_points[tgt_points]
-                # if scan_data.shape[0] > 100:
-                #     scan_data = scan_data[np.random.choice(scan_data.shape[0], 100, replace=False)]
-                # boundary_points = track.xp
+                
+                #ok, so rn, there are items in pairs that are not in scan data.
+                if scan_data.shape[0] > 100:
+                    selected_scan_idxs= set(np.random.choice(scan_data.shape[0], 100, replace=False)).union(set(y_ind))
 
+                    scan_data = scan_data[list(selected_scan_idxs)]
+                boundary_points = track.xp
                 # if boundary_points.shape[0] > 100:
-                #     boundary_points = boundary_points[np.random.choice(boundary_points.shape[0], 100, replace=False)]
+                #     selected_bndry_idxs= set(np.random.choice(boundary_points.shape[0], 100, replace=False)).union(set(x_ind))
+
+                #     boundary_points = boundary_points[list(selected_bndry_idxs)]
                 self.jcbb.assign_values(xs = self.state.xs, scan_data = scan_data, track = track.kf.x, P = track.kf.P[0:2,0:2], static=False, psi=self.state.xs[2])
 
                 # if track.id == 1:
@@ -170,7 +191,7 @@ class lidarUpdater:
                 #     # plt.savefig("output_plots/{}.png".format(self.i))
                 #     # self.i += 1
 
-                association = self.jcbb.run(initial_association, track.xp)
+                association = self.jcbb.run(initial_association, boundary_points)
                 # sys.exit()
                 association[0] = tgt_points
                 pairings = association[:,~np.isnan(association[1])]
