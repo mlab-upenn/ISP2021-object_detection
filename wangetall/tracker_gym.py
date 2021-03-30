@@ -78,7 +78,7 @@ def main():
         conf_dict = yaml.load(file, Loader=yaml.FullLoader)
     conf = Namespace(**conf_dict)
 
-    env = gym.make('f110_gym:f110-v0', map=conf.map_path, map_ext=conf.map_ext, num_agents=2)
+    env = gym.make('f110_gym:f110-v0', map=conf.map_path, map_ext=conf.map_ext)
     obs, step_reward, done, info = env.reset(np.array([[conf.sx, conf.sy, conf.stheta], [conf.sx2, conf.sy2, conf.stheta2]]))
     env.render()
     planner = PurePursuitPlanner(conf, 0.17145+0.15875)
@@ -116,7 +116,7 @@ def main():
 
             ax.scatter(tracker.state.xs[0], tracker.state.xs[1], color="blue")
             for idx, track in tracker.state.dynamic_tracks.items():
-                ax.scatter(track.kf.x[0], track.kf.x[1], color="purple", label="Dynamic Centroid", s=60)
+                ax.scatter(track.kf.x[0], track.kf.x[1], color="purple", s=60)
                 ax.scatter(track.xp[:,0]+track.kf.x[0], track.xp[:,1]+track.kf.x[1], s = 1, label="Dynamic B Points")
                 trackspeed = round(np.sqrt(track.kf.x[3]**2+track.kf.x[4]**2), 2)
                 ax.text(track.kf.x[0], track.kf.x[1], "T{} S:{}".format(idx, trackspeed), size = "x-small")

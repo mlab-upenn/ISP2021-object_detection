@@ -31,9 +31,9 @@ class ICP:
         """
         Testing out with the params
         """
-        self.max_iterations=1
+        self.max_iterations=30
         self.distance_threshold=1
-        self.match_ratio_threshold = 0.5
+        self.match_ratio_threshold = 0.6
 
 
     def run(self, reference_points, points, key = None, trackid = None):
