@@ -83,7 +83,7 @@ class JCBB:
         JNIS_delta = 0
         dof = np.count_nonzero(~np.isnan(pruned_associations[1]))*2
         chi2 = stats.chi2.ppf(self.alpha, df=dof)
-        max_iter = 2
+        max_iter = 5
         i = 0
         minimal_association = np.zeros((pruned_associations.shape))
         minimal_association[0] = np.arange(len(self.scan_data))
@@ -97,7 +97,7 @@ class JCBB:
             for index in testable_idxs:
                 rm_idx.append(index)
 
-                if len(rm_idx) > 5 or len(testable_idxs) <= 5:
+                if len(rm_idx) > 10 or len(testable_idxs) <=10:
                     curr_pairing = pruned_associations[1, rm_idx]
                     pruned_associations[1, rm_idx] = np.nan
                     JNIS_new = self.calc_JNIS(pruned_associations, boundary_points)
