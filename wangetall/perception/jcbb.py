@@ -20,8 +20,6 @@ class RecursionStop(Exception):
 class JCBB:
     def __init__(self):
         self.alpha = 1-0.98
-        self.g = None
-        self.firstrun = True
 
 
     def assign_values(self, xs, scan_data, track, P, static, psi):
@@ -47,6 +45,8 @@ class JCBB:
         assert initial_association.shape[0] == 2
         assert boundary_points.shape[1] == 2
         assert self.scan_data.shape[1] == 2
+
+        self.firstrun = True
         # print("Boundary points shape {}".format(boundary_points.shape))
         # print("Scan data shape {}".format(self.scan_data.shape))
         individual_compatibilities = self.compute_compatibility(boundary_points)
@@ -256,13 +256,15 @@ class JCBB:
                 self.g = g
 
                 R = self.calc_R(associated_points, indiv)
-                H = self.calc_Jacobian_H(g, G, associated_points, indiv)
+
+                G2 =  G.reshape((G.shape[0]*2, 2))
+                H, Hs = self.calc_Jacobian_H(g, G, G2, indiv)
                 self.S = self.calc_S(H,R, indiv)
+                S = self.S
                 h = self.h
 
-                Hs= block_diag(*H)
                 Rs = block_diag(*R)
-                breakpoint()
+                # breakpoint()
                 S2= self.calc_S(Hs,Rs, indiv=False)
                 self.L = np.linalg.cholesky(S2)
                 self.firstrun = False
@@ -270,7 +272,6 @@ class JCBB:
                 S = self.S
                 h = self.h
         else:
-            # print("Testing123")
             idxs = bndry_points_idx
             idxs = np.zeros((bndry_points_idx.shape[0]*2), dtype=int)
             idxs[::2] = bndry_points_idx
@@ -281,7 +282,6 @@ class JCBB:
             z_hat = self.scan_data[z_hat_idx]
 
             a = (z_hat-h)
-            # print("z_hat {},h {}".format(z_hat, h))
             b = np.linalg.inv(S)
             JNIS = np.einsum('ki,kij,kj->k', a, b, a)
         else:
@@ -366,19 +366,19 @@ class JCBB:
 
 
 
-    def calc_Jacobian_H(self, g, G, associated_points, indiv):
-        U = self.calc_U(g, indiv)
+    def calc_Jacobian_H(self, g, G, G2, indiv):
+        U, Us = self.calc_U(g, indiv)
         H = U.T @ G
-        return H
+        Hs = Us.T@G2
+        return H, Hs
 
     def calc_U(self, g, indiv):
         r = np.sqrt(g[:,0]**2+g[:,1]**2)
         U = (np.array([[r*g[:,0], r*g[:,1]],[-g[:,1], g[:,0]]]))/r**2
             
-        # if not indiv:
-        #     U_matrices = tuple([U[:,:,i] for i in range(U.shape[2])])
-        #     Us =  block_diag(*U_matrices)
-        return U
+        U_matrices = tuple([U[:,:,i] for i in range(U.shape[2])])
+        Us =  block_diag(*U_matrices)
+        return U, Us
 
 
 def convert_scan_polar_cartesian(scan):
