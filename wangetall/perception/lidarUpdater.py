@@ -152,8 +152,8 @@ class lidarUpdater:
 
                 pairs = np.array([*dynamic_point_pairs[track_id]])
 
-                if tgt_points.shape[0] > 100:
-                    tgt_points = tgt_points[np.random.choice(len(tgt_points), 10, replace=False)]
+                # if tgt_points.shape[0] > 100:
+                #     tgt_points = tgt_points[np.random.choice(len(tgt_points), 100, replace=False)]
                 
 
                 initial_association = np.zeros((2, len(tgt_points)))
@@ -168,15 +168,15 @@ class lidarUpdater:
                 scan_data = self.polar_laser_points[tgt_points]
                 
                 #ok, so rn, there are items in pairs that are not in scan data.
-                if scan_data.shape[0] > 100:
-                    selected_scan_idxs= set(np.random.choice(scan_data.shape[0], 100, replace=False)).union(set(y_ind))
-
-                    scan_data = scan_data[list(selected_scan_idxs)]
+                # if scan_data.shape[0] > 100:
+                #     selected_scan_idxs= set(np.random.choice(scan_data.shape[0], 100, replace=False)).union(set(y_ind))
+                #     scan_data = scan_data[list(selected_scan_idxs)]
+                
                 boundary_points = track.xp
                 # if boundary_points.shape[0] > 100:
                 #     selected_bndry_idxs= set(np.random.choice(boundary_points.shape[0], 100, replace=False)).union(set(x_ind))
-
                 #     boundary_points = boundary_points[list(selected_bndry_idxs)]
+                
                 self.jcbb.assign_values(xs = self.state.xs, scan_data = scan_data, track = track.kf.x, P = track.kf.P[0:2,0:2], static=False, psi=self.state.xs[2])
 
                 # if track.id == 1:
@@ -212,9 +212,9 @@ class lidarUpdater:
                     #     np.save("boundaries.npy", selected_bndr_pts)
                     #     sys.exit()
                     tform = estimate_transform("euclidean", boundaries_adjusted, scans_adjusted)
-                    # if track_id == 1:
+                    # if track_id == 5:
                     #     print("ahhh")
-                    #     # plt.figure()
+                    #     plt.figure()
 
                     #     plt.scatter(selected_scan_cartesian[:,0],selected_scan_cartesian[:,1],alpha=0.5, s=4,c="red")
                     #     for i in range(selected_scan_cartesian.shape[0]):
