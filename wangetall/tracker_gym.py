@@ -49,7 +49,7 @@ class Tracker:
 
     def lidar_callback(self, data, time):
         # dt = time - self.prev_Lidar_callback_time
-        dt = self.dt*3 #LiDAR Update speed: 10ms --> 0.01s. 
+        dt = self.dt*3 #LiDAR Update speed: 10ms --> 0.01s.
         self.prev_Lidar_callback_time = time
         self.lidarUpdater.update(dt, data, self.state)
 
@@ -83,7 +83,7 @@ def main():
 
     env = gym.make('f110_gym:f110-v0', map=conf.map_path, map_ext=conf.map_ext)
     obs, step_reward, done, info = env.reset(np.array([[conf.sx, conf.sy, conf.stheta], [conf.sx2, conf.sy2, conf.stheta2]]))
-    
+
     show_env = False
     if show_env:
         env.render()
@@ -135,12 +135,8 @@ def main():
 
         obs, step_reward, done, info = env.step(np.array([[steer, speed], [steer2, speed2]]))
         laptime += step_reward
-<<<<<<< HEAD
-        env.render(mode='human_fast')
-=======
         if show_env:
             env.render(mode='human')
->>>>>>> main
         count += 1
     print('Sim elapsed time:', laptime, 'Real elapsed time:', time.time()-start)
 
