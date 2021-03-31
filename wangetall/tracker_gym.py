@@ -128,7 +128,7 @@ def main():
 
         obs, step_reward, done, info = env.step(np.array([[steer, speed], [steer2, speed2]]))
         laptime += step_reward
-        # env.render(mode='human')
+        env.render(mode='human_fast')
         count += 1
     print('Sim elapsed time:', laptime, 'Real elapsed time:', time.time()-start)
 

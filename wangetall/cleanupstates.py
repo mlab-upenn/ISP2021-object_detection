@@ -19,21 +19,11 @@ class CleanUpStates():
         self.state = state
 
         self.removeOutOfRangeAndOutOfView(lidar, state)
-        self.removeOld()
+
         # how to remove obsucred tracks?
         #cleaned_points = self.removeObscured(valid_points_in_radius)
 
-    def removeOld(self):
-        to_rm = []
-        for idx, track in self.state.dynamic_tracks.items():
-            if track.last_seen > track.seen_threshold:
-                to_rm.append(track.id)
-        print("Removing tracks {}".format(to_rm))
-        for track_id in to_rm:
-            try:
-                self.state.cull_dynamic_track(track_id)
-            except:
-                breakpoint()
+
 
     def removeOutOfRangeAndOutOfView(self, lidar, state):
         #check only if centroid is outside? easier? or check if some of the points of the track are outside?
@@ -63,7 +53,6 @@ class CleanUpStates():
             if(mask == False):
                 self.state.cull_dynamic_track(idx)
                 print("Track", idx, "outside of lidar_range.... removing")
-                continue
             angle = math.degrees(math.atan2(track.kf.x[1] - self.lidar_center_y, track.kf.x[0]- self.lidar_center_x))
             if(angle - math.degrees(self.state.xs[2])) <= -180:
                 angle = abs((angle - math.degrees(self.state.xs[2]))%180)
@@ -79,8 +68,10 @@ class CleanUpStates():
         # for idx, track in list(self.state.dynamic_tracks.items()):
         #     dynamic_P = track.xp+track.kf.x[0:2]
         #     plt.scatter(dynamic_P[:,0],dynamic_P[:,1],s=8, label="dynamic track")
+
+        # plt.scatter(lidar[:,0], lidar[:,1], c="b", label="incoming lidar data")
         # plt.scatter(self.lidar_center_x, self.lidar_center_y, c="r", label="ego vehicle center")
-        # plt.scatter(self.state.static_background.xb[:,0],self.state.static_background.xb[:,1], c="g", s=5, label="static")
+        # #plt.scatter(self.state.static_background.xb[:,0],self.state.static_background.xb[:,1], c="g", s=5, label="static")
         # plt.legend()
         # plt.show()
 

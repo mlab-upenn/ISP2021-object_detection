@@ -39,7 +39,7 @@ class lidarUpdater:
         self.laserpoints= np.vstack((x, y)).T
         self.clean_up_states.run(self.state.xs[0], self.state.xs[1], self.laserpoints, self.state)
 
-        # plt.scatter(self.laserpoints[:,0], self.laserpoints[:,1], c="b", label="test")
+        # plt.scatter(self.laserpoints[:,0], self.laserpoints[:,1], c="b", label="incoming lidar")
         # plt.scatter(self.state.xs[0], self.state.xs[1], c="r", label="car")
         # plt.legend()
         # plt.show()
@@ -89,9 +89,14 @@ class lidarUpdater:
     def associate_and_update(self, data, dt):
         clusters = self.cl.cluster(self.laserpoints)
         # plt.figure()
+        # i = 0
         # for key in clusters.keys():
+        #     i = i + 1
         #     selected_points = self.laserpoints[clusters[key]]
-        #     plt.scatter(selected_points[:,0], selected_points[:,1])
+        #     plt.scatter(selected_points[:,0], selected_points[:,1], label="cluster{}".format(i))
+        # plt.scatter(self.state.xs[0], self.state.xs[1], label="ego vehicle center")
+        # plt.legend()
+        # plt.show()
         # plt.savefig("output_plots/cluster_idx{}.png".format(self.i2))
         # self.i2 += 1
 
@@ -154,7 +159,7 @@ class lidarUpdater:
 
                 # if tgt_points.shape[0] > 100:
                 #     tgt_points = tgt_points[np.random.choice(len(tgt_points), 100, replace=False)]
-                
+
 
                 initial_association = np.zeros((2, len(tgt_points)))
                 initial_association[0] = np.arange(len(tgt_points))
@@ -166,17 +171,17 @@ class lidarUpdater:
 
                 print("Scan data dyn shape{}".format(self.polar_laser_points[tgt_points].shape))
                 scan_data = self.polar_laser_points[tgt_points]
-                
+
                 #ok, so rn, there are items in pairs that are not in scan data.
                 # if scan_data.shape[0] > 100:
                 #     selected_scan_idxs= set(np.random.choice(scan_data.shape[0], 100, replace=False)).union(set(y_ind))
                 #     scan_data = scan_data[list(selected_scan_idxs)]
-                
+
                 boundary_points = track.xp
                 # if boundary_points.shape[0] > 100:
                 #     selected_bndry_idxs= set(np.random.choice(boundary_points.shape[0], 100, replace=False)).union(set(x_ind))
                 #     boundary_points = boundary_points[list(selected_bndry_idxs)]
-                
+
                 self.jcbb.assign_values(xs = self.state.xs, scan_data = scan_data, track = track.kf.x, P = track.kf.P[0:2,0:2], static=False, psi=self.state.xs[2])
 
                 # if track.id == 1:

@@ -8,6 +8,7 @@ import matplotlib.pyplot as plt
 
 import sys
 
+
 class ICP:
     """
     Class Based on the ICP implementation of https://github.com/richardos/icp/blob/master/icp.py and Besl and
@@ -105,16 +106,18 @@ class ICP:
             match_ratio = min(len(closest_point_pairs)/self.reference_points.shape[0],len(closest_point_pairs)/self.points.shape[0])
             # print("Match ratio {}".format(match_ratio))
             # #print(C)
-            # plt.plot(self.points[:,0], self.points[:,1],'bo', markersize = 10)
-            # plt.plot(self.reference_points[:,0], self.reference_points[:,1],'rs',  markersize = 7)
-            # for p in range(N):
-            #     plt.plot([self.points[p,0], self.reference_points[assignment[p],0]], [self.points[p,1], self.reference_points[assignment[p],1]], 'k')
-            # plt.show()
+
             # print("Match ratio {}".format(match_ratio))
             # breakpoint()
             if(match_ratio > self.match_ratio_threshold):
 
                 converged = True
+                # plt.plot(self.points[:,0], self.points[:,1],'bo', markersize = 7, label ="incoming lidar cluster")
+                # plt.plot(self.reference_points[:,0], self.reference_points[:,1],'rs',  markersize = 7, label ="reference cluster")
+                # for p in range(N):
+                #     plt.plot([self.points[p,0], self.reference_points[assignment[p],0]], [self.points[p,1], self.reference_points[assignment[p],1]], 'k')
+                # plt.legend()
+                # plt.show()
                 # if key == 190 and trackid == 2:
                 #     plt.figure()
                 #     plt.plot(self.points[:,0], self.points[:,1],'bo', markersize = 10)
