@@ -2,7 +2,7 @@ import numpy as np
 from scipy import stats
 from perception.helper import Helper
 import sys
-
+import logging
 class InitAndMerge:
     def __init__(self):
         self.alpha = 1-0.95
@@ -45,7 +45,7 @@ class InitAndMerge:
                                                 #the static check, and should be merged into the static backgorund.
 
         for idx in np.where(static_check)[0]:
-            print("Merging {} into static.".format(self.tentative[idx]))
+            logging.info("Merging {} into static.".format(self.tentative[idx]))
             self.state.merge_tracks(self.tentative[idx], None, kind="static")
         
         self.tentative = [x for i, x in enumerate(self.tentative) if i not in np.where(static_check)[0]]
@@ -141,7 +141,7 @@ class InitAndMerge:
             track_id = track_arr[i]
             target_id = self.tentative[j]
             if track_id != target_id and j not in rmed_list:
-                print("Merging {} with {}".format(target_id, track_id))
+                logging.info("Merging dynamic {} with dynamic {}".format(target_id, track_id))
                 self.state.merge_tracks(target_id, track_id, kind="dynamic")
                 rmed_list.append(j)
         self.tentative = [x for i, x in enumerate(self.tentative) if i not in rmed_list]

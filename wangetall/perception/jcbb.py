@@ -10,6 +10,12 @@ import time
 import matplotlib.pyplot as plt
 from numba import njit
 from numba import jitclass
+import logging
+import datetime as dt
+import os
+import logging
+
+
 
 
 #Sample code:
@@ -19,9 +25,7 @@ class RecursionStop(Exception):
 
 class JCBB:
     def __init__(self):
-        self.alpha = 1-0.98
-        self.g = None
-        self.firstrun = 1
+        self.alpha = 1-0.95
 
 
     def assign_values(self, xs, scan_data, track, P, static, psi):
@@ -47,35 +51,18 @@ class JCBB:
         assert initial_association.shape[0] == 2
         assert boundary_points.shape[1] == 2
         assert self.scan_data.shape[1] == 2
-        # print("Boundary points shape {}".format(boundary_points.shape))
-        # print("Scan data shape {}".format(self.scan_data.shape))
+
+        self.firstrun = True
+        logging.info("Boundary points shape {}".format(boundary_points.shape))
+        logging.info("Scan data shape {}".format(self.scan_data.shape))
+        logging.info("Calculating indiv compat...")
+        start = time.time()
         individual_compatibilities = self.compute_compatibility(boundary_points)
-        # np.save("P.npy", self.P)
-        # np.save("xs.npy", self.xs)
-        # np.save("scan_data.npy", self.scan_data)
-        # np.save("boundary_points.npy", boundary_points)
-        # np.save("psi.npy", self.psi)
-        # np.save("initial_association.npy", initial_association)
-        # np.save("track.npy", self.track)
-
-        # print("Percent indiv compat: {}".format(np.count_nonzero(individual_compatibilities)/np.multiply(*individual_compatibilities.shape)))
-        # if np.count_nonzero(individual_compatibilities)/np.multiply(*individual_compatibilities.shape) > 0.8:
-        #     print("COMPAT ALERT!")
-        #     plt.figure()
-        #     # np.save("P.npy", self.P)
-        #     # np.save("xs.npy", self.xs)
-        #     # np.save("scan_data.npy", self.scan_data)
-        #     # np.save("boundary_points.npy", boundary_points)
-        #     # np.save("psi.npy", self.psi)
-        #     # np.save("initial_association.npy", initial_association)
-        #     # np.save("track.npy", self.track)
-
-        #     scan_x, scan_y = convert_scan_polar_cartesian(self.scan_data)
-        #     plt.scatter(scan_x, scan_y, c="b", marker="o", alpha = 0.5, label="Scan Data")
-        #     plt.scatter(boundary_points[:,0]+self.track[0], boundary_points[:,1]+self.track[1], c="orange", marker="o", alpha = 0.5, label="Boundary Points")
-        #     plt.legend()
-        #     plt.show()
-
+        end = time.time()
+        if end-start < 1:
+            logging.info("Indiv compat time taken {}".format(end-start))
+        else:
+            logging.warn("Indiv compat excessive time. Time: {}".format(end-start))
 
         pruned_associations = self.prune_associations(initial_association, individual_compatibilities)
         JNIS = self.calc_JNIS(pruned_associations, boundary_points)
@@ -108,7 +95,8 @@ class JCBB:
                     pruned_associations[1, rm_idx] = curr_pairing
                     rm_idx = []
             end = time.time()
-            print("Looptime {}".format(end-start))
+            if end-start > 1:
+                logging.warn("Long JCBB loop time: {}".format(end-start))
 
             dof = np.count_nonzero(~np.isnan(curr_association[1]))*2
             chi2 = stats.chi2.ppf(self.alpha, df=dof)
@@ -134,7 +122,6 @@ class JCBB:
             min_asso_vals = min_asso_vals[~np.isnan(min_asso_vals)]
 
             selected_boundaries.add(np.nan)
-            # print("Len selected bound {}".format(len(list(selected_boundaries))))
 
             selected_boundaries = np.setdiff1d(np.array(list(selected_boundaries)), min_asso_vals)
 
@@ -156,8 +143,8 @@ class JCBB:
             print("DFS complete!")
             pass
 
-        jnis = self.calc_JNIS(self.best_association, boundary_points)
-        joint_compat = self.check_compat(jnis, DOF =np.count_nonzero(~np.isnan(self.best_association[1]))*2)
+        # jnis = self.calc_JNIS(self.best_association, boundary_points)
+        joint_compat = self.check_compat(self.best_JNIS, DOF =np.count_nonzero(~np.isnan(self.best_association[1]))*2)
         if joint_compat:
             print("Best JNIS {}".format(self.best_JNIS))
             return self.best_association
@@ -204,6 +191,7 @@ class JCBB:
             return True
         else:
             chi2 = stats.chi2.ppf(self.alpha, df=DOF)
+            # print("JNIS {}, DOF {}, chi2 {}".format(JNIS, DOF, chi2))
             return JNIS <= chi2
  
     def compute_compatibility(self, boundary_points):
@@ -249,38 +237,39 @@ class JCBB:
 
         if len(associated_points) == 0:
             return 0
-
         if indiv:
-            g, G = self.calc_g_and_G(associated_points, indiv)
-            self.h = self.calc_h(g)
-            self.g = g
-
-            R = self.calc_R(associated_points, indiv)
-            H = self.calc_Jacobian_H(g, G, associated_points, indiv)
-            S = self.calc_S(H,R, indiv)
-            h = self.h
-        else:
             if self.firstrun:
                 g, G = self.calc_g_and_G(associated_points, indiv)
-                R = self.calc_R(associated_points, indiv)
-                H = self.calc_Jacobian_H(g, G, associated_points, indiv)
+                self.h = self.calc_h(g)
+                self.g = g
 
-                S= self.calc_S(H,R, indiv)
-                self.L = np.linalg.cholesky(S)
-                self.firstrun = 0
-                L = self.L
+                R = self.calc_R(associated_points, indiv)
+
+                G2 =  G.reshape((G.shape[0]*2, 2))
+                H, Hs = self.calc_Jacobian_H(g, G, G2, indiv)
+                self.S = self.calc_S(H,R, indiv)
+                S = self.S
+                h = self.h
+
+                Rs = block_diag(*R)
+                # breakpoint()
+                S2= self.calc_S(Hs,Rs, indiv=False)
+                self.L = np.linalg.cholesky(S2)
+                self.firstrun = False
             else:
-                idxs = bndry_points_idx
-                idxs = np.zeros((bndry_points_idx.shape[0]*2), dtype=int)
-                idxs[::2] = bndry_points_idx
-                idxs[1::2]=bndry_points_idx+1
-                L = self.L[idxs[:,None],idxs]
+                S = self.S
+                h = self.h
+        else:
+            idxs = bndry_points_idx
+            idxs = np.zeros((bndry_points_idx.shape[0]*2), dtype=int)
+            idxs[::2] = bndry_points_idx
+            idxs[1::2]=bndry_points_idx+1
+            L = self.L[idxs[:,None],idxs]
 
         if indiv:
             z_hat = self.scan_data[z_hat_idx]
 
             a = (z_hat-h)
-            # print("z_hat {},h {}".format(z_hat, h))
             b = np.linalg.inv(S)
             JNIS = np.einsum('ki,kij,kj->k', a, b, a)
         else:
@@ -288,10 +277,7 @@ class JCBB:
             z_hat = self.scan_data[z_hat_idx].flatten()
             h = h.flatten()
             a = (z_hat-h)
-            try:          
-                y = solve_triangular(L, a)
-            except:
-                breakpoint()
+            y = solve_triangular(L, a)
             JNIS = np.linalg.norm(y)**2
             
         return JNIS
@@ -299,14 +285,9 @@ class JCBB:
     def calc_R(self, associated_points, indiv):
         #https://dspace.mit.edu/handle/1721.1/32438#files-area
         R_indiv = np.array([[0.001, 0], [0,0.001]])
-        if indiv:
-            R_stacked = np.zeros((len(associated_points), 2,2))
-            R_stacked[:] = R_indiv
-            return R_stacked
-        else:
-            R_matrices = tuple([R_indiv for i in range(len(associated_points))])
-            Rs = block_diag(*R_matrices)
-            return Rs
+        R_stacked = np.zeros((len(associated_points), 2,2))
+        R_stacked[:] = R_indiv
+        return R_stacked
 
 
     def calc_u(self, f):
@@ -370,19 +351,19 @@ class JCBB:
 
 
 
-    def calc_Jacobian_H(self, g, G, associated_points, indiv):
-        U = self.calc_U(g, indiv)
+    def calc_Jacobian_H(self, g, G, G2, indiv):
+        U, Us = self.calc_U(g, indiv)
         H = U.T @ G
-        return H
+        Hs = Us.T@G2
+        return H, Hs
 
     def calc_U(self, g, indiv):
         r = np.sqrt(g[:,0]**2+g[:,1]**2)
         U = (np.array([[r*g[:,0], r*g[:,1]],[-g[:,1], g[:,0]]]))/r**2
             
-        if not indiv:
-            U_matrices = tuple([U[:,:,i] for i in range(U.shape[2])])
-            U =  block_diag(*U_matrices)
-        return U
+        U_matrices = tuple([U[:,:,i] for i in range(U.shape[2])])
+        Us =  block_diag(*U_matrices)
+        return U, Us
 
 
 def convert_scan_polar_cartesian(scan):
@@ -404,7 +385,7 @@ def plot_association(asso, polar):
         scan_x, scan_y = convert_scan_polar_cartesian(scan_data)
 
         #scan data points plot
-        plt.scatter(scan_x, scan_y, c="b", marker="o", alpha = 0.5, label="Scan Data")
+        plt.scatter(scan_x+xs[0], scan_y+xs[1], c="b", marker="o", alpha = 0.5, label="Scan Data")
         # for i in range(scan_x.shape[0]):
         #     plt.text(scan_x[i], scan_y[i], str(i), size = "xx-small")
 
@@ -415,9 +396,9 @@ def plot_association(asso, polar):
 
 
         #SELECTED/PAIRED POINTS
-        plt.scatter(selected_scan_x, selected_scan_y, c="red", marker="v", label="Paired Scan Points")
+        plt.scatter(selected_scan_x+xs[0], selected_scan_y+xs[1], c="red", marker="v", label="Paired Scan Points")
         for i in range(selected_scan_x.shape[0]):
-            plt.text(selected_scan_x[i], selected_scan_y[i], str(i))
+            plt.text(selected_scan_x[i]+xs[0], selected_scan_y[i]+xs[1], str(i))
 
         plt.scatter(selected_bndr_pts[:,0]+track[0], selected_bndr_pts[:,1]+track[1], c="black", marker="v", label="Paired Boundary Points")
         for i in range(selected_bndr_pts.shape[0]):
@@ -470,14 +451,15 @@ if __name__ == "__main__":
     jc = JCBB()
 
 
-    initial_association= np.load("init_asso.npy")
-    P = np.load("P.npy")
-    psi = np.load("psi.npy")
-    scan_data = np.load("scan_data.npy")
-    xs = np.load("xs.npy")
-    track = np.load("track.npy")
-    boundary_points = np.load("trackxp.npy")
-
+    initial_association= np.load("tests/npy_files/initial_association.npy")
+    P = np.load("tests/npy_files/P.npy")
+    
+    psi = np.load("tests/npy_files/psi.npy")
+    scan_data = np.load("tests/npy_files/scan_data.npy")
+    xs = np.load("tests/npy_files/xs.npy")
+    track = np.load("tests/npy_files/track.npy")
+    boundary_points = np.load("tests/npy_files/boundary_points.npy")
+    breakpoint()
     jc.assign_values(xs = xs, scan_data = scan_data, track = track, P = P, static=False, psi=psi)
 
     # for i in range(100):
@@ -536,7 +518,7 @@ if __name__ == "__main__":
     runtime = endtime-starttime
 
     if np.any(asso):
-        plot_association(asso, polar=True)
+        plot_association(asso, polar=False)
     else:
         print("No associations found.")
         # plot_association(asso)
