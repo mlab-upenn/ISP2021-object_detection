@@ -84,7 +84,7 @@ def main():
     env = gym.make('f110_gym:f110-v0', map=conf.map_path, map_ext=conf.map_ext)
     obs, step_reward, done, info = env.reset(np.array([[conf.sx, conf.sy, conf.stheta], [conf.sx2, conf.sy2, conf.stheta2]]))
 
-    show_env = False
+    show_env = True
     if show_env:
         env.render()
     planner = PurePursuitPlanner(conf, 0.17145+0.15875)
