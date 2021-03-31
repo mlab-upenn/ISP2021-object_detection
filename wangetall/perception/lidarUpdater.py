@@ -11,6 +11,24 @@ import time
 from skimage.transform import estimate_transform
 import sys
 import matplotlib.pyplot as plt
+import os
+import logging
+import datetime as dt
+
+logger = logging.getLogger()
+LOG_FILE = os.getcwd() + "/logs"
+if not os.path.exists(LOG_FILE):
+    os.makedirs(LOG_FILE)
+LOG_FILE = LOG_FILE + "/" + dt.datetime.fromtimestamp(time.time()).strftime('%Y_%m_%d %H_%M_%S') + ".log"
+logFormatter = logging.Formatter("[%(levelname)s]: %(message)s")
+fileHandler = logging.FileHandler("{0}".format(LOG_FILE))
+fileHandler.setFormatter(logFormatter)
+rootLogger = logging.getLogger()
+rootLogger.addHandler(fileHandler)
+rootLogger.setLevel(logging.INFO)
+
+
+
 
 class lidarUpdater:
     def __init__(self):
@@ -50,16 +68,16 @@ class lidarUpdater:
 
         for key, points in new_tracks.items():
             idx = self.state.create_new_track(self.laserpoints, points)
-            print("Created new track {}".format(idx))
+            logging.info("Created new track {}".format(idx))
 
         tracks_to_init_and_merge = []
         # print("to init: {}".format(tracks_to_init_and_merge))
         for track_id, track in self.state.dynamic_tracks.items():
-            print("Track id {}, num_viewings {}".format(track_id, track.num_viewings))
+            logging.info("Track id {}, num_viewings {}".format(track_id, track.num_viewings))
             if track.num_viewings >= track.mature_threshold:
                 tracks_to_init_and_merge.append(track_id)
         if len(tracks_to_init_and_merge) > 0:
-            print("Tracks to init and merge {}".format(tracks_to_init_and_merge))
+            logging.info("Tracks to init and merge {}".format(tracks_to_init_and_merge))
             self.InitAndMerge.run(tracks_to_init_and_merge, self.state)
 
 
@@ -164,7 +182,6 @@ class lidarUpdater:
                     breakpoint()
                 initial_association[1, y_ind] = pairs[x_ind, 1]
 
-                print("Scan data dyn shape{}".format(self.polar_laser_points[tgt_points].shape))
                 scan_data = self.polar_laser_points[tgt_points]
                 
                 #ok, so rn, there are items in pairs that are not in scan data.
@@ -239,10 +256,7 @@ class lidarUpdater:
                     measurement[3] = tform.translation[0]/dt
                     measurement[4] = tform.translation[1]/dt
                     measurement[5] = angle
-                    print("Track {} received a new reading! {}".format(track.id, tform.translation))
-                    # print("Self state vel x {}, vely {}".format(self.state.xs[3], self.state.xs[4]))
-                    # print("Tform {}".format(tform))
-                    print("Measurement {}".format(measurement[3:5]))
+                    logging.info("Track {} received a new measurement! {}".format(track.id, measurement[3:5]))
                     self.Updater.run(measurement)
                     # print("Track {} new state {}".format(track.id, track.kf.x[0:4]))
 

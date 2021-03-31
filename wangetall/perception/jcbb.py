@@ -289,10 +289,7 @@ class JCBB:
             z_hat = self.scan_data[z_hat_idx].flatten()
             h = h.flatten()
             a = (z_hat-h)
-            try:          
-                y = solve_triangular(L, a)
-            except:
-                breakpoint()
+            y = solve_triangular(L, a)
             JNIS = np.linalg.norm(y)**2
             
         return JNIS
