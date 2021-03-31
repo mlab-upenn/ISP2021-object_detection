@@ -109,8 +109,11 @@ class ICP:
 
             # print("Match ratio {}".format(match_ratio))
             # breakpoint()
-            if(match_ratio > self.match_ratio_threshold):
-
+            close_enough = abs(max(tform.translation)) < 0.1 and abs(tform.rotation) < 0.01
+            # print("Trackid {} trans {}, rot {}".format(trackid, tform.translation, tform.rotation))
+            if(match_ratio > self.match_ratio_threshold) or close_enough:
+                if close_enough:
+                    print("Close enough!")
                 converged = True
                 # plt.plot(self.points[:,0], self.points[:,1],'bo', markersize = 7, label ="incoming lidar cluster")
                 # plt.plot(self.reference_points[:,0], self.reference_points[:,1],'rs',  markersize = 7, label ="reference cluster")

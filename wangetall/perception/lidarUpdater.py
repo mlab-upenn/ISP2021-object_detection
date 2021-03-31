@@ -11,6 +11,11 @@ import time
 from skimage.transform import estimate_transform
 import sys
 import matplotlib.pyplot as plt
+import os
+import datetime as dt
+import logging
+
+
 
 class lidarUpdater:
     def __init__(self):
@@ -50,16 +55,16 @@ class lidarUpdater:
 
         for key, points in new_tracks.items():
             idx = self.state.create_new_track(self.laserpoints, points)
-            print("Created new track {}".format(idx))
+            logging.info("Created new track {}".format(idx))
 
         tracks_to_init_and_merge = []
         # print("to init: {}".format(tracks_to_init_and_merge))
         for track_id, track in self.state.dynamic_tracks.items():
-            print("Track id {}, num_viewings {}".format(track_id, track.num_viewings))
+            logging.info("Track id {}, num_viewings {}, last_seen {}".format(track_id, track.num_viewings, track.last_seen))
             if track.num_viewings >= track.mature_threshold:
                 tracks_to_init_and_merge.append(track_id)
         if len(tracks_to_init_and_merge) > 0:
-            print("Tracks to init and merge {}".format(tracks_to_init_and_merge))
+            logging.info("Tracks to init and merge {}".format(tracks_to_init_and_merge))
             self.InitAndMerge.run(tracks_to_init_and_merge, self.state)
 
 
@@ -75,10 +80,13 @@ class lidarUpdater:
                 track.kf.F = F
                 track.kf.Q = Q
                 track.kf.predict()
-            elif track.last_seen > 1:
+            if track.last_seen > 1:
                 track.update_seen()
                 track.kf.P *= 1.1
-
+                logging.info("Increasing Track {} covariance.".format(track.id))
+            if track.id == 4:
+                logging.warn("Track 4 cov: {}".format(track.kf.P[0,0]))
+                logging.warn("Track 4 Kalman Gain: {}".format(track.kf.K))
 
         #Static background doesn't move, so no need for propagation step...
         # self.state.static_background.kf.F = F
@@ -126,18 +134,18 @@ class lidarUpdater:
             # print("Scan data static shape{}".format(self.polar_laser_points[tgt_points].shape))
             # breakpoint()
 
-            self.jcbb.assign_values(xs = self.state.xs, scan_data = self.polar_laser_points[tgt_points], track=None, P = P_static_sub, static=True, psi=self.state.xs[2])
-            association = self.jcbb.run(initial_association, self.state.static_background.xb)
-            association[0] = tgt_points
-            pairings = association[:,~np.isnan(association[1])]
-            update_x, update_y = Helper.convert_scan_polar_cartesian_joint(self.polar_laser_points[pairings[0].astype(int)])
-            update_points = np.vstack((update_x, update_y)).T +self.state.xs[0:2]
-            self.state.static_background.xb[pairings[1].astype(int)] = update_points
+            # self.jcbb.assign_values(xs = self.state.xs, scan_data = self.polar_laser_points[tgt_points], track=None, P = P_static_sub, static=True, psi=self.state.xs[2])
+            # association = self.jcbb.run(initial_association, self.state.static_background.xb)
+            # association[0] = tgt_points
+            # pairings = association[:,~np.isnan(association[1])]
+            # update_x, update_y = Helper.convert_scan_polar_cartesian_joint(self.polar_laser_points[pairings[0].astype(int)])
+            # update_points = np.vstack((update_x, update_y)).T +self.state.xs[0:2]
+            # self.state.static_background.xb[pairings[1].astype(int)] = update_points
 
-            new_pts = set(tgt_points)-set(pairings[0].astype(int))
-            new_pts_x, new_pts_y = Helper.convert_scan_polar_cartesian_joint(self.polar_laser_points[list(new_pts)])
-            new_pts = np.vstack((new_pts_x, new_pts_y)).T+self.state.xs[0:2]
-            self.state.static_background.xb = np.concatenate((self.state.static_background.xb, new_pts))
+            # new_pts = set(tgt_points)-set(pairings[0].astype(int))
+            # new_pts_x, new_pts_y = Helper.convert_scan_polar_cartesian_joint(self.polar_laser_points[list(new_pts)])
+            # new_pts = np.vstack((new_pts_x, new_pts_y)).T+self.state.xs[0:2]
+            # self.state.static_background.xb = np.concatenate((self.state.static_background.xb, new_pts))
         #then, do dynamic tracks
 
         for track_id, dyn_association in dynamic_association.items():
@@ -169,7 +177,6 @@ class lidarUpdater:
                     breakpoint()
                 initial_association[1, y_ind] = pairs[x_ind, 1]
 
-                print("Scan data dyn shape{}".format(self.polar_laser_points[tgt_points].shape))
                 scan_data = self.polar_laser_points[tgt_points]
 
                 #ok, so rn, there are items in pairs that are not in scan data.
@@ -184,22 +191,34 @@ class lidarUpdater:
 
                 self.jcbb.assign_values(xs = self.state.xs, scan_data = scan_data, track = track.kf.x, P = track.kf.P[0:2,0:2], static=False, psi=self.state.xs[2])
 
-                # if track.id == 1:
+
+                association = self.jcbb.run(initial_association, boundary_points)
+                # sys.exit()
+                association[0] = tgt_points
+                pairings = association[:,~np.isnan(association[1])]
+                if pairings.shape[1] == 0:
+                    logging.warn("Track {}, num pairings {}".format(track.id, pairings.shape[1]))
+                # if pairings.shape[1] == 0 and track.id == 4:
+                #     np.save("tests/npy_files/xs.npy", self.state.xs)
+                #     np.save("tests/npy_files/scan_data.npy", scan_data)
+                #     np.save("tests/npy_files/track.npy", track.kf.x)
+                #     np.save("tests/npy_files/P.npy", track.kf.P[0:2,0:2])
+
+                #     np.save("tests/npy_files/psi.npy", self.state.xs[2])
+                #     np.save("tests/npy_files/initial_association.npy", initial_association)
+                #     np.save("tests/npy_files/boundary_points.npy", boundary_points)
+
+
                 #     scan_x, scan_y = Helper.convert_scan_polar_cartesian_joint(self.polar_laser_points[tgt_points])
                 #     plt.figure()
                 #     # plt.xlim(-15,15)
                 #     # plt.ylim(-15,15)
                 #     plt.scatter(scan_x+self.state.xs[0], scan_y+self.state.xs[1], c="red", marker="o", alpha = 0.5, label="Scan Data")
                 #     plt.scatter(track.xp[:,0]+track.kf.x[0], track.xp[:,1]+track.kf.x[1], c="purple", marker="o", alpha = 0.5, label="Boundary Points")
-                #     # plt.show()
-                #     # breakpoint()
+                #     plt.show()
+                #     breakpoint()
                 #     # plt.savefig("output_plots/{}.png".format(self.i))
                 #     # self.i += 1
-
-                association = self.jcbb.run(initial_association, boundary_points)
-                # sys.exit()
-                association[0] = tgt_points
-                pairings = association[:,~np.isnan(association[1])]
 
                 if pairings.shape[1] >= 3: #need 3 points to compute rigid transformation
                     self.Updater.assign_values(track, association, self.state, static=False)
@@ -244,10 +263,7 @@ class lidarUpdater:
                     measurement[3] = tform.translation[0]/dt
                     measurement[4] = tform.translation[1]/dt
                     measurement[5] = angle
-                    print("Track {} received a new reading! {}".format(track.id, tform.translation))
-                    # print("Self state vel x {}, vely {}".format(self.state.xs[3], self.state.xs[4]))
-                    # print("Tform {}".format(tform))
-                    print("Measurement {}".format(measurement[3:5]))
+                    logging.info("Track {} received a new measurement! {}".format(track.id, measurement[3:5]))
                     self.Updater.run(measurement)
                     # print("Track {} new state {}".format(track.id, track.kf.x[0:4]))
 
@@ -313,7 +329,6 @@ class Updater:
         R = self.calc_R(self.associated_points)
         # g, G = self.calc_g_and_G(self.associated_points)
         # H = self.calc_Jacobian_H(x, g, G)
-
         #May need to come up with custom measurement model for the
         #special measurement we created..
         self.track.kf.update(measurement, self.calc_Hj, self.calc_hx, R)
@@ -324,11 +339,9 @@ class Updater:
     def calc_hx(self, x):
         return x
 
-
-
     def calc_R(self, associated_points):
         #https://dspace.mit.edu/handle/1721.1/32438#files-area
-        R = np.eye(6)*0.1
+        R = np.eye(6)*0.5
         return R
 
     # def compute_Kalman_gain(self, H, P, R):

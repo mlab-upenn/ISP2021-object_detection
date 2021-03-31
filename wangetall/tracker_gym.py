@@ -5,6 +5,7 @@ import numpy as np
 from argparse import Namespace
 from scipy.sparse import block_diag
 import matplotlib
+import sys
 
 matplotlib.use("Qt5Agg")
 
@@ -17,6 +18,8 @@ from perception.lidarUpdater import lidarUpdater
 
 from gym_testing.pure_pursuit_planner import PurePursuitPlanner
 from State import State
+import log
+
 
 class Tracker:
     def __init__(self, idx, dt):
@@ -46,7 +49,7 @@ class Tracker:
 
     def lidar_callback(self, data, time):
         # dt = time - self.prev_Lidar_callback_time
-        dt = self.dt*10
+        dt = self.dt*3 #LiDAR Update speed: 10ms --> 0.01s. 
         self.prev_Lidar_callback_time = time
         self.lidarUpdater.update(dt, data, self.state)
 
@@ -80,7 +83,10 @@ def main():
 
     env = gym.make('f110_gym:f110-v0', map=conf.map_path, map_ext=conf.map_ext)
     obs, step_reward, done, info = env.reset(np.array([[conf.sx, conf.sy, conf.stheta], [conf.sx2, conf.sy2, conf.stheta2]]))
-    # env.render()
+    
+    show_env = False
+    if show_env:
+        env.render()
     planner = PurePursuitPlanner(conf, 0.17145+0.15875)
     planner2 = PurePursuitPlanner(conf, 0.17145+0.15875)
 
@@ -88,6 +94,7 @@ def main():
     start = time.time()
 
     tracker = Tracker(1,env.timestep)
+    assert env.timestep == 0.01
     plot = True
     if plot:
         fig, ax = plt.subplots(figsize=(6, 6))
@@ -99,7 +106,7 @@ def main():
         speed, steer = planner.plan(obs['poses_x'][0], obs['poses_y'][0], obs['poses_theta'][0], work['tlad'], work['vgain'])
         speed2, steer2 = planner2.plan(obs['poses_x'][1], obs['poses_y'][1], obs['poses_theta'][1], work['tlad'], work['vgain'])
         # print("Agent 2 speed {}".format(speed2))
-        if count % 10 == 0 and count != 0:
+        if count % 3 == 0 and count != 0:
             obs["Odom"] = False
             obs["LiDAR"] = True
         else:
@@ -122,16 +129,22 @@ def main():
                 ax.text(track.kf.x[0], track.kf.x[1], "T{} S:{}".format(idx, trackspeed), size = "x-small")
             plt.legend()
 
-            plt.pause(0.0001)
+            plt.pause(0.1)
         # plt.clf()
 
 
         obs, step_reward, done, info = env.step(np.array([[steer, speed], [steer2, speed2]]))
         laptime += step_reward
+<<<<<<< HEAD
         env.render(mode='human_fast')
+=======
+        if show_env:
+            env.render(mode='human')
+>>>>>>> main
         count += 1
     print('Sim elapsed time:', laptime, 'Real elapsed time:', time.time()-start)
 
 
 if __name__ == '__main__':
+    log.get_logger()
     main()

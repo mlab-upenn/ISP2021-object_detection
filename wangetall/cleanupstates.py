@@ -7,7 +7,7 @@ import matplotlib.pyplot as plt
 from numba import njit
 from perception.helper import Helper
 import math
-
+import logging
 class CleanUpStates():
     def __init__(self):
         pass
@@ -17,9 +17,8 @@ class CleanUpStates():
         self.lidar_center_y = lidar_center_y
         self.lidar_range = lidar_range
         self.state = state
-
-        self.removeOutOfRangeAndOutOfView(lidar, state)
         self.removeOld()
+        self.removeOutOfRangeAndOutOfView(lidar, state)
         # how to remove obsucred tracks?
         #cleaned_points = self.removeObscured(valid_points_in_radius)
 
@@ -27,22 +26,22 @@ class CleanUpStates():
         to_rm = []
         for idx, track in self.state.dynamic_tracks.items():
             if track.last_seen > track.seen_threshold:
+                logging.info("Clean up states removing track {}. Last seen {}".format(track.id, track.last_seen))
                 to_rm.append(track.id)
-        print("Removing tracks {}".format(to_rm))
+        
         for track_id in to_rm:
-            try:
-                self.state.cull_dynamic_track(track_id)
-            except:
+            if track_id == 4:
                 breakpoint()
+            self.state.cull_dynamic_track(track_id)
 
     def removeOutOfRangeAndOutOfView(self, lidar, state):
         #check only if centroid is outside? easier? or check if some of the points of the track are outside?
         if self.state.static_background.xb.size != 0:
-            print("---------static backgroud----------")
-            print("static size before:",self.state.static_background.xb.size)
+            # print("---------static backgroud----------")
+            # print("static size before:",self.state.static_background.xb.size)
             mask = (self.state.static_background.xb[:,0] - self.lidar_center_x)**2 + (self.state.static_background.xb[:,1] - self.lidar_center_y)**2 < self.lidar_range**2
             self.state.static_background.xb = self.state.static_background.xb[mask,:]
-            print("static size after:",self.state.static_background.xb.size)
+            # print("static size after:",self.state.static_background.xb.size)
             angles = []
             last = 0
             for i in range(int(self.state.static_background.xb.size/2)):
@@ -62,7 +61,7 @@ class CleanUpStates():
             mask = (track.kf.x[0] - self.lidar_center_x)**2 + (track.kf.x[1] - self.lidar_center_y)**2 < self.lidar_range**2
             if(mask == False):
                 self.state.cull_dynamic_track(idx)
-                print("Track", idx, "outside of lidar_range.... removing")
+                logging.info("Track, {}, outside of lidar_range.... removing. ".format(idx))
                 continue
             angle = math.degrees(math.atan2(track.kf.x[1] - self.lidar_center_y, track.kf.x[0]- self.lidar_center_x))
             if(angle - math.degrees(self.state.xs[2])) <= -180:
@@ -72,7 +71,7 @@ class CleanUpStates():
             #breakpoint()
             if(angle > math.degrees(4.7/2)):
                 self.state.cull_dynamic_track(idx)
-                print("Track", idx, "outside of field of view (in angle", angle,").... removing")
+                logging.info("Track", idx, "outside of field of view (in angle", angle,").... removing")
 
             #self.state.static_background.xb = self.state.static_background.xb[np.where(abs(rads - self.state.xs[2]) <= 4.7/2)]
             #print("static size after fov cleaning:",self.state.static_background.xb.size)
@@ -100,12 +99,8 @@ class CleanUpStates():
                     on_and_between = pt2_on and pt2_between
                     if(on_and_between):
                         to_del = np.stack((point2_x, point2_y), axis=-1)
-                        print("delete",to_del)
                         array1 = np.where(within_radius_cleaned[:, 0] == [point1_x])
                         array2 = np.where(within_radius_cleaned[:, 1] == [point1_y])
-                        print(np.where(within_radius_cleaned[:, 0] == [point1_x]))
-                        print(np.where(within_radius_cleaned[:, 1] == [point1_y]))
-                        print(np.intersect1d(array1, array2))
                         within_radius_cleaned = np.delete(within_radius_cleaned, np.intersect1d(array1, array2), axis=0)
 
         return within_radius_cleaned
