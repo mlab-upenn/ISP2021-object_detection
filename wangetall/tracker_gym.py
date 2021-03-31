@@ -18,6 +18,8 @@ from perception.lidarUpdater import lidarUpdater
 
 from gym_testing.pure_pursuit_planner import PurePursuitPlanner
 from State import State
+import log
+
 
 class Tracker:
     def __init__(self, idx, dt):
@@ -47,7 +49,7 @@ class Tracker:
 
     def lidar_callback(self, data, time):
         # dt = time - self.prev_Lidar_callback_time
-        dt = self.dt*10 #LiDAR Update speed: 10ms --> 0.01s. 
+        dt = self.dt*3 #LiDAR Update speed: 10ms --> 0.01s. 
         self.prev_Lidar_callback_time = time
         self.lidarUpdater.update(dt, data, self.state)
 
@@ -92,7 +94,7 @@ def main():
     start = time.time()
 
     tracker = Tracker(1,env.timestep)
-    assert env.timestep == 0.001
+    assert env.timestep == 0.01
     plot = True
     if plot:
         fig, ax = plt.subplots(figsize=(6, 6))
@@ -104,7 +106,7 @@ def main():
         speed, steer = planner.plan(obs['poses_x'][0], obs['poses_y'][0], obs['poses_theta'][0], work['tlad'], work['vgain'])
         speed2, steer2 = planner2.plan(obs['poses_x'][1], obs['poses_y'][1], obs['poses_theta'][1], work['tlad'], work['vgain'])
         # print("Agent 2 speed {}".format(speed2))
-        if count % 10 == 0 and count != 0:
+        if count % 3 == 0 and count != 0:
             obs["Odom"] = False
             obs["LiDAR"] = True
         else:
@@ -140,4 +142,5 @@ def main():
 
 
 if __name__ == '__main__':
+    log.get_logger()
     main()
