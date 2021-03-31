@@ -6,7 +6,7 @@ from scipy.linalg import block_diag
 x = np.ones((1000))
 M = np.diag(np.arange(1,1001))
 # print(M)
-i = np.random.choice(1000, size=1000, replace=False)
+i = np.random.choice(1000, size=500, replace=False)
 
 i.sort()
 print(i)

@@ -30,8 +30,6 @@ class CleanUpStates():
                 to_rm.append(track.id)
         
         for track_id in to_rm:
-            if track_id == 4:
-                breakpoint()
             self.state.cull_dynamic_track(track_id)
 
     def removeOutOfRangeAndOutOfView(self, lidar, state):
@@ -71,7 +69,7 @@ class CleanUpStates():
             #breakpoint()
             if(angle > math.degrees(4.7/2)):
                 self.state.cull_dynamic_track(idx)
-                logging.info("Track", idx, "outside of field of view (in angle", angle,").... removing")
+                logging.info("Track {}, outside of field of view (in angle {}),.... removing".format(idx, angle))
 
             #self.state.static_background.xb = self.state.static_background.xb[np.where(abs(rads - self.state.xs[2]) <= 4.7/2)]
             #print("static size after fov cleaning:",self.state.static_background.xb.size)

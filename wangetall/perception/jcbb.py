@@ -191,7 +191,6 @@ class JCBB:
             return True
         else:
             chi2 = stats.chi2.ppf(self.alpha, df=DOF)
-            # print("JNIS {}, DOF {}, chi2 {}".format(JNIS, DOF, chi2))
             return JNIS <= chi2
  
     def compute_compatibility(self, boundary_points):
@@ -277,14 +276,14 @@ class JCBB:
             z_hat = self.scan_data[z_hat_idx].flatten()
             h = h.flatten()
             a = (z_hat-h)
+            
             y = solve_triangular(L, a)
             JNIS = np.linalg.norm(y)**2
-            
         return JNIS
 
     def calc_R(self, associated_points, indiv):
         #https://dspace.mit.edu/handle/1721.1/32438#files-area
-        R_indiv = np.array([[0.001, 0], [0,0.001]])
+        R_indiv = np.array([[0.008, 0], [0,0.008]])
         R_stacked = np.zeros((len(associated_points), 2,2))
         R_stacked[:] = R_indiv
         return R_stacked
@@ -453,13 +452,13 @@ if __name__ == "__main__":
 
     initial_association= np.load("tests/npy_files/initial_association.npy")
     P = np.load("tests/npy_files/P.npy")
+    print(P)
     
     psi = np.load("tests/npy_files/psi.npy")
     scan_data = np.load("tests/npy_files/scan_data.npy")
     xs = np.load("tests/npy_files/xs.npy")
     track = np.load("tests/npy_files/track.npy")
     boundary_points = np.load("tests/npy_files/boundary_points.npy")
-    breakpoint()
     jc.assign_values(xs = xs, scan_data = scan_data, track = track, P = P, static=False, psi=psi)
 
     # for i in range(100):

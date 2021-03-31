@@ -86,6 +86,7 @@ class DynamicTrack(Track):
         self.kind = 1
         self.xp = None
         self.kf = ExtendedKalmanFilter(dim_x=6, dim_z=6)
+        self.kf.R = np.eye(6)*0.1
 
 
 class StaticTrack(Track):
@@ -99,3 +100,4 @@ class StaticTrack(Track):
         self.kind = 0
         self.xb = np.zeros((0,2))
         self.kf = ExtendedKalmanFilter(dim_x=2, dim_z=2)
+        self.kf.R = np.eye(2)*0.1
