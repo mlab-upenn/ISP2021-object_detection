@@ -60,7 +60,7 @@ class lidarUpdater:
         tracks_to_init_and_merge = []
         # print("to init: {}".format(tracks_to_init_and_merge))
         for track_id, track in self.state.dynamic_tracks.items():
-            logging.info("Track id {}, num_viewings {}".format(track_id, track.num_viewings))
+            logging.info("Track id {}, num_viewings {}, last_seen {}".format(track_id, track.num_viewings, track.last_seen))
             if track.num_viewings >= track.mature_threshold:
                 tracks_to_init_and_merge.append(track_id)
         if len(tracks_to_init_and_merge) > 0:
@@ -80,12 +80,13 @@ class lidarUpdater:
                 track.kf.F = F
                 track.kf.Q = Q
                 track.kf.predict()
-            elif track.last_seen > 1:
-            
+            if track.last_seen > 1:
                 track.update_seen()
                 track.kf.P *= 1.1
+                logging.info("Increasing Track {} covariance.".format(track.id))
             if track.id == 4:
                 logging.warn("Track 4 cov: {}".format(track.kf.P[0,0]))
+                logging.warn("Track 4 Kalman Gain: {}".format(track.kf.K))
 
         #Static background doesn't move, so no need for propagation step...
         # self.state.static_background.kf.F = F
@@ -190,28 +191,29 @@ class lidarUpdater:
                 # sys.exit()
                 association[0] = tgt_points
                 pairings = association[:,~np.isnan(association[1])]
-                logging.info("Track {}, num pairings {}".format(track.id, pairings.shape[1]))
-                if pairings.shape[1] == 0 and track.id == 4:
-                    np.save("tests/npy_files/xs.npy", self.state.xs)
-                    np.save("tests/npy_files/scan_data.npy", scan_data)
-                    np.save("tests/npy_files/track.npy", track.kf.x)
-                    np.save("tests/npy_files/P.npy", track.kf.P[0:2,0:2])
+                if pairings.shape[1] == 0:
+                    logging.warn("Track {}, num pairings {}".format(track.id, pairings.shape[1]))
+                # if pairings.shape[1] == 0 and track.id == 4:
+                #     np.save("tests/npy_files/xs.npy", self.state.xs)
+                #     np.save("tests/npy_files/scan_data.npy", scan_data)
+                #     np.save("tests/npy_files/track.npy", track.kf.x)
+                #     np.save("tests/npy_files/P.npy", track.kf.P[0:2,0:2])
 
-                    np.save("tests/npy_files/psi.npy", self.state.xs[2])
-                    np.save("tests/npy_files/initial_association.npy", initial_association)
-                    np.save("tests/npy_files/boundary_points.npy", boundary_points)
+                #     np.save("tests/npy_files/psi.npy", self.state.xs[2])
+                #     np.save("tests/npy_files/initial_association.npy", initial_association)
+                #     np.save("tests/npy_files/boundary_points.npy", boundary_points)
 
 
-                    scan_x, scan_y = Helper.convert_scan_polar_cartesian_joint(self.polar_laser_points[tgt_points])
-                    plt.figure()
-                    # plt.xlim(-15,15)
-                    # plt.ylim(-15,15)
-                    plt.scatter(scan_x+self.state.xs[0], scan_y+self.state.xs[1], c="red", marker="o", alpha = 0.5, label="Scan Data")
-                    plt.scatter(track.xp[:,0]+track.kf.x[0], track.xp[:,1]+track.kf.x[1], c="purple", marker="o", alpha = 0.5, label="Boundary Points")
-                    plt.show()
-                    breakpoint()
-                    # plt.savefig("output_plots/{}.png".format(self.i))
-                    # self.i += 1
+                #     scan_x, scan_y = Helper.convert_scan_polar_cartesian_joint(self.polar_laser_points[tgt_points])
+                #     plt.figure()
+                #     # plt.xlim(-15,15)
+                #     # plt.ylim(-15,15)
+                #     plt.scatter(scan_x+self.state.xs[0], scan_y+self.state.xs[1], c="red", marker="o", alpha = 0.5, label="Scan Data")
+                #     plt.scatter(track.xp[:,0]+track.kf.x[0], track.xp[:,1]+track.kf.x[1], c="purple", marker="o", alpha = 0.5, label="Boundary Points")
+                #     plt.show()
+                #     breakpoint()
+                #     # plt.savefig("output_plots/{}.png".format(self.i))
+                #     # self.i += 1
 
                 if pairings.shape[1] >= 3: #need 3 points to compute rigid transformation
                     self.Updater.assign_values(track, association, self.state, static=False)
@@ -322,7 +324,6 @@ class Updater:
         R = self.calc_R(self.associated_points)
         # g, G = self.calc_g_and_G(self.associated_points)
         # H = self.calc_Jacobian_H(x, g, G)
-
         #May need to come up with custom measurement model for the
         #special measurement we created..
         self.track.kf.update(measurement, self.calc_Hj, self.calc_hx, R)
@@ -332,8 +333,6 @@ class Updater:
 
     def calc_hx(self, x):
         return x
-
-
 
     def calc_R(self, associated_points):
         #https://dspace.mit.edu/handle/1721.1/32438#files-area
