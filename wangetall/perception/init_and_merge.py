@@ -18,23 +18,23 @@ class InitAndMerge:
 
     def static_check(self):
         static_check = np.zeros(len(self.tentative))
-        chi2 = stats.chi2.ppf(self.alpha, df=3)
+        chi2 = stats.chi2.ppf(self.alpha, df=2)
 
-        h = np.zeros((len(self.tentative), 3))
+        h = np.zeros((len(self.tentative), 2))
         for idx, track_id in enumerate(self.tentative):
-            h[idx] = [self.state.dynamic_tracks[track_id].kf.x[3], self.state.dynamic_tracks[track_id].kf.x[4], self.state.dynamic_tracks[track_id].kf.x[5]]        
+            h[idx] = [self.state.dynamic_tracks[track_id].kf.x[2], self.state.dynamic_tracks[track_id].kf.x[3]]        
         
         #fictious measurement model
         #optimization: move creation of H and z_hat into init to avoid calling every time.
         # H= np.zeros((h.shape[0], 3, 6))
         # H[:] = np.hstack((np.eye(3), np.ones((3,3))))
-        S = np.zeros((len(self.tentative), 3, 3))
+        S = np.zeros((len(self.tentative), 2, 2))
         for idx, track_id in enumerate(self.tentative):
-            S[idx] = self.state.dynamic_tracks[track_id].kf.P[3:6,3:6]   
+            S[idx] = self.state.dynamic_tracks[track_id].kf.P[2:4,2:4]   
 
         
-        z_hat = np.zeros((h.shape[0], 3))
-        z_hat[:] = np.zeros((3))
+        z_hat = np.zeros((h.shape[0], 2))
+        z_hat[:] = np.zeros((2))
 
         a = z_hat - h
         b = np.linalg.inv(S)
@@ -89,7 +89,7 @@ class InitAndMerge:
             track = self.state.dynamic_tracks[track_id]
             #generate a bunch of stacked matrices to run all of this 
             # for all the tentative tracks at once.
-            vel_e[:] = np.array([track.kf.x[3], track.kf.x[4]])
+            vel_e[:] = np.array([track.kf.x[2], track.kf.x[3]])
             pos_e[:] = np.array([track.kf.x[0], track.kf.x[1]])
 
             # R_phi_e[:] = Helper.compute_rot_matrix(-track.kf.x[2])
@@ -124,7 +124,7 @@ class InitAndMerge:
             # P[:] = track.kf.P[3:6,3:6]
 
             P[:,0:2,0:2] = track.kf.P[0:2,0:2]
-            P[:,2:4,2:4] = track.kf.P[3:5,3:5]
+            P[:,2:4,2:4] = track.kf.P[2:4,2:4]
 
             S = P
             # S = H.transpose(0,2, 1)@P@H

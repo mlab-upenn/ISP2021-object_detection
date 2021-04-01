@@ -13,7 +13,9 @@ def clearlogs():
                 shutil.rmtree(file_path)
         except Exception as e:
             print('Failed to delete %s. Reason: %s' % (file_path, e))
+    print("====================")
     print("Logs cleared.")
+    print("====================")
 
 
 if __name__ == "__main__":

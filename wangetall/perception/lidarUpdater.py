@@ -84,9 +84,6 @@ class lidarUpdater:
                 track.update_seen()
                 track.kf.P *= 1.1
                 logging.info("Increasing Track {} covariance.".format(track.id))
-            if track.id == 4:
-                logging.warn("Track 4 cov: {}".format(track.kf.P[0,0]))
-                logging.warn("Track 4 Kalman Gain: {}".format(track.kf.K))
 
         #Static background doesn't move, so no need for propagation step...
         # self.state.static_background.kf.F = F
@@ -189,7 +186,7 @@ class lidarUpdater:
                 pairings = association[:,~np.isnan(association[1])]
                 if pairings.shape[1] == 0:
                     logging.warn("Track {}, num pairings {}".format(track.id, pairings.shape[1]))
-                if pairings.shape[1] == 0 and track.id == 4:
+                if pairings.shape[1] == 0:
                     np.save("tests/npy_files/xs.npy", self.state.xs)
                     np.save("tests/npy_files/scan_data.npy", scan_data)
                     np.save("tests/npy_files/track.npy", track.kf.x)
@@ -204,18 +201,26 @@ class lidarUpdater:
                     plt.figure()
                     # plt.xlim(-15,15)
                     # plt.ylim(-15,15)
-                    plt.scatter(scan_x+self.state.xs[0], scan_y+self.state.xs[1], c="red", marker="o", alpha = 0.5, label="Scan Data")
-                    plt.scatter(track.xp[:,0]+track.kf.x[0], track.xp[:,1]+track.kf.x[1], c="purple", marker="o", alpha = 0.5, label="Boundary Points")
+                    plt.scatter(scan_x+self.state.xs[0], scan_y+self.state.xs[1], c="blue", marker="o", alpha = 0.5, label="Scan Data")
+                    plt.scatter(track.xp[:,0]+track.kf.x[0], track.xp[:,1]+track.kf.x[1], c="orange", marker="o", alpha = 0.5, label="Boundary Points")
+                    plt.title("No pairings :( SAD! Cov {}".format(track.kf.P[0,0]))
                     plt.show()
                     breakpoint()
                     # plt.savefig("output_plots/{}.png".format(self.i))
                     # self.i += 1
+                scan_x, scan_y = Helper.convert_scan_polar_cartesian_joint(self.polar_laser_points[tgt_points])
+                plt.figure()
+                # plt.xlim(-15,15)
+                # plt.ylim(-15,15)
+                plt.scatter(scan_x+self.state.xs[0], scan_y+self.state.xs[1], c="blue", marker="o", alpha = 0.5, label="Scan Data")
+                plt.scatter(track.xp[:,0]+track.kf.x[0], track.xp[:,1]+track.kf.x[1], c="orange", marker="o", alpha = 0.5, label="Boundary Points")
+                plt.title("Num pairings {} :( SAD! Cov {}".format(pairings.shape[1], track.kf.P[0,0]))
+                plt.show()
 
-                if pairings.shape[1] >= 3: #need 3 points to compute rigid transformation
+                if pairings.shape[1] >= 10: #need 3 points to compute rigid transformation
                     track.update_num_viewings()
                     track.reset_seen()
 
-                    self.Updater.assign_values(track, association, self.state, static=False)
 
                     selected_bndr_pts = track.xp[pairings[1].astype(int)]+track.kf.x[0:2]
                     selected_scan_pts = self.polar_laser_points[pairings[0].astype(int)]
@@ -250,15 +255,22 @@ class lidarUpdater:
                     # breakpoint()
 
                     angle= tform.rotation
-                    measurement = np.zeros((6))
+                    measurement = np.zeros((4))
                     measurement[0] = track.kf.x[0]+tform.translation[0]
                     measurement[1] = track.kf.x[1]+tform.translation[1]
-                    measurement[2] = (track.kf.x[2]+angle)%np.pi
-                    measurement[3] = tform.translation[0]/dt
-                    measurement[4] = tform.translation[1]/dt
-                    measurement[5] = angle
-                    logging.info("Track {} received a new measurement! {}".format(track.id, measurement[3:5]))
-                    self.Updater.run(measurement)
+                    measurement[2] = tform.translation[0]/dt
+                    measurement[3] = tform.translation[1]/dt
+                    logging.info("Track {} received a new measurement! {}".format(track.id, measurement))
+                    if np.sqrt(measurement[2]**2+ measurement[3]**2) > 20:
+                        breakpoint()
+                        logging.warn("Track {} is moving quickly. Speed {}".format(track.id, np.sqrt(measurement[2]**2+ measurement[3]**2)))
+                    percent_associated = pairings.shape[1]/boundary_points.shape[0]
+                    self.Updater.run(track, measurement, percent_associated)
+                    # new_pts = set(tgt_points)-set(pairings[0].astype(int))
+                    # new_pts_x, new_pts_y = Helper.convert_scan_polar_cartesian_joint(self.polar_laser_points[list(new_pts)])
+                    # new_pts = np.vstack((new_pts_x, new_pts_y)).T+self.state.xs[0:2]-track.kf.x[0:2]
+                    # track.xp = np.concatenate((track.xp, new_pts))
+
                     # print("Track {} new state {}".format(track.id, track.kf.x[0:4]))
 
 
@@ -268,19 +280,19 @@ class lidarUpdater:
 
 
     def calc_F(self, dt):
-        F = np.zeros((6,6))
-        F[0:3,0:3] = np.eye(3)
-        F[0:3,3:] = dt*np.eye(3)
-        F[3:, 3:] = np.eye(3)
+        F = np.zeros((4,4))
+        F[0:2,0:2] = np.eye(2)
+        F[0:2,2:] = dt*np.eye(2)
+        F[2:, 2:] = np.eye(2)
         return F
 
     def calc_Q(self, dt):
         V = self.calc_V()
-        Q = np.zeros((6,6))
-        Q[0:3,0:3] = (dt**3/3)*V
-        Q[0:3,3:] = (dt**2/2)*V
-        Q[3:,0:3] = (dt**2/2)*V
-        Q[3:,3:] = dt*V
+        Q = np.zeros((4,4))
+        Q[0:2,0:2] = (dt**3/3)*V
+        Q[0:2,2:] = (dt**2/2)*V
+        Q[2:,0:2] = (dt**2/2)*V
+        Q[2:,2:] = dt*V
         return Q
 
     def calc_V(self):
@@ -289,8 +301,8 @@ class lidarUpdater:
         #but I can't find it.
 
         #I think it's a 3x3 diagonal...
-        sigma_a = 0.1
-        V = np.eye(3)*sigma_a
+        sigma_a = 0.5
+        V = np.eye(2)*sigma_a
 
         return V
 
@@ -308,29 +320,36 @@ class Updater:
 
     def __init__(self):
         pass
-    def assign_values(self, track,associated_points, state, static):
-        self.state = state
-        self.track = track
-        self.xs = self.state.xs
-        # self.psi = self.state.xs[2]
-        self.psi = 0
+    # def assign_values(self, track,associated_points, state, static):
+    #     self.state = state
+    #     self.track = track
+    #     self.xs = self.state.xs
+    #     # self.psi = self.state.xs[2]
+    #     self.psi = 0
 
-        self.associated_points = associated_points
-        #HOW DO WE USE ASSOCIATED POINTS AS MEASUREMENT?
-        self.static = static
+    #     self.associated_points = associated_points
+    #     #HOW DO WE USE ASSOCIATED POINTS AS MEASUREMENT?
+    #     self.static = static
 
-    def run(self, measurement):
+    def run(self, track, measurement, percent_associated):
         # g, G = self.calc_g_and_G(self.associated_points)
         # H = self.calc_Jacobian_H(x, g, G)
         #May need to come up with custom measurement model for the
         #special measurement we created..
-        self.track.kf.update(measurement, self.calc_Hj, self.calc_hx)
+        print("Percent associated {}".format(percent_associated))
+        R = self.calc_R(percent_associated)
+        track.kf.update(measurement, self.calc_Hj, self.calc_hx, R=R)
 
     def calc_Hj(self, x):
-        return np.eye(6)
+        return np.eye(4)
 
     def calc_hx(self, x):
         return x
+    
+    def calc_R(self, percent_associated):
+        R = np.eye(4)*0.08*(1-percent_associated)
+        assert np.all(R>=0)
+        return R
 
     # def compute_Kalman_gain(self, H, P, R):
     #     K = P@H.T@ np.linalg.inv(H@P@H.T + R)

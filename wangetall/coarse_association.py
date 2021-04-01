@@ -4,7 +4,7 @@ import matplotlib.pyplot as plt
 import perception.icp
 
 import perception.cluster
-
+import logging
 
 class Coarse_Association():
     def __init__(self, C):
@@ -77,7 +77,7 @@ class Coarse_Association():
         for key in dynamic_associations.keys():
             if len(dynamic_associations[key]) > 0:
                 cl_w_asso.append(key)
-        print("Clusters with coarse associations: {}".format(cl_w_asso))
+        logging.info("Clusters with coarse associations: {}".format(cl_w_asso))
         # breakpoint()
         # plt.figure()
         # plt.scatter(Z[self.C[575],0], Z[self.C[575],1], c = "blue")

@@ -115,8 +115,8 @@ class ICP:
             close_enough = abs(max(tform.translation)) < 0.1 and abs(tform.rotation) < 0.01
             # print("Trackid {} trans {}, rot {}".format(trackid, tform.translation, tform.rotation))
             if(match_ratio > self.match_ratio_threshold) or close_enough:
-                if close_enough:
-                    print("Close enough!")
+                # if close_enough:
+                #     print("Close enough!")
                 converged = True
                 # if key == 190 and trackid == 2:
                 #     plt.figure()

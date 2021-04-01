@@ -25,7 +25,7 @@ class RecursionStop(Exception):
 
 class JCBB:
     def __init__(self):
-        self.alpha = 1-0.95
+        self.alpha = 1-0.97
 
 
     def assign_values(self, xs, scan_data, track, P, static, psi):
@@ -75,7 +75,6 @@ class JCBB:
         minimal_association = np.zeros((pruned_associations.shape))
         minimal_association[0] = np.arange(len(self.scan_data))
         minimal_association[1] = np.nan
-        print("While loop begin.")
         while i < max_iter:
             curr_association = np.copy(pruned_associations)
             start = time.time()
@@ -110,7 +109,6 @@ class JCBB:
             else:
                 pruned_associations = np.copy(curr_association)
                 i+=1
-        print("While loop complete.")
 
         unassociated_measurements = minimal_association[0, np.isnan(minimal_association[1])]
         compat_boundaries = {}
@@ -137,16 +135,18 @@ class JCBB:
         boundaries_taken = set()
         self.unassociated_measurements = unassociated_measurements
         try:
-            print("DFS begin.")
+            start = time.time()
             self.DFS(0, minimal_association, compat_boundaries, boundary_points, boundaries_taken)
         except RecursionStop:
-            print("DFS complete!")
+            end = time.time()
+            if end-start > 1:
+                logging.warn("Long DFS time {}".format(end-start))
             pass
 
         # jnis = self.calc_JNIS(self.best_association, boundary_points)
         joint_compat = self.check_compat(self.best_JNIS, DOF =np.count_nonzero(~np.isnan(self.best_association[1]))*2)
         if joint_compat:
-            print("Best JNIS {}".format(self.best_JNIS))
+            logging.info("Best JNIS {}".format(self.best_JNIS))
             return self.best_association
         else:
             return np.zeros((self.best_association.shape))
@@ -228,12 +228,14 @@ class JCBB:
     def calc_JNIS(self, association, boundary_points, indiv= False, i = 0):
         #want JNIS to output vector of JNIS's if individual
         #want single JNIS if joint.
-
+        # plt.figure()
         bndry_points_idx = association[1][~np.isnan(association[1])].astype(int)
         z_hat_idx = association[0][~np.isnan(association[1])].astype(int)
 
         associated_points = boundary_points[bndry_points_idx]
-
+        # plt.scatter(associated_points[:,0]+self.track[0], associated_points[:,1]+self.track[1], c = "g")
+        # plt.show()
+        # breakpoint()
         if len(associated_points) == 0:
             return 0
         if indiv:
@@ -256,8 +258,11 @@ class JCBB:
                 self.L = np.linalg.cholesky(S2)
                 self.firstrun = False
             else:
+                g, G = self.calc_g_and_G(associated_points, indiv)
+                # plt.scatter(g[:,0], g[:,1], c = "r")
                 S = self.S
                 h = self.h
+
         else:
             idxs = bndry_points_idx
             idxs = np.zeros((bndry_points_idx.shape[0]*2), dtype=int)
@@ -267,8 +272,17 @@ class JCBB:
 
         if indiv:
             z_hat = self.scan_data[z_hat_idx]
+            # fig = plt.figure()
+            # ax = fig.add_subplot(111, projection='polar')
 
             a = (z_hat-h)
+            a[:,1] = (a[:,1] + np.pi) % (2 * np.pi) - np.pi
+            # ax.scatter(z_hat[:,1], z_hat[:,0], c="blue",marker = "o", alpha=0.5, label="Scan Data")
+
+            # ax.scatter(h[:,1], h[:,0], c="orange",marker = "o", alpha=0.5, label="Boundary Points")
+            # plt.show()
+            # breakpoint()
+
             b = np.linalg.inv(S)
             JNIS = np.einsum('ki,kij,kj->k', a, b, a)
         else:
@@ -276,14 +290,15 @@ class JCBB:
             z_hat = self.scan_data[z_hat_idx].flatten()
             h = h.flatten()
             a = (z_hat-h)
-            
+            a[1::2] = (a[1::2] + np.pi) % (2 * np.pi) - np.pi
+        
             y = solve_triangular(L, a)
             JNIS = np.linalg.norm(y)**2
         return JNIS
 
     def calc_R(self, associated_points, indiv):
         #https://dspace.mit.edu/handle/1721.1/32438#files-area
-        R_indiv = np.array([[0.008, 0], [0,0.008]])
+        R_indiv = np.array([[0.002, 0], [0,0.002]])
         R_stacked = np.zeros((len(associated_points), 2,2))
         R_stacked[:] = R_indiv
         return R_stacked
@@ -324,27 +339,26 @@ class JCBB:
         else:
             G = np.tile(np.eye(2).T, (associated_points.shape[0], 1))
 
-        alpha = self.xs[0]
-        beta = self.xs[1]
-        alpha_beta_arr = np.array([alpha, beta])
-        if not self.static:
-            phi = self.track[2]
-            gamma = self.track[0]
-            delta = self.track[1]
-            R_phi = Helper.compute_rot_matrix(phi)
-
+        # alpha = self.xs[0]
+        # beta = self.xs[1]
+        # alpha_beta_arr = np.array([alpha, beta])
+        # if not self.static:
+        #     gamma = self.track[0]
+        #     delta = self.track[1]
 
         # R_pi_by_2 = Helper.compute_rot_matrix(np.pi/2)
-        R_psi = Helper.compute_rot_matrix(self.psi)
-        #naive way-- with for loops. need to think how to get rid of.
-        for index, point in enumerate(associated_points):
-            x = point[0]
-            y = point[1]
+        if self.static:
+            g = associated_points-self.xs[0:2]
+        else:
+            g = associated_points+self.track[0:2]-self.xs[0:2]
+        # for index, point in enumerate(associated_points):
+        #     x = point[0]
+        #     y = point[1]
 
-            if self.static:
-                g[index] = np.array(np.array([x, y])- alpha_beta_arr).T
-            else:
-                g[index] = np.array([x, y])+np.array([gamma, delta])-alpha_beta_arr
+        #     if self.static:
+        #         g[index] = np.array(np.array([x, y])- alpha_beta_arr).T
+        #     else:
+        #         g[index] = np.array([x, y])+np.array([gamma, delta])-alpha_beta_arr
 
         return g, G
 
@@ -405,12 +419,15 @@ def plot_association(asso, polar):
 
         plt.legend()
         plt.title("Runtime: {}".format(runtime))
+        plt.axis('equal')
+
+
         plt.show()
     else:
-        selected_bndr_pts[:,0]+= track[0]
-        selected_bndr_pts[:,1]+= track[1]
-        boundary_points[:,0] += track[0]
-        boundary_points[:,1] += track[1]
+        selected_bndr_pts[:,0]+= track[0]-xs[0]
+        selected_bndr_pts[:,1]+= track[1]-xs[1]
+        boundary_points[:,0] += track[0]-xs[0]
+        boundary_points[:,1] += track[1]-xs[1]
 
         selected_boundary_r, selected_boundary_phi = convert_cartesian_to_polar(selected_bndr_pts)
         boundary_r, boundary_phi = convert_cartesian_to_polar(boundary_points)
@@ -427,7 +444,7 @@ def plot_association(asso, polar):
         for i in range(selected_scan_pts[:,1].shape[0]):
             plt.text(selected_scan_pts[:,1][i], selected_scan_pts[:,0][i], str(i))
 
-        ax.set_xlim(0.7*np.pi, 0.9*np.pi)
+        # ax.set_xlim(0.7*np.pi, 0.9*np.pi)
         # ax.set_ylim(27, 38)
 
         plt.title("Runtime: {}".format(runtime))

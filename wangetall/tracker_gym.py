@@ -81,20 +81,20 @@ def main():
         conf_dict = yaml.load(file, Loader=yaml.FullLoader)
     conf = Namespace(**conf_dict)
 
-    env = gym.make('f110_gym:f110-v0', map=conf.map_path, map_ext=conf.map_ext, num_agents=3)
-    obs, step_reward, done, info = env.reset(np.array([[conf.sx, conf.sy, conf.stheta], [conf.sx2, conf.sy2, conf.stheta2], [conf.sx3, conf.sy3, conf.stheta3]]))
+    env = gym.make('f110_gym:f110-v0', map=conf.map_path, map_ext=conf.map_ext, num_agents=2)
+    obs, step_reward, done, info = env.reset(np.array([[conf.sx, conf.sy, conf.stheta], [conf.sx2, conf.sy2, conf.stheta2]]))
     
     show_env = True
     if show_env:
         env.render()
     planner = PurePursuitPlanner(conf, 0.17145+0.15875)
     planner2 = PurePursuitPlanner(conf, 0.17145+0.15875)
-    planner3 = PurePursuitPlanner(conf, 0.17145+0.15875)
+    # planner3 = PurePursuitPlanner(conf, 0.17145+0.15875)
 
     laptime = 0.0
     start = time.time()
 
-    tracker = Tracker(2,env.timestep)
+    tracker = Tracker(1,env.timestep)
     assert env.timestep == 0.01
     plot = True
     if plot:
@@ -106,7 +106,7 @@ def main():
     while not done:
         speed, steer = planner.plan(obs['poses_x'][0], obs['poses_y'][0], obs['poses_theta'][0], work['tlad'], work['vgain'])
         speed2, steer2 = planner2.plan(obs['poses_x'][1], obs['poses_y'][1], obs['poses_theta'][1], work['tlad'], work['vgain'])
-        speed3, steer3 = planner3.plan(obs['poses_x'][2], obs['poses_y'][2], obs['poses_theta'][2], work['tlad'], work['vgain'])
+        # speed3, steer3 = planner3.plan(obs['poses_x'][2], obs['poses_y'][2], obs['poses_theta'][2], work['tlad'], work['vgain'])
 
         # print("Agent 2 speed {}".format(speed2))
         if count % 3 == 0 and count != 0:
@@ -128,7 +128,7 @@ def main():
             for idx, track in tracker.state.dynamic_tracks.items():
                 ax.scatter(track.kf.x[0], track.kf.x[1], color="purple", label="Dynamic Centroid", s=60)
                 ax.scatter(track.xp[:,0]+track.kf.x[0], track.xp[:,1]+track.kf.x[1], s = 1, label="Dynamic B Points")
-                trackspeed = round(np.sqrt(track.kf.x[3]**2+track.kf.x[4]**2), 2)
+                trackspeed = round(np.sqrt(track.kf.x[2]**2+track.kf.x[3]**2), 2)
                 ax.text(track.kf.x[0], track.kf.x[1], "T{} S:{}".format(idx, trackspeed), size = "x-small")
             plt.legend()
 
@@ -136,7 +136,7 @@ def main():
         # plt.clf()
 
 
-        obs, step_reward, done, info = env.step(np.array([[steer, speed], [steer2, speed2], [steer3, speed3]]))
+        obs, step_reward, done, info = env.step(np.array([[steer, speed], [steer2, speed2]]))
         laptime += step_reward
         if show_env:
             env.render(mode='human')

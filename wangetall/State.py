@@ -23,8 +23,7 @@ class State:
         track = DynamicTrack(idx, status =0)
         track.kf.x = np.array([np.mean(boundary_points[:,0])+self.xs[0],
                             np.mean(boundary_points[:,1])+self.xs[1], 
-                            0,
-                            0,0,0])
+                            0,0])
         
         track.xp = np.array([boundary_points[:,0]-track.kf.x[0]+self.xs[0],
                             boundary_points[:,1]-track.kf.x[1]+self.xs[1]]).T
@@ -85,8 +84,8 @@ class DynamicTrack(Track):
         """
         self.kind = 1
         self.xp = None
-        self.kf = ExtendedKalmanFilter(dim_x=6, dim_z=6)
-        self.kf.R = np.eye(6)*0.1
+        self.kf = ExtendedKalmanFilter(dim_x=4, dim_z=4)
+        self.kf.R = np.eye(4)*0.1
 
 
 class StaticTrack(Track):
