@@ -51,12 +51,12 @@ class lidarUpdater:
         # breakpoint()
 
 
-        # plt.figure()
-        # plt.scatter(self.laserpoints[:,0], self.laserpoints[:,1], c = "blue", alpha= 0.5)
-        # plt.xlim(0,1)
-        # plt.ylim(0,1)
-        # plt.show()
-        # breakpoint()
+        plt.figure()
+        plt.scatter(self.laserpoints[:,0], self.laserpoints[:,1], c = "blue", alpha= 0.5)
+        plt.xlim(0,1)
+        plt.ylim(0,1)
+        plt.show()
+        breakpoint()
 
         self.clean_up_states.run(self.state.xs[0], self.state.xs[1], self.laserpoints, self.state)
 

@@ -8,7 +8,7 @@ from numba import njit
 from perception.helper import Helper
 import math
 import logging
-from rdp import rdp
+# from rdp import rdp
 
 class CleanUpStates():
     def __init__(self):

@@ -21,8 +21,12 @@ import sys
 import numpy as np
 from numpy import dot, zeros, eye
 import scipy.linalg as linalg
-from filterpy.stats import logpdf
-from filterpy.common import pretty_str, reshape_z
+try:
+    from filterpy.stats import logpdf
+    from filterpy.common import pretty_str, reshape_z
+except ImportError:
+    print("Please install filterpy with 'pip install filterpy'.")
+    sys.exit()
 import logging
 
 class ExtendedKalmanFilter(object):
