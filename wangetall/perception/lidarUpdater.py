@@ -53,8 +53,8 @@ class lidarUpdater:
 
         plt.figure()
         plt.scatter(self.laserpoints[:,0], self.laserpoints[:,1], c = "blue", alpha= 0.5)
-        plt.xlim(0,1)
-        plt.ylim(0,1)
+        plt.xlim(0,2)
+        plt.ylim(0,2)
         plt.show()
         breakpoint()
 
