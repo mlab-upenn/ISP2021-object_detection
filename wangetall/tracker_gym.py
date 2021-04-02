@@ -36,7 +36,7 @@ class Tracker:
         self.lidarUpdater = lidarUpdater()
 
         self.id = idx
-        self.state = State()
+        self.state = State(dt*3)
         self.dt = dt
 
     def update(self, obs, time):
@@ -103,9 +103,12 @@ def main():
         ax.set_ylim([-30,30])
     count = 0
     # breakpoint()
+    speed2, steer2 = None, None
     while not done:
         speed, steer = planner.plan(obs['poses_x'][0], obs['poses_y'][0], obs['poses_theta'][0], work['tlad'], work['vgain'])
-        speed2, steer2 = planner2.plan(obs['poses_x'][1], obs['poses_y'][1], obs['poses_theta'][1], work['tlad'], work['vgain'])
+        if speed2 == None and steer2 == None:
+            speed2, steer2 = planner2.plan(obs['poses_x'][1], obs['poses_y'][1], obs['poses_theta'][1], work['tlad'], work['vgain'])
+        steer2 = 0
         # speed3, steer3 = planner3.plan(obs['poses_x'][2], obs['poses_y'][2], obs['poses_theta'][2], work['tlad'], work['vgain'])
 
         # print("Agent 2 speed {}".format(speed2))
@@ -125,6 +128,9 @@ def main():
             ax.scatter(static_background_state.xb[:,0], static_background_state.xb[:,1], color="black", label="Static Background", s=20)
 
             ax.scatter(tracker.state.xs[0], tracker.state.xs[1], color="blue")
+            selfspeed = round(np.sqrt(tracker.state.xs[2]**2+tracker.state.xs[3]**2), 2)
+
+            ax.text(tracker.state.xs[0], tracker.state.xs[1], "S:{}".format(selfspeed), size = "x-small")
             for idx, track in tracker.state.dynamic_tracks.items():
                 ax.scatter(track.kf.x[0], track.kf.x[1], color="purple", label="Dynamic Centroid", s=60)
                 ax.scatter(track.xp[:,0]+track.kf.x[0], track.xp[:,1]+track.kf.x[1], s = 1, label="Dynamic B Points")

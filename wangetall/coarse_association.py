@@ -31,6 +31,7 @@ class Coarse_Association():
         #3.: (x, P, A) <- ASSOCIATEANDUPDATEWITHSTATIC(x, P, C)
 
         self.state=state
+        
         if self.state.static_background.xb.size != 0:
             A, static_point_pairs = self.associateAndUpdateWithStatic(Z)
             #4. C <- C/A
@@ -59,9 +60,9 @@ class Coarse_Association():
                 dynamic_point_pairs[key] = point_pairs
                 #7. C <- C/A
                 for key in A_d.keys():
-                    used_clusters.add(key)
-                # for key in A_d.keys():
-                #     del self.C[key]
+                    # used_clusters.add(key)
+                    del self.C[key]
+
         else:
             dynamic_associations = {}
             dynamic_point_pairs = {}

@@ -1,16 +1,27 @@
 import numpy as np
-from filterpy.kalman import ExtendedKalmanFilter
+from EKF import ExtendedKalmanFilter
 import sys
+from filterpy.common import Q_continuous_white_noise
+from scipy.linalg import block_diag
+
+
 class State:
-    def __init__(self):
+    def __init__(self, dt):
         self.dynamic_tracks = {}
-        self.static_background = StaticTrack(0, status=1)
+        self.static_background = {}
+        
+        # StaticTrack(0, status=1)
 
         # self.laserpoints = [] #if in ROS, laserpoints will be published.
         self.xs = np.zeros((5)) #xs ego vehicle pose-- [x, y, theta]; global frame
         self.Pxs = np.eye(3) #covariance of ego vehicle pose
         self.xc = np.zeros((3)) #
         self.Pxc = np.eye(3)
+        q = Q_continuous_white_noise(dim=2, dt=dt, spectral_density=5.0)      
+        self.Q = block_diag(q, q)
+        self.F = np.eye(4)
+        self.F[0:2,2:] = dt*np.eye(2)
+
             
     def create_new_track(self, laserpoints, clusterIds):
         if len(self.dynamic_tracks) == 0:
@@ -20,7 +31,7 @@ class State:
             idx = highest_id + 1
 
         boundary_points = laserpoints[clusterIds] #want boundarypoints to be in cartesian
-        track = DynamicTrack(idx, status =0)
+        track = DynamicTrack(idx, self.F, self.Q, status =0)
         track.kf.x = np.array([np.mean(boundary_points[:,0])+self.xs[0],
                             np.mean(boundary_points[:,1])+self.xs[1], 
                             0,0])
@@ -43,7 +54,8 @@ class State:
             target.xp = np.append(target.xp, track.xp, axis = 0) #do I need to adjust their centerpoints?
         elif kind=="static":
             track = self.dynamic_tracks[track_id]
-            self.static_background.xb = np.append(self.static_background.xb, track.xp+track.kf.x[0:2], axis = 0)
+            self.static_background[track.id] = track
+            # self.static_background.xb = np.append(self.static_background.xb, track.xp+track.kf.x[0:2], axis = 0)
             #tracks are by default assumed to be dynamic. If they're being merged to the static boundary,
             #they are removed from list of dynamic objects.
         self.cull_dynamic_track(track_id)
@@ -75,8 +87,8 @@ class Track:
         self.last_seen += 1
 
 class DynamicTrack(Track):
-    def __init__(self, idx, status):
-        super().__init__(idx, status)
+    def __init__(self, idx, F, Q, status):
+        super().__init__(idx,status)
         """kind: Static: 0; Dynamic: 1"""
         """
         xt: [X,Y, Phi, Xdot, Ydot, Phidot] #world coordinates
@@ -85,7 +97,9 @@ class DynamicTrack(Track):
         self.kind = 1
         self.xp = None
         self.kf = ExtendedKalmanFilter(dim_x=4, dim_z=4)
-        self.kf.R = np.eye(4)*0.1
+        self.kf.P = np.diag([0.1, 0.1, 2, 2])
+        self.kf.Q = Q
+        self.kf.F = F
 
 
 class StaticTrack(Track):
@@ -99,4 +113,3 @@ class StaticTrack(Track):
         self.kind = 0
         self.xb = np.zeros((0,2))
         self.kf = ExtendedKalmanFilter(dim_x=2, dim_z=2)
-        self.kf.R = np.eye(2)*0.1

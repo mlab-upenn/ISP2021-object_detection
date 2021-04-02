@@ -26,7 +26,7 @@ class CleanUpStates():
         to_rm = []
         for idx, track in self.state.dynamic_tracks.items():
             if track.last_seen > track.seen_threshold:
-                logging.info("Clean up states removing track {}. Last seen {}".format(track.id, track.last_seen))
+                logging.info("Clean up states removing Track {}. Last seen {}".format(track.id, track.last_seen))
                 to_rm.append(track.id)
         
         for track_id in to_rm:
@@ -59,7 +59,7 @@ class CleanUpStates():
             mask = (track.kf.x[0] - self.lidar_center_x)**2 + (track.kf.x[1] - self.lidar_center_y)**2 < self.lidar_range**2
             if(mask == False):
                 self.state.cull_dynamic_track(idx)
-                logging.info("Track, {}, outside of lidar_range.... removing. ".format(idx))
+                logging.info("Track {}, outside of lidar_range.... removing. ".format(idx))
                 continue
             angle = math.degrees(math.atan2(track.kf.x[1] - self.lidar_center_y, track.kf.x[0]- self.lidar_center_x))
             if(angle - math.degrees(self.state.xs[2])) <= -180:

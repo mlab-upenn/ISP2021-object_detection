@@ -173,8 +173,10 @@ class Universe:
 #     return plt.cm.get_cmap(name, n)
 
 if __name__ == "__main__":
+
     # points= np.array(random.sample(range(2000), 2000)).reshape((1000,2))
-    points = np.array((0 + np.random.random((1000,2)) * (100 - 0)))
+    points = np.load("tests/npy_files/laserscan.npy")
+    # points = np.array((0 + np.random.random((1000,2)) * (100 - 0)))
     cl = Cluster()
 
     clusters = cl.cluster(points)
@@ -188,11 +190,14 @@ if __name__ == "__main__":
     for key in clusters.keys():
         selected_points = points[clusters[key]]
         plt.scatter(selected_points[:,0], selected_points[:,1])
+    plt.xlim(-1, 0.2)
+    plt.ylim(-2, -0.8)
+
     plt.show()
 
     # print(clusters)
 
-    # plt.triplot(points[:,0], points[:,1], tri)
-    plt.figure()
-    plt.plot(points[:,0], points[:,1], 'o')
-    plt.show()
+    # # plt.triplot(points[:,0], points[:,1], tri)
+    # plt.figure()
+    # plt.plot(points[:,0], points[:,1], 'o')
+    # plt.show()
