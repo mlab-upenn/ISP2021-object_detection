@@ -4,10 +4,12 @@ import gym
 import numpy as np
 from argparse import Namespace
 import matplotlib.pyplot as plt
-from numba import njit
+from numba import jit
 from perception.helper import Helper
 import math
 import logging
+from rdp import rdp
+
 class CleanUpStates():
     def __init__(self):
         pass
@@ -18,30 +20,42 @@ class CleanUpStates():
         self.lidar_range = lidar_range
         self.state = state
         self.removeOld()
-        self.removeOutOfRangeAndOutOfView(lidar, state)
+        self.removeOutOfRangeAndOutOfView()
+        #self.rdp()
         # how to remove obsucred tracks?
         #cleaned_points = self.removeObscured(valid_points_in_radius)
+
+    def rdp(self):
+        if self.state.static_background.xb.size != 0:
+            plt.scatter(self.state.static_background.xb[:,0],self.state.static_background.xb[:,1], c="r", s=20, label="static before")
+            print("before:",len(self.state.static_background.xb))
+            self.state.static_background.xb = rdp(self.state.static_background.xb, epsilon=0.01)
+            print("after:",len(self.state.static_background.xb))
+            plt.scatter(self.lidar_center_x, self.lidar_center_y, c="r", label="ego vehicle center")
+            plt.scatter(self.state.static_background.xb[:,0],self.state.static_background.xb[:,1], c="g", s=5, label="static")
+            plt.legend()
+            plt.show()
+
 
     def removeOld(self):
         to_rm = []
         for idx, track in self.state.dynamic_tracks.items():
+            print("Clean up states removing track {}. Last seen {}".format(track.id, track.last_seen))
             if track.last_seen > track.seen_threshold:
                 logging.info("Clean up states removing track {}. Last seen {}".format(track.id, track.last_seen))
                 to_rm.append(track.id)
-        
+
         for track_id in to_rm:
-            if track_id == 4:
-                breakpoint()
+            #if track_id == 4:
+                #breakpoint()
             self.state.cull_dynamic_track(track_id)
 
-    def removeOutOfRangeAndOutOfView(self, lidar, state):
+    @jit
+    def removeOutOfRangeAndOutOfView(self):
         #check only if centroid is outside? easier? or check if some of the points of the track are outside?
         if self.state.static_background.xb.size != 0:
-            # print("---------static backgroud----------")
-            # print("static size before:",self.state.static_background.xb.size)
             mask = (self.state.static_background.xb[:,0] - self.lidar_center_x)**2 + (self.state.static_background.xb[:,1] - self.lidar_center_y)**2 < self.lidar_range**2
             self.state.static_background.xb = self.state.static_background.xb[mask,:]
-            # print("static size after:",self.state.static_background.xb.size)
             angles = []
             last = 0
             for i in range(int(self.state.static_background.xb.size/2)):
@@ -55,7 +69,7 @@ class CleanUpStates():
             #breakpoint()
             angles = np.array(angles)
             self.state.static_background.xb = self.state.static_background.xb[np.where(angles <= math.degrees(4.7/2))]
-            print("static size after fov cleaning:",self.state.static_background.xb.size)
+            logging.info("static size after fov cleaning:{}".format(self.state.static_background.xb.size))
 
         for idx, track in list(self.state.dynamic_tracks.items()):
             mask = (track.kf.x[0] - self.lidar_center_x)**2 + (track.kf.x[1] - self.lidar_center_y)**2 < self.lidar_range**2
@@ -71,38 +85,19 @@ class CleanUpStates():
             #breakpoint()
             if(angle > math.degrees(4.7/2)):
                 self.state.cull_dynamic_track(idx)
-                logging.info("Track", idx, "outside of field of view (in angle", angle,").... removing")
+                logging.info("Track {} outside of field of view (in angle {}).... removing".format(idx, angle))
 
             #self.state.static_background.xb = self.state.static_background.xb[np.where(abs(rads - self.state.xs[2]) <= 4.7/2)]
             #print("static size after fov cleaning:",self.state.static_background.xb.size)
         # for idx, track in list(self.state.dynamic_tracks.items()):
         #     dynamic_P = track.xp+track.kf.x[0:2]
         #     plt.scatter(dynamic_P[:,0],dynamic_P[:,1],s=8, label="dynamic track")
+
+        # plt.scatter(lidar[:,0], lidar[:,1], c="b", label="incoming lidar data")
         # plt.scatter(self.lidar_center_x, self.lidar_center_y, c="r", label="ego vehicle center")
-        # plt.scatter(self.state.static_background.xb[:,0],self.state.static_background.xb[:,1], c="g", s=5, label="static")
+        # #plt.scatter(self.state.static_background.xb[:,0],self.state.static_background.xb[:,1], c="g", s=5, label="static")
         # plt.legend()
         # plt.show()
-
-
-    def removeObscured(self, within_radius):
-        lidar_center_x = self.lidar_center_x
-        lidar_center_y = self.lidar_center_y
-        within_radius_cleaned = within_radius
-        for point1_x, point1_y in within_radius_cleaned:
-            slope = (lidar_center_y - point1_y) / (lidar_center_x - point1_x)
-            for point2_x, point2_y in within_radius_cleaned:
-                if(point1_x != point2_x and point1_y != point2_y):
-                    pt2_on = (point2_y - point1_y) == slope * (point2_x - point1_x)
-                    pt2_between = (min(point1_x, lidar_center_x) <= point2_x <= max(point1_x, lidar_center_x)) and (min(point1_y, lidar_center_y) <= point2_y <= max(point1_y, lidar_center_y))
-                    on_and_between = pt2_on and pt2_between
-                    if(on_and_between):
-                        to_del = np.stack((point2_x, point2_y), axis=-1)
-                        array1 = np.where(within_radius_cleaned[:, 0] == [point1_x])
-                        array2 = np.where(within_radius_cleaned[:, 1] == [point1_y])
-                        within_radius_cleaned = np.delete(within_radius_cleaned, np.intersect1d(array1, array2), axis=0)
-
-        return within_radius_cleaned
-
 
 # First, we do some house-keeping where out-of-date dynamic tracks and boundary points on the static background
 # that have fallen out of the sensor’s field of view are dropped.
