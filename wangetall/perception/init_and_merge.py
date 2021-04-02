@@ -141,7 +141,7 @@ class InitAndMerge:
             track_id = track_arr[i]
             target_id = self.tentative[j]
             if track_id != target_id and j not in rmed_list:
-                logging.info("Merging dynamic {} with dynamic {}".format(target_id, track_id))
+                logging.info("Merging Track {} with Track {}".format(target_id, track_id))
                 self.state.merge_tracks(target_id, track_id, kind="dynamic")
                 rmed_list.append(j)
         self.tentative = [x for i, x in enumerate(self.tentative) if i not in rmed_list]

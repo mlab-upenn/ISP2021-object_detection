@@ -8,6 +8,8 @@ from numba import njit
 from perception.helper import Helper
 import math
 import logging
+from rdp import rdp
+
 class CleanUpStates():
     def __init__(self):
         pass
@@ -19,8 +21,39 @@ class CleanUpStates():
         self.state = state
         self.removeOld()
         self.removeOutOfRangeAndOutOfView(lidar, state)
+        # self.rdp()
         # how to remove obsucred tracks?
         #cleaned_points = self.removeObscured(valid_points_in_radius)
+
+
+    def rdp(self):
+        for idx, track in self.state.static_background.items():
+            #plt.scatter(self.state.static_background.xb[:,0],self.state.static_background.xb[:,1], c="r", s=20, label="static before")
+            #print("before:",len(self.state.static_background.xb))
+            track.xb = rdp(track.xb, epsilon=0.01)
+            #print("after:",len(self.state.static_background.xb))
+            #plt.scatter(self.lidar_center_x, self.lidar_center_y, c="r", label="ego vehicle center")
+            #plt.scatter(self.state.static_background.xb[:,0],self.state.static_background.xb[:,1], c="g", s=5, label="static")
+            #plt.legend()
+            #plt.show()
+        for idx, track in self.state.dynamic_tracks.items():
+            if track.xp.shape[0] > 20:
+                plt.figure()
+                plt.scatter(track.xp[:,0],track.xp[:,1], c="r", s=20, label="static before")
+                # print("before:",track.xp.shape[0])
+
+                # np.random.choice(boundary_points.shape[0], 100, replace=False)
+                # prev_pts = np.copy(track.xp)
+                new_pts = rdp(track.xp, epsilon=0.01)
+                if new_pts.shape[0] > 10:
+                    track.xp = new_pts
+                plt.scatter(track.xp[:,0],track.xp[:,1], c="b", s=20, label="static after")
+                plt.legend()
+
+                plt.show()
+                breakpoint()
+
+
 
     def removeOld(self):
         to_rm = []

@@ -33,12 +33,15 @@ class lidarUpdater:
     def update(self, dt, data, state):
         self.state = state
         self.theta = self.theta_init+self.state.xs[2]
+
         self.polar_laser_points = np.zeros((len(data), 2))
         self.polar_laser_points[:,0] = data
         self.polar_laser_points[:,1] = self.theta
+        # self.polar_laser_points = self.polar_laser_points[::2, :]
         self.forward()
         x, y = Helper.convert_scan_polar_cartesian(np.array(data), self.theta)
         self.laserpoints= np.vstack((x, y)).T
+        # self.laserpoints = self.laserpoints[::2,:]
         # fig = plt.figure()
         # ax = fig.add_subplot(111, projection='polar')
         # ax.scatter(self.polar_laser_points[:,1], self.polar_laser_points[:,0], c="blue",marker = "o", alpha=0.5, label="Boundary Points")

@@ -5,7 +5,7 @@ from skimage.transform import estimate_transform
 from scipy.spatial.distance import cdist
 from scipy.optimize import linear_sum_assignment
 import matplotlib.pyplot as plt
-
+import logging
 import sys
 
 class ICP:
@@ -102,7 +102,7 @@ class ICP:
             # print("len(closest_point_pairs):",len(closest_point_pairs))
             # print("self.reference_points.shape[0]",self.reference_points.shape[0])
             # print("self.points.shape[0]",self.points.shape[0])
-            match_ratio = min(len(closest_point_pairs)/self.reference_points.shape[0],len(closest_point_pairs)/self.points.shape[0])
+            match_ratio = max(len(closest_point_pairs)/self.reference_points.shape[0],len(closest_point_pairs)/self.points.shape[0])
             # print("Match ratio {}".format(match_ratio))
             # #print(C)
             # plt.plot(self.points[:,0], self.points[:,1],'bo', markersize = 10)
@@ -114,6 +114,8 @@ class ICP:
             # breakpoint()
             close_enough = abs(max(tform.translation)) < 0.1 and abs(tform.rotation) < 0.01
             # print("Trackid {} trans {}, rot {}".format(trackid, tform.translation, tform.rotation))
+            if trackid:
+                logging.info("Track {} Coarse match ratio: {}".format(trackid, match_ratio))
             if ((match_ratio > self.match_ratio_threshold) and abs(closest_translation_x) < 0.5 and abs(closest_translation_y) < 0.5) or close_enough:
                 # if state:
                 #     state.dynamic_tracks[trackid].tentative_translation = -tform.translation

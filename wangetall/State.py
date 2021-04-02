@@ -3,7 +3,7 @@ from EKF import ExtendedKalmanFilter
 import sys
 from filterpy.common import Q_continuous_white_noise
 from scipy.linalg import block_diag
-
+from rdp import rdp
 
 class State:
     def __init__(self, dt):
@@ -38,6 +38,10 @@ class State:
         
         track.xp = np.array([boundary_points[:,0]-track.kf.x[0]+self.xs[0],
                             boundary_points[:,1]-track.kf.x[1]+self.xs[1]]).T
+        if track.xp.shape[0] > 20:
+            new_pts = rdp(track.xp, epsilon=0.001)
+            if new_pts.shape[0] > 50:
+                track.xp = new_pts
         self.dynamic_tracks[idx] = track
         return idx
 
