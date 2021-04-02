@@ -27,14 +27,14 @@ class CleanUpStates():
 
     def rdp(self):
         if self.state.static_background.xb.size != 0:
-            plt.scatter(self.state.static_background.xb[:,0],self.state.static_background.xb[:,1], c="r", s=20, label="static before")
-            print("before:",len(self.state.static_background.xb))
+            #plt.scatter(self.state.static_background.xb[:,0],self.state.static_background.xb[:,1], c="r", s=20, label="static before")
+            #print("before:",len(self.state.static_background.xb))
             self.state.static_background.xb = rdp(self.state.static_background.xb, epsilon=0.01)
-            print("after:",len(self.state.static_background.xb))
-            plt.scatter(self.lidar_center_x, self.lidar_center_y, c="r", label="ego vehicle center")
-            plt.scatter(self.state.static_background.xb[:,0],self.state.static_background.xb[:,1], c="g", s=5, label="static")
-            plt.legend()
-            plt.show()
+            #print("after:",len(self.state.static_background.xb))
+            #plt.scatter(self.lidar_center_x, self.lidar_center_y, c="r", label="ego vehicle center")
+            #plt.scatter(self.state.static_background.xb[:,0],self.state.static_background.xb[:,1], c="g", s=5, label="static")
+            #plt.legend()
+            #plt.show()
 
 
     def removeOld(self):
