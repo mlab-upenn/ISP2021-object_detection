@@ -50,7 +50,6 @@ class CleanUpStates():
                 #breakpoint()
             self.state.cull_dynamic_track(track_id)
 
-    @jit
     def removeOutOfRangeAndOutOfView(self):
         #check only if centroid is outside? easier? or check if some of the points of the track are outside?
         if self.state.static_background.xb.size != 0:
