@@ -34,17 +34,18 @@ class CleanUpStates():
 
     def removeOutOfRangeAndOutOfView(self, lidar, state):
         #check only if centroid is outside? easier? or check if some of the points of the track are outside?
-        if self.state.static_background.xb.size != 0:
+        # if self.state.static_background.xb.size != 0:
+        for idx, track in self.state.static_background.items():
             # print("---------static backgroud----------")
             # print("static size before:",self.state.static_background.xb.size)
-            mask = (self.state.static_background.xb[:,0] - self.lidar_center_x)**2 + (self.state.static_background.xb[:,1] - self.lidar_center_y)**2 < self.lidar_range**2
-            self.state.static_background.xb = self.state.static_background.xb[mask,:]
+            mask = (track.xb[:,0] - self.lidar_center_x)**2 + (track.xb[:,1] - self.lidar_center_y)**2 < self.lidar_range**2
+            track.xb = track.xb[mask,:]
             # print("static size after:",self.state.static_background.xb.size)
             angles = []
             last = 0
-            for i in range(int(self.state.static_background.xb.size/2)):
+            for i in range(int(track.xb.size/2)):
                 #math.atan2 return [pi, -pi] ---> converting to [2pi, -2pi]
-                angle = math.degrees(math.atan2(self.state.static_background.xb[i,1] - self.lidar_center_y, self.state.static_background.xb[i,0] - self.lidar_center_x))
+                angle = math.degrees(math.atan2(track.xb[i,1] - self.lidar_center_y, track.xb[i,0] - self.lidar_center_x))
                 if(angle - math.degrees(self.state.xs[2])) <= -180:
                     angle = abs((angle - math.degrees(self.state.xs[2]))%180)
                 else:
@@ -52,8 +53,8 @@ class CleanUpStates():
                 angles.append(angle)
             #breakpoint()
             angles = np.array(angles)
-            self.state.static_background.xb = self.state.static_background.xb[np.where(angles <= math.degrees(4.7/2))]
-            print("static size after fov cleaning:",self.state.static_background.xb.size)
+            track.xb = track.xb[np.where(angles <= math.degrees(4.7/2))]
+            print("static size after fov cleaning:",track.xb.size)
 
         for idx, track in list(self.state.dynamic_tracks.items()):
             mask = (track.kf.x[0] - self.lidar_center_x)**2 + (track.kf.x[1] - self.lidar_center_y)**2 < self.lidar_range**2

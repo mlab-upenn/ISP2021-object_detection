@@ -34,14 +34,29 @@ class lidarUpdater:
 
     def update(self, dt, data, state):
         self.state = state
-        self.theta = self.theta_init+self.state.xs[2] #do I need to correct for current heading?
-        # self.theta = self.theta_init
+        self.theta = self.theta_init+self.state.xs[2]
         self.polar_laser_points = np.zeros((len(data), 2))
         self.polar_laser_points[:,0] = data
         self.polar_laser_points[:,1] = self.theta
         self.forward(dt)
         x, y = Helper.convert_scan_polar_cartesian(np.array(data), self.theta)
         self.laserpoints= np.vstack((x, y)).T
+        fig = plt.figure()
+        ax = fig.add_subplot(111, projection='polar')
+        ax.scatter(self.polar_laser_points[:,1], self.polar_laser_points[:,0], c="blue",marker = "o", alpha=0.5, label="Boundary Points")
+        # ax.set_xlim(np.pi, 1.5*np.pi)
+        ax.set_ylim(0, 2)
+        plt.show()
+        breakpoint()
+
+
+        # plt.figure()
+        # plt.scatter(self.laserpoints[:,0], self.laserpoints[:,1], c = "blue", alpha= 0.5)
+        # plt.xlim(0,1)
+        # plt.ylim(0,1)
+        # plt.show()
+        # breakpoint()
+
         self.clean_up_states.run(self.state.xs[0], self.state.xs[1], self.laserpoints, self.state)
 
         # plt.scatter(self.laserpoints[:,0], self.laserpoints[:,1], c="b", label="test")
@@ -77,8 +92,9 @@ class lidarUpdater:
                 track.update_seen()
                 track.kf.predict()
             if track.last_seen > 1:
-                track.kf.P *= 2
-                logging.info("Increasing Track {} covariance.".format(track.id))
+                if np.trace(track.kf.P) < 5:
+                    track.kf.P *= 2
+                    logging.info("Increasing Track {} covariance.".format(track.id))
 
         #Static background doesn't move, so no need for propagation step...
         # self.state.static_background.kf.F = F

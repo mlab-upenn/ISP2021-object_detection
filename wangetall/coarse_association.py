@@ -31,9 +31,10 @@ class Coarse_Association():
         #3.: (x, P, A) <- ASSOCIATEANDUPDATEWITHSTATIC(x, P, C)
 
         self.state=state
-        
-        if self.state.static_background.xb.size != 0:
-            A, static_point_pairs = self.associateAndUpdateWithStatic(Z)
+        for key, track in self.state.static_background.items():
+        # if self.state.static_background.xb.size != 0:
+            static_P = track.xb
+            A, static_point_pairs = self.associateAndUpdateWithStatic(Z, static_P, track.id)
             #4. C <- C/A
             for key in A.keys():
                 del self.C[key]
@@ -87,18 +88,17 @@ class Coarse_Association():
         # plt.show()
         return A, static_point_pairs, dynamic_associations, dynamic_point_pairs, new_tracks #A_d, new_tracks
 
-    def associateAndUpdateWithStatic(self, Z):
+    def associateAndUpdateWithStatic(self, Z, points, trackid):
         #print(Q)
         static_C = {}
         point_pairs_list = []
-        if self.state.static_background.xb.size != 0:
-            for key in self.C.keys():
-                P = Z[self.C[key]]+self.state.xs[0:2]
-                static, point_pairs = self.ICP.run(self.state.static_background.xb, P)
-                # print("static? {}".format(static))
-                if static:
-                    static_C[key] = self.C[key]
-                    point_pairs_list = point_pairs_list+point_pairs
+        for key in self.C.keys():
+            P = Z[self.C[key]]+self.state.xs[0:2]
+            converged, point_pairs = self.ICP.run(points, P)
+            # print("static? {}".format(static))
+            if converged:
+                static_C[key] = self.C[key]
+                point_pairs_list = point_pairs_list+point_pairs
         return static_C, point_pairs_list
 
     def associateAndUpdateWithDynamic(self, Z, points, trackid):
@@ -106,8 +106,8 @@ class Coarse_Association():
         point_idx_pairs = []
         for key in self.C.keys():
             P = Z[self.C[key]]+self.state.xs[0:2]
-            dynamic, point_pairs = self.ICP.run(points, P, key, trackid)
-            if dynamic:
+            converged, point_pairs = self.ICP.run(points, P, key, trackid)
+            if converged:
                 dynamic_C[key] = self.C[key]
                 point_idx_pairs = point_idx_pairs+point_pairs
         return dynamic_C, point_idx_pairs

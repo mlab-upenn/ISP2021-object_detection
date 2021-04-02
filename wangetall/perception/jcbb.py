@@ -55,7 +55,6 @@ class JCBB:
         self.firstrun = True
         logging.info("Boundary points shape {}".format(boundary_points.shape))
         logging.info("Scan data shape {}".format(self.scan_data.shape))
-        logging.info("Calculating indiv compat...")
         start = time.time()
         individual_compatibilities = self.compute_compatibility(boundary_points)
         end = time.time()
@@ -140,7 +139,8 @@ class JCBB:
         except RecursionStop:
             end = time.time()
             if end-start > 1:
-                logging.warn("Long DFS time {}".format(end-start))
+                breakpoint()
+                logging.warning("Long DFS time {}".format(end-start))
             pass
 
         # jnis = self.calc_JNIS(self.best_association, boundary_points)
@@ -154,11 +154,14 @@ class JCBB:
     def DFS(self, level, association, compat_boundaries, boundary_points, boundaries_taken):
         self.recursion += 1
         if self.recursion >= 200:
+            logging.warning("DFS hit RecursionStop.")
             raise RecursionStop
         boundaries_taken = boundaries_taken.copy()
         avail_boundaries = compat_boundaries[self.unassociated_measurements[level]]
         # print(avail_boundaries)
+        logging.info("# Available DFS boundaries: {}".format(len(avail_boundaries)))
         for next_boundary in avail_boundaries:
+            # start = time.time()
             # print("Next boundary {}".format(next_boundary))
             isValidBoundary = next_boundary not in boundaries_taken or np.isnan(next_boundary)
             if isValidBoundary and level < len(self.unassociated_measurements):
@@ -181,6 +184,8 @@ class JCBB:
                     self.best_association = np.copy(test_association)
                 if joint_compat and level+1 < len(self.unassociated_measurements):
                     boundaries_taken.add(next_boundary)
+                    # end = time.time()
+                    # logging.info("DFS loop time {}".format(end-start))
                     try:
                         self.DFS(level+1, np.copy(test_association), compat_boundaries, boundary_points, boundaries_taken)
                     except RecursionStop:
@@ -272,17 +277,8 @@ class JCBB:
 
         if indiv:
             z_hat = self.scan_data[z_hat_idx]
-            # fig = plt.figure()
-            # ax = fig.add_subplot(111, projection='polar')
-
             a = (z_hat-h)
             a[:,1] = (a[:,1] + np.pi) % (2 * np.pi) - np.pi
-            # ax.scatter(z_hat[:,1], z_hat[:,0], c="blue",marker = "o", alpha=0.5, label="Scan Data")
-
-            # ax.scatter(h[:,1], h[:,0], c="orange",marker = "o", alpha=0.5, label="Boundary Points")
-            # plt.show()
-            # breakpoint()
-
             b = np.linalg.inv(S)
             JNIS = np.einsum('ki,kij,kj->k', a, b, a)
         else:
@@ -291,7 +287,6 @@ class JCBB:
             h = h.flatten()
             a = (z_hat-h)
             a[1::2] = (a[1::2] + np.pi) % (2 * np.pi) - np.pi
-        
             y = solve_triangular(L, a)
             JNIS = np.linalg.norm(y)**2
         return JNIS
@@ -396,14 +391,19 @@ def plot_association(asso, polar):
     if not polar:
         selected_scan_x, selected_scan_y = convert_scan_polar_cartesian(selected_scan_pts)
         scan_x, scan_y = convert_scan_polar_cartesian(scan_data)
+        # scan_x, scan_y = convert_scan_polar_cartesian(self.scan_data)
 
         #scan data points plot
         plt.scatter(scan_x+xs[0], scan_y+xs[1], c="b", marker="o", alpha = 0.5, label="Scan Data")
+        # plt.scatter(scan_x+self.xs[0], scan_y+self.xs[1], c="b", marker="o", alpha = 0.5, label="Scan Data")
+
         # for i in range(scan_x.shape[0]):
         #     plt.text(scan_x[i], scan_y[i], str(i), size = "xx-small")
 
         #boundary points plot
         plt.scatter(boundary_points[:,0]+track[0], boundary_points[:,1]+track[1], c="orange", marker="o", alpha = 0.5, label="Boundary Points")
+        # plt.scatter(boundary_points[:,0]+self.track[0], boundary_points[:,1]+self.track[1], c="orange", marker="o", alpha = 0.5, label="Boundary Points")
+        
         # for i in range(boundary_points.shape[0]):
         #     plt.text(boundary_points[i,0]+track[0], boundary_points[i,1]+track[1], str(i), size = "xx-small")
 

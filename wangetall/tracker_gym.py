@@ -96,7 +96,7 @@ def main():
 
     tracker = Tracker(1,env.timestep)
     assert env.timestep == 0.01
-    plot = True
+    plot = False
     if plot:
         fig, ax = plt.subplots(figsize=(6, 6))
         ax.set_xlim([-30, 30])
@@ -109,6 +109,7 @@ def main():
         if speed2 == None and steer2 == None:
             speed2, steer2 = planner2.plan(obs['poses_x'][1], obs['poses_y'][1], obs['poses_theta'][1], work['tlad'], work['vgain'])
         steer2 = 0
+        speed2 = 0
         # speed3, steer3 = planner3.plan(obs['poses_x'][2], obs['poses_y'][2], obs['poses_theta'][2], work['tlad'], work['vgain'])
 
         # print("Agent 2 speed {}".format(speed2))
@@ -124,8 +125,10 @@ def main():
             ax.clear()
             ax.set_xlim([-15, 15])
             ax.set_ylim([-15,15])
-            static_background_state = tracker.state.static_background
-            ax.scatter(static_background_state.xb[:,0], static_background_state.xb[:,1], color="black", label="Static Background", s=20)
+            # static_background_state = tracker.state.static_background
+            for idx, track in tracker.state.static_background.items():
+                ax.scatter(track.xb[:,0], track.xb[:,1], color="black",label="Static Background", s=20)
+            # ax.scatter(static_background_state.xb[:,0], static_background_state.xb[:,1], color="black", label="Static Background", s=20)
 
             ax.scatter(tracker.state.xs[0], tracker.state.xs[1], color="blue")
             selfspeed = round(np.sqrt(tracker.state.xs[2]**2+tracker.state.xs[3]**2), 2)

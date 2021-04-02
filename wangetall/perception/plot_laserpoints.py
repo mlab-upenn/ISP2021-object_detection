@@ -8,7 +8,6 @@ def plot(data, graph_type):
         ax.scatter(data[:,1], data[:,0], c="blue",marker = "o", alpha=0.5, label="Boundary Points")
         ax.set_xlim(np.pi, 1.5*np.pi)
         ax.set_ylim(0, 2)
-
         plt.show()
     else:
         plt.scatter(data[:,0], data[:,1], c = "blue", alpha= 0.5)
