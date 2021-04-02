@@ -8,7 +8,7 @@ def get_logger():
     if not os.path.exists(LOG_FILE):
         os.makedirs(LOG_FILE)
     LOG_FILE = LOG_FILE + "/" + dt.datetime.fromtimestamp(time.time()).strftime('%Y_%m_%d %H_%M_%S') + ".log"
-    logFormatter = logging.Formatter("[%(levelname)s]: %(message)s")
+    logFormatter = logging.Formatter("[%(levelname)s]: %(asctime)s %(message)s", "%M:%S")
     fileHandler = logging.FileHandler("{0}".format(LOG_FILE))
     fileHandler.setFormatter(logFormatter)
     rootLogger = logging.getLogger()

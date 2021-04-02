@@ -139,7 +139,7 @@ class JCBB:
         except RecursionStop:
             end = time.time()
             if end-start > 1:
-                breakpoint()
+                # breakpoint()
                 logging.warning("Long DFS time {}".format(end-start))
             pass
 
@@ -159,7 +159,7 @@ class JCBB:
         boundaries_taken = boundaries_taken.copy()
         avail_boundaries = compat_boundaries[self.unassociated_measurements[level]]
         # print(avail_boundaries)
-        logging.info("# Available DFS boundaries: {}".format(len(avail_boundaries)))
+        # logging.info("# Available DFS boundaries: {}".format(len(avail_boundaries)))
         for next_boundary in avail_boundaries:
             # start = time.time()
             # print("Next boundary {}".format(next_boundary))

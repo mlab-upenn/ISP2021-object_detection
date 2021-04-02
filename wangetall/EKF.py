@@ -315,9 +315,11 @@ class ExtendedKalmanFilter(object):
         PHT = dot(self.P, H.T)
         self.S = dot(H, PHT) + R
         self.K = PHT.dot(linalg.inv(self.S))
-        # logging.info("PHT {}".format(PHT))
+        logging.info("R {}".format(R[0,0]))
 
-        # logging.info("S {}".format(self.S))
+        logging.info("PHT {}".format(PHT[0,0]))
+
+        logging.info("S {}".format(self.S[0,0]))
 
         hx = Hx(self.x, *hx_args)
         self.y = residual(z, hx)
@@ -329,7 +331,7 @@ class ExtendedKalmanFilter(object):
         # P = (I-KH)P usually seen in the literature.
         I_KH = self._I - dot(self.K, H)
         self.P = dot(I_KH, self.P).dot(I_KH.T) + dot(self.K, R).dot(self.K.T)
-        # logging.info("K {}".format(self.K[0,0]))
+        logging.info("K {}".format(self.K[0,0]))
 
         # logging.info("I_KH {}".format(I_KH[0,0]))
 

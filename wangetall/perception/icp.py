@@ -36,7 +36,7 @@ class ICP:
         self.match_ratio_threshold = 0.5
 
 
-    def run(self, reference_points, points, key = None, trackid = None):
+    def run(self, reference_points, points, state = None, key = None, trackid = None):
 
         self.reference_points = reference_points
         self.points = points
@@ -114,9 +114,11 @@ class ICP:
             # breakpoint()
             close_enough = abs(max(tform.translation)) < 0.1 and abs(tform.rotation) < 0.01
             # print("Trackid {} trans {}, rot {}".format(trackid, tform.translation, tform.rotation))
-            if(match_ratio > self.match_ratio_threshold) or close_enough:
-                if trackid == 9:
-                    print("Match ratio {}".format(match_ratio))
+            if ((match_ratio > self.match_ratio_threshold) and abs(closest_translation_x) < 0.5 and abs(closest_translation_y) < 0.5) or close_enough:
+                # if state:
+                #     state.dynamic_tracks[trackid].tentative_translation = -tform.translation
+                #     state.dynamic_tracks[trackid].tentative_points = self.points
+
 
                 # if close_enough:
                 #     print("Close enough!")

@@ -30,24 +30,22 @@ class lidarUpdater:
         self.i2 = 0
         self.clean_up_states = CleanUpStates()
 
-
-
     def update(self, dt, data, state):
         self.state = state
         self.theta = self.theta_init+self.state.xs[2]
         self.polar_laser_points = np.zeros((len(data), 2))
         self.polar_laser_points[:,0] = data
         self.polar_laser_points[:,1] = self.theta
-        self.forward(dt)
+        self.forward()
         x, y = Helper.convert_scan_polar_cartesian(np.array(data), self.theta)
         self.laserpoints= np.vstack((x, y)).T
-        fig = plt.figure()
-        ax = fig.add_subplot(111, projection='polar')
-        ax.scatter(self.polar_laser_points[:,1], self.polar_laser_points[:,0], c="blue",marker = "o", alpha=0.5, label="Boundary Points")
-        # ax.set_xlim(np.pi, 1.5*np.pi)
-        ax.set_ylim(0, 2)
-        plt.show()
-        breakpoint()
+        # fig = plt.figure()
+        # ax = fig.add_subplot(111, projection='polar')
+        # ax.scatter(self.polar_laser_points[:,1], self.polar_laser_points[:,0], c="blue",marker = "o", alpha=0.5, label="Boundary Points")
+        # # ax.set_xlim(np.pi, 1.5*np.pi)
+        # ax.set_ylim(0, 2)
+        # plt.show()
+        # breakpoint()
 
 
         # plt.figure()
@@ -67,10 +65,10 @@ class lidarUpdater:
         # self.state.laserpoints = laserpoints
 
         new_tracks = self.associate_and_update(data, dt)
-
         for key, points in new_tracks.items():
-            idx = self.state.create_new_track(self.laserpoints, points)
-            logging.info("Created new Track {}".format(idx))
+            if len(points) > 20:
+                idx = self.state.create_new_track(self.laserpoints, points)
+                logging.info("Created new Track {}".format(idx))
 
         tracks_to_init_and_merge = []
         # print("to init: {}".format(tracks_to_init_and_merge))
@@ -83,7 +81,7 @@ class lidarUpdater:
             self.InitAndMerge.run(tracks_to_init_and_merge, self.state)
 
 
-    def forward(self, dt):
+    def forward(self):
         """Propagates forward all tracks
         based on current transition model"""
 
@@ -104,12 +102,17 @@ class lidarUpdater:
 
     def associate_and_update(self, data, dt):
         clusters = self.cl.cluster(self.laserpoints)
-        # plt.figure()
+        # # plt.figure()
         # for key in clusters.keys():
         #     selected_points = self.laserpoints[clusters[key]]
         #     plt.scatter(selected_points[:,0], selected_points[:,1])
+        # plt.xlim(-10,0)
+        # plt.ylim(-3, 7)
+        # # plt.close(fig)
         # plt.savefig("output_plots/cluster_idx{}.png".format(self.i2))
-        # self.i2 += 1
+        # plt.clf()
+
+        self.i2 += 1
 
         #First, do the static points.
         start = time.time()
@@ -173,10 +176,7 @@ class lidarUpdater:
 
                 initial_association = np.zeros((2, len(tgt_points)))
                 initial_association[0] = np.arange(len(tgt_points))
-                try:
-                    xy, x_ind, y_ind = np.intersect1d(pairs[:,0], np.array(tgt_points), return_indices=True)
-                except:
-                    breakpoint()
+                _, x_ind, y_ind = np.intersect1d(pairs[:,0], np.array(tgt_points), return_indices=True)
                 initial_association[1, y_ind] = pairs[x_ind, 1]
 
                 scan_data = self.polar_laser_points[tgt_points]
@@ -190,11 +190,12 @@ class lidarUpdater:
                 # if boundary_points.shape[0] > 100:
                 #     selected_bndry_idxs= set(np.random.choice(boundary_points.shape[0], 100, replace=False)).union(set(x_ind))
                 #     boundary_points = boundary_points[list(selected_bndry_idxs)]
-                
+                start = time.time()
                 self.jcbb.assign_values(xs = self.state.xs, scan_data = scan_data, track = track.kf.x, P = track.kf.P[0:2,0:2], static=False, psi=self.state.xs[2])
-
-
                 association = self.jcbb.run(initial_association, boundary_points)
+                end = time.time()
+                logging.info("JCBB time {}".format(end-start))
+
                 # sys.exit()
                 association[0] = tgt_points
                 pairings = association[:,~np.isnan(association[1])]
@@ -230,8 +231,8 @@ class lidarUpdater:
                 # plt.scatter(track.xp[:,0]+track.kf.x[0], track.xp[:,1]+track.kf.x[1], c="orange", marker="o", alpha = 0.5, label="Boundary Points")
                 # plt.title("Num pairings {} :( SAD! Cov {}".format(pairings.shape[1], track.kf.P[0,0]))
                 # plt.show()
-
-                if pairings.shape[1] >= 10: #need 3 points to compute rigid transformation
+                percent_associated = pairings.shape[1]/boundary_points.shape[0]
+                if percent_associated >= 0.3: #need 3 points to compute rigid transformation
                     track.update_num_viewings()
                     track.reset_seen()
 
@@ -241,7 +242,6 @@ class lidarUpdater:
 
                     selected_scan_x, selected_scan_y = Helper.convert_scan_polar_cartesian_joint(selected_scan_pts)
                     selected_scan_cartesian = np.vstack((selected_scan_x, selected_scan_y)).T+self.state.xs[0:2]
-                    boundaries_centroid = np.mean(selected_bndr_pts, axis = 0)
                     boundaries_adjusted = selected_bndr_pts
                     scans_adjusted = selected_scan_cartesian
                     # if track_id == 1:
@@ -256,7 +256,6 @@ class lidarUpdater:
                     #     plt.scatter(selected_scan_cartesian[:,0],selected_scan_cartesian[:,1],alpha=0.5, s=4,c="red")
                     #     for i in range(selected_scan_cartesian.shape[0]):
                     #         plt.text(selected_scan_cartesian[i,0], selected_scan_cartesian[i,1], str(i), size = "xx-small")
-
 
                     #     plt.scatter(selected_bndr_pts[:,0],selected_bndr_pts[:,1],alpha=0.5, s = 4,c="purple")
                     #     for i in range(selected_bndr_pts.shape[0]):
@@ -274,10 +273,9 @@ class lidarUpdater:
                     measurement[1] = track.kf.x[1]+tform.translation[1]
                     measurement[2] = tform.translation[0]/dt
                     measurement[3] = tform.translation[1]/dt
-                    speed = np.sqrt(measurement[2]**2+ measurement[3]**2)
+                    speed = np.linalg.norm(measurement[2:4])
                     logging.info("Track {} received a new measurement: {}. Speed {}".format(track.id, measurement[2:4], speed))
                     if speed > 20:
-                        breakpoint()
                         logging.warn("Track {} is moving quickly. Speed {}".format(track.id, speed))
                     percent_associated = pairings.shape[1]/boundary_points.shape[0]
                     self.Updater.run(track, measurement, percent_associated)
@@ -288,25 +286,16 @@ class lidarUpdater:
 
                     # print("Track {} new state {}".format(track.id, track.kf.x[0:4]))
 
-
-            # track.xp = np.append(track.xp, unassociated_boundarypts = ??) #add to track
-
         return new_tracks #need to feed remaining clusters into initialize and update
 
 
 
 
 class Updater:
-    """Can I do this in one calculation for all objects? At least
-    all dynamic objects at a time?"""
-    """Maybe. Explore using 3D block diagonals?"""
-
-
     """Takes in associated output boundary points. What do we do about
     boundary points that don't have association?
 
     Returns updated state and covariance per object (static and dynamic)"""
-
     def __init__(self):
         pass
 
@@ -315,13 +304,14 @@ class Updater:
         #special measurement we created..
         logging.info("Track {} percent associated {}".format(track.id, percent_associated))
         R = self.calc_R(percent_associated)
-        # logging.info("Pre update Track {} covariance: {}".format(track.id, track.kf.P[0,0]))
+        logging.info("Pre update Track {} covariance: {}".format(track.id, track.kf.P[0,0]))
         logging.info("Pre update Track {} vel: {}".format(track.id, track.kf.x[2:4]))
         track.kf.update(measurement, self.calc_Hj, self.calc_hx, R=R)
+        track.kf.P *= 1/abs(track.kf.log_likelihood)
         logging.info("Track {} update likelihood: {}".format(track.id, track.kf.log_likelihood))
         logging.info("Post update Track {} vel: {}".format(track.id, track.kf.x[2:4]))
-
-        # logging.info("Post update Track {} covariance: {}".format(track.id, track.kf.P[0,0]))
+        logging.info("Post update Track {} covariance: {}".format(track.id, track.kf.P[0,0]))
+    
     def calc_Hj(self, x):
         return np.eye(4)
 
@@ -329,8 +319,7 @@ class Updater:
         return x
     
     def calc_R(self, percent_associated):
-        R = np.diag([0.1, 0.1, 1, 1])*(1-percent_associated)+np.diag([0.01, 0.01, 0.02, 0.02])
+        R = np.diag([0.2, 0.2, 0.2, 0.2])*(1-percent_associated)+np.diag([0.01, 0.01, 0.01, 0.01])
         # R = np.diag([0.1, 0.1, 0.1, 0.1])*(1-percent_associated)
-
         assert np.all(R>=0)
         return R

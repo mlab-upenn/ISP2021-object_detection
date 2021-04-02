@@ -106,7 +106,7 @@ class Coarse_Association():
         point_idx_pairs = []
         for key in self.C.keys():
             P = Z[self.C[key]]+self.state.xs[0:2]
-            converged, point_pairs = self.ICP.run(points, P, key, trackid)
+            converged, point_pairs = self.ICP.run(points, P,self.state, key, trackid)
             if converged:
                 dynamic_C[key] = self.C[key]
                 point_idx_pairs = point_idx_pairs+point_pairs

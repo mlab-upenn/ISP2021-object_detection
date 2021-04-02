@@ -17,7 +17,7 @@ class State:
         self.Pxs = np.eye(3) #covariance of ego vehicle pose
         self.xc = np.zeros((3)) #
         self.Pxc = np.eye(3)
-        q = Q_continuous_white_noise(dim=2, dt=dt, spectral_density=5.0)      
+        q = Q_continuous_white_noise(dim=2, dt=dt, spectral_density=30.0)      
         self.Q = block_diag(q, q)
         self.F = np.eye(4)
         self.F[0:2,2:] = dt*np.eye(2)
@@ -99,8 +99,10 @@ class DynamicTrack(Track):
         """
         self.kind = 1
         self.xp = None
+        # self.tentative_translation = np.zeros((2,))
+        # self.tentative_points = None
         self.kf = ExtendedKalmanFilter(dim_x=4, dim_z=4)
-        self.kf.P = np.diag([0.1, 0.1, 2, 2])
+        self.kf.P = np.diag([0.01, 0.01, 0.01, 0.01])
         self.kf.Q = Q
         self.kf.F = F
 

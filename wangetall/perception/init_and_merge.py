@@ -5,7 +5,7 @@ import sys
 import logging
 class InitAndMerge:
     def __init__(self):
-        self.alpha = 1-0.95
+        self.alpha = 1-0.9
 
     def run(self, tentative, state):
         self.tentative = tentative #xt is a 1D list where each element corresponds with the id of
@@ -18,12 +18,12 @@ class InitAndMerge:
 
     def static_check(self):
         static_check = np.zeros(len(self.tentative))
-        chi2 = stats.chi2.ppf(self.alpha, df=2)
+        chi2 = stats.chi2.ppf(1-0.8, df=2)
 
         h = np.zeros((len(self.tentative), 2))
         for idx, track_id in enumerate(self.tentative):
             h[idx] = [self.state.dynamic_tracks[track_id].kf.x[2], self.state.dynamic_tracks[track_id].kf.x[3]]        
-        
+
         #fictious measurement model
         #optimization: move creation of H and z_hat into init to avoid calling every time.
         # H= np.zeros((h.shape[0], 3, 6))
@@ -42,8 +42,8 @@ class InitAndMerge:
         val = np.einsum('ki,kij,kj->k', a, b, a)
 
         static_check[np.where(val <= chi2)] = 1 #1 indicates that the track has been flagged by
-                                                #the static check, and should be merged into the static backgorund.
-
+                                                 #the static check, and should be merged into the static backgorund.
+        # breakpoint()
         for idx in np.where(static_check)[0]:
             logging.info("Merging {} into static.".format(self.tentative[idx]))
             self.state.merge_tracks(self.tentative[idx], None, kind="static")
@@ -52,7 +52,7 @@ class InitAndMerge:
     
 
     def dynamic_check(self):
-        chi2 = stats.chi2.ppf(self.alpha, df=3)
+        chi2 = stats.chi2.ppf(1-0.9, df=4)
 
         h2 = np.zeros((len(self.tentative), 4, 1))
         # R_phi_e = np.zeros((len(self.tentative), 2, 2))
@@ -67,7 +67,7 @@ class InitAndMerge:
 
         vel_t = np.zeros((len(self.tentative), 2))
         for idx, track_id in enumerate(self.tentative):
-            vel_t[idx] = self.state.dynamic_tracks[track_id].kf.x[3:5] 
+            vel_t[idx] = self.state.dynamic_tracks[track_id].kf.x[2:4] 
 
         
         #need to change all of these...
