@@ -37,7 +37,7 @@ class CleanUpStates():
                 track_np = np.array(track.xp, order='c')
                 print("# of points BEFORE RDP on dynamic track id", idx, ":",len(track.xp))
                 track.xp = simplify_coords(track_np, 0.1)
-                print("# of points AFTER RDP on dynamic track id", idx, ":",len(track.xp))
+
 
 
     def removeOld(self):
