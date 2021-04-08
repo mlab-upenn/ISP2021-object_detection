@@ -1,7 +1,6 @@
 import numpy as np
 from filterpy.kalman import ExtendedKalmanFilter
 import sys
-from numba.experimental import jitclass
 from numba import types, typed
 from numba import int32, float32
 

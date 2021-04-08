@@ -8,6 +8,8 @@ import random
 import sys
 import time
 import matplotlib.pyplot as plt
+from numba import jit
+from numba import jitclass
 import logging
 import datetime as dt
 import os
@@ -37,7 +39,7 @@ class JCBB:
         self.psi = 0
         self.recursion = 0
 
-
+    @jit(forceobj=True, parallel = True, fastmath = True)
     def run(self, initial_association, boundary_points):
         # track is vector [gamma_i, delta_i, phi_i, gamma_dot_i, delta_dot_i, phi_dot_i]
         #initial association as 1D vector. Indices of
@@ -289,16 +291,16 @@ class JCBB:
         R_stacked[:] = R_indiv
         return R_stacked
 
-
+    @jit(forceobj=True, parallel = True, fastmath = True)
     def calc_u(self, f):
         r = np.sqrt(f[:,0]**2+f[:,1]**2)
         theta = np.arctan2(f[:,1], f[:,0])
         return np.array([r,theta]).T
-
+    @jit(forceobj=True, parallel = True, fastmath = True)
     def calc_h(self, g):
         h = self.calc_u(g)
         return h
-
+    @jit(forceobj=True, parallel = True, fastmath = True)
     def calc_S(self, H, R, indiv):
         #check page 12 of Oxford paper
         if indiv:
@@ -309,7 +311,7 @@ class JCBB:
         else:
             S = H@self.P@H.T + R
         return S
-
+    @jit(forceobj=True, parallel = True, fastmath = True)
     def calc_g_and_G(self, associated_points, indiv):
         """inputs: xs, measured laserpoint
 
@@ -350,13 +352,13 @@ class JCBB:
         return g, G
 
 
-
+    @jit(forceobj=True, parallel = True, fastmath = True)
     def calc_Jacobian_H(self, g, G, G2, indiv):
         U, Us = self.calc_U(g, indiv)
         H = U.T @ G
         Hs = Us.T@G2
         return H, Hs
-
+    @jit(forceobj=True, parallel = True, fastmath = True)
     def calc_U(self, g, indiv):
         r = np.sqrt(g[:,0]**2+g[:,1]**2)
         U = (np.array([[r*g[:,0], r*g[:,1]],[-g[:,1], g[:,0]]]))/r**2
@@ -365,11 +367,11 @@ class JCBB:
         Us =  block_diag(*U_matrices)
         return U, Us
 
-
+@jit(forceobj=True, parallel = True, fastmath = True)
 def convert_scan_polar_cartesian(scan):
     return np.cos(scan[:,1])*scan[:,0], np.sin(scan[:,1])*scan[:,0]
 
-
+@jit(forceobj=True, parallel = True, fastmath = True)
 def convert_cartesian_to_polar(data):
     r = np.sqrt(data[:,0]**2+data[:,1]**2)
     phi = np.arctan2(data[:,1], data[:,0])

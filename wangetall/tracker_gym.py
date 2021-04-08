@@ -98,7 +98,7 @@ def main():
 
     tracker = Tracker(1,env.timestep)
     assert env.timestep == 0.01
-    plot = False
+    plot = True
     if plot:
         fig, ax = plt.subplots(figsize=(6, 6))
         #ax.set_xlim([-30, 30])

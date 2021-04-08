@@ -119,7 +119,11 @@ class Cluster:
         return components
 
     def get_tau(self, size):
+<<<<<<< HEAD
         k = 70
+=======
+        k = 10
+>>>>>>> rbenefo_new
         return k/size
 
 class Universe:
