@@ -255,9 +255,8 @@ class lidarUpdater:
                     selected_bndr_pts = track.xp[pairings[1].astype(int)]+track.kf.x[0:2]
                     selected_scan_cartesian = self.laserpoints[pairings[0].astype(int)]+self.state.xs[0:2]
 
-                    boundaries_centroid = np.mean(selected_bndr_pts, axis = 0)
                     boundaries_adjusted = selected_bndr_pts-np.mean(selected_bndr_pts, axis = 0)
-                    scans_adjusted = selected_scan_cartesian - np.mean(selected_scan_cartesian, axis = 0)
+                    scans_adjusted = selected_scan_cartesian - np.mean(selected_bndr_pts, axis = 0)
                     # if track_id == 1:
                     #     np.save("scan.npy", selected_scan_cartesian)
                     #     np.save("boundaries.npy", selected_bndr_pts)
