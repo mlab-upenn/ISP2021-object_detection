@@ -14,7 +14,7 @@ class ICP:
         """
         Testing out with the params
         """
-        self.max_iterations=30
+        self.max_iterations=5
         self.distance_threshold=1
         self.match_ratio_threshold = 0.5
 
@@ -61,9 +61,10 @@ class ICP:
             self.points = tform(self.points)
 
             match_ratio = min(len(closest_point_pairs)/self.reference_points.shape[0],len(closest_point_pairs)/self.points.shape[0])
+            close_constraint = abs(max(tform.translation)) < 0.1 and abs(tform.rotation) < 0.2
             close_enough = abs(max(tform.translation)) < 0.1 and abs(tform.rotation) < 0.01
-
-            if(match_ratio > self.match_ratio_threshold) or close_enough:
+            print(iter_num, tform.translation, tform.rotation)
+            if(match_ratio > self.match_ratio_threshold and close_constraint) or close_enough:
                 converged = True
                 break
 

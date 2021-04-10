@@ -67,6 +67,14 @@ class Coarse_Association():
                 P = Z[self.C[key]]+self.state.xs[0:2]
                 static, point_pairs = self.ICP.run(self.state.static_background.xb, P)
                 # print("static? {}".format(static))
+                # if key == 139:
+                #     plt.figure()
+                #     plt.scatter(P[:,0], P[:,1], c="blue")
+                #     track = self.state.static_background
+                #     plt.scatter(track.xb[:,0], track.xb[:,1], c="orange", marker="o", alpha = 0.7, label="Boundary Points")
+                #     plt.show()
+                #     breakpoint()
+
                 if static:
                     static_C[key] = self.C[key]
                     point_pairs_list = point_pairs_list+point_pairs
@@ -78,12 +86,6 @@ class Coarse_Association():
         for key in self.C.keys():
             P = Z[self.C[key]]+self.state.xs[0:2]
             dynamic, point_pairs = self.ICP.run(points, P, key, trackid)
-            # if trackid == 7:
-            #     # plt.figure()
-            #     # plt.scatter(P[:,0], P[:,1], c="blue")
-            #     # track = self.state.dynamic_tracks[trackid]
-            #     # plt.scatter(track.xp[:,0]+track.kf.x[0], track.xp[:,1]+track.kf.x[1], c="orange", marker="o", alpha = 0.7, label="Boundary Points")
-            #     breakpoint()
 
             if dynamic:
                 dynamic_C[key] = self.C[key]

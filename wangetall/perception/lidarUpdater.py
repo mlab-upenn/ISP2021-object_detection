@@ -256,14 +256,14 @@ class lidarUpdater:
                     selected_scan_cartesian = self.laserpoints[pairings[0].astype(int)]+self.state.xs[0:2]
 
                     boundaries_centroid = np.mean(selected_bndr_pts, axis = 0)
-                    boundaries_adjusted = selected_bndr_pts
-                    scans_adjusted = selected_scan_cartesian
+                    boundaries_adjusted = selected_bndr_pts-np.mean(selected_bndr_pts, axis = 0)
+                    scans_adjusted = selected_scan_cartesian - np.mean(selected_scan_cartesian, axis = 0)
                     # if track_id == 1:
                     #     np.save("scan.npy", selected_scan_cartesian)
                     #     np.save("boundaries.npy", selected_bndr_pts)
                     #     sys.exit()
                     tform = estimate_transform("euclidean", boundaries_adjusted, scans_adjusted)
-                    # if track_id == 7:
+                    # if track_id == 3:
                     #     print("ahhh")
                     #     plt.figure()
 
@@ -284,13 +284,15 @@ class lidarUpdater:
 
                     angle= tform.rotation
                     measurement = np.zeros((6))
-                    measurement[0] = track.kf.x[0]+tform.translation[0]
-                    measurement[1] = track.kf.x[1]+tform.translation[1]
+                    measurement[0] = track.kf.x[0]+tform.translation[0] #dx
+                    measurement[1] = track.kf.x[1]+tform.translation[1] #dy
                     measurement[2] = (track.kf.x[2]+angle)%np.pi
-                    measurement[3] = tform.translation[0]/dt
-                    measurement[4] = tform.translation[1]/dt
+                    measurement[3] = tform.translation[0]/dt #dx/dt
+                    measurement[4] = tform.translation[1]/dt #dy/dt
                     measurement[5] = angle
                     logging.info("Track {} received a new measurement! {}".format(track.id, measurement[3:5]))
+                    # if track.id == 3:
+                    #     breakpoint()
                     self.Updater.run(measurement)
                     #end = timer()
                     #print("Elapsed TRANSFORM for 1 track= %s s" % round(end - start, 2))

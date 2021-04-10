@@ -163,7 +163,7 @@ class JCBB:
             isValidBoundary = next_boundary not in boundaries_taken or np.isnan(next_boundary)
             if isValidBoundary and level < len(self.unassociated_measurements):
                 test_association = np.copy(association)
-                test_association[1,int(self.unassociated_measurements[level])] = next_boundary
+                test_association[1,int(self.unassociated_measurements[level])] = next_boundary #2xn
                 JNIS = self.calc_JNIS(test_association, boundary_points)
                 joint_compat = self.check_compat(JNIS, DOF =np.count_nonzero(~np.isnan(test_association[1]))*2)
                 num_associated = np.count_nonzero(~np.isnan(test_association[1]))
