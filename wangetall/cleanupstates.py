@@ -14,7 +14,8 @@ from simplification.cutil import (
     simplify_coords_vw_idx,
     simplify_coords_vwp,
 )
-
+import matplotlib.path as mplPath
+import matplotlib.patches as patches
 
 class CleanUpStates():
     def __init__(self):
@@ -24,12 +25,18 @@ class CleanUpStates():
         self.lidar_center_x = lidar_center_x
         self.lidar_center_y = lidar_center_y
         self.lidar_range = lidar_range
+        self.lidar = lidar
         self.state = state
-        self.removeOld()
+        contour = np.vstack((self.lidar+self.state.xs[0:2], self.state.xs[0:2]))
+        self.bbPath = mplPath.Path(contour)
+        self.removeOldandFree()
         self.removeOutOfRangeAndOutOfView()
+        #enforce free space. Contour plot??
+
         #self.rdp()
         # how to remove obsucred tracks?
         #cleaned_points = self.removeObscured(valid_points_in_radius)
+
 
     def rdp(self):
         for idx, track in self.state.dynamic_tracks.items():
@@ -40,14 +47,18 @@ class CleanUpStates():
 
 
 
-    def removeOld(self):
+    def removeOldandFree(self):
         to_rm = []
         for idx, track in self.state.dynamic_tracks.items():
             #print("Clean up states removing track {}. Last seen {}".format(track.id, track.last_seen))
             if track.last_seen > track.seen_threshold:
-                logging.info("Clean up states removing track {}. Last seen {}".format(track.id, track.last_seen))
+                logging.info("Clean up states removing Track {}. Last seen {}".format(track.id, track.last_seen))
                 to_rm.append(track.id)
-
+            # else:
+            #     mask2 = np.invert(self.bbPath.contains_points(track.xp+track.kf.x[0:2]))
+            #     track.xp = track.xp[mask2, :]
+            #     if np.count_nonzero(mask2==False) > 0:
+            #         logging.info("Clean up states trimming Track {}. Portions located in known free space.".format(track.id))
         for track_id in to_rm:
             #if track_id == 4:
                 #breakpoint()
@@ -58,6 +69,8 @@ class CleanUpStates():
         if self.state.static_background.xb.size != 0:
             mask = (self.state.static_background.xb[:,0] - self.lidar_center_x)**2 + (self.state.static_background.xb[:,1] - self.lidar_center_y)**2 < self.lidar_range**2
             self.state.static_background.xb = self.state.static_background.xb[mask,:]
+            mask2 = np.invert(self.bbPath.contains_points(self.state.static_background.xb, radius=-0.2))
+            self.state.static_background.xb = self.state.static_background.xb[mask2,:]
             angles = []
             last = 0
             for i in range(int(self.state.static_background.xb.size/2)):
@@ -77,7 +90,7 @@ class CleanUpStates():
             mask = (track.kf.x[0] - self.lidar_center_x)**2 + (track.kf.x[1] - self.lidar_center_y)**2 < self.lidar_range**2
             if(mask == False):
                 self.state.cull_dynamic_track(idx)
-                logging.info("Track, {}, outside of lidar_range.... removing. ".format(idx))
+                logging.info("Track {}, outside of lidar_range.... removing. ".format(idx))
                 continue
             angle = math.degrees(math.atan2(track.kf.x[1] - self.lidar_center_y, track.kf.x[0]- self.lidar_center_x))
             if(angle - math.degrees(self.state.xs[2])) <= -180:

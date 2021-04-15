@@ -79,14 +79,14 @@ class Tracker:
 
 def main():
     work = {'mass': 3.463388126201571, 'lf': 0.15597534362552312, 'tlad': 0.82461887897713965, 'vgain': 0.90338203837889}
-    with open('maps/Melbourne2/config_example_map0.yaml') as file:
+    with open('maps/Melbourne/config_example_map.yaml') as file:
         conf_dict = yaml.load(file, Loader=yaml.FullLoader)
     conf = Namespace(**conf_dict)
 
     env = gym.make('f110_gym:f110-v0', map=conf.map_path, map_ext=conf.map_ext)
     obs, step_reward, done, info = env.reset(np.array([[conf.sx, conf.sy, conf.stheta], [conf.sx2, conf.sy2, conf.stheta2]]))
 
-    show_env = False
+    show_env = True
     if show_env:
         env.render()
     planner = PurePursuitPlanner(conf, 0.17145+0.15875)

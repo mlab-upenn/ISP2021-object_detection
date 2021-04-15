@@ -137,11 +137,16 @@ class InitAndMerge:
             # breakpoint()
         idxs = zip(*np.where(joint_check))
         rmed_list = []
+        merged_list = []
         for i, j in idxs:
             track_id = track_arr[i]
             target_id = self.tentative[j]
-            if track_id != target_id and j not in rmed_list:
-                logging.info("Merging dynamic {} with dynamic {}".format(target_id, track_id))
-                self.state.merge_tracks(target_id, track_id, kind="dynamic")
+            if track_id != target_id and j not in rmed_list and track_id not in merged_list:
+                logging.info("Merging dynamic Track {} with dynamic Track {}".format(target_id, track_id))
+                try:
+                    self.state.merge_tracks(target_id, track_id, kind="dynamic")
+                except:
+                    breakpoint()
                 rmed_list.append(j)
+                merged_list.append(target_id)
         self.tentative = [x for i, x in enumerate(self.tentative) if i not in rmed_list]

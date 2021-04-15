@@ -9,6 +9,7 @@ from perception.init_and_merge import InitAndMerge
 from cleanupstates import CleanUpStates
 from timeit import default_timer as timer
 from skimage.transform import estimate_transform
+from skimage import transform
 import sys
 import matplotlib.pyplot as plt
 import os
@@ -63,7 +64,7 @@ class lidarUpdater:
         start = timer()
         for key, points in new_tracks.items():
             idx = self.state.create_new_track(self.laserpoints, points)
-            logging.info("Created new track {}".format(idx))
+            logging.info("Created new Track {}".format(idx))
         end = timer()
         print("Elapsed CREATE_NEW_TRACK = %s s" % round(end - start, 2))
 
@@ -71,7 +72,7 @@ class lidarUpdater:
         # print("to init: {}".format(tracks_to_init_and_merge))
         start = timer()
         for track_id, track in self.state.dynamic_tracks.items():
-            logging.info("Track id {}, num_viewings {}, last_seen {}".format(track_id, track.num_viewings, track.last_seen))
+            logging.info("Track {}, num_viewings {}, last_seen {}".format(track_id, track.num_viewings, track.last_seen))
             if track.num_viewings >= track.mature_threshold:
                 tracks_to_init_and_merge.append(track_id)
         if len(tracks_to_init_and_merge) > 0:
@@ -96,20 +97,24 @@ class lidarUpdater:
                 track.kf.F = F
                 track.kf.Q = Q
                 track.kf.predict()
+                # if track.id == 26 or track.id == 27:
+                #     print("post")
+                #     breakpoint()
+
+                self.rotate_points(track)
             if track.last_seen > 1:
                 track.update_seen()
                 track.kf.P *= 1.1
                 logging.info("Increasing Track {} covariance.".format(track.id))
-            if track.id == 4:
-                logging.warn("Track 4 cov: {}".format(track.kf.P[0,0]))
-                logging.warn("Track 4 Kalman Gain: {}".format(track.kf.K))
-
-        #Static background doesn't move, so no need for propagation step...
-        # self.state.static_background.kf.F = F
-        # self.state.static_background.kf.Q = Q
-        # self.state.static_background.kf.predict()
 
 
+    def rotate_points(self, track):
+        tform = transform.EuclideanTransform(
+                            rotation=track.kf.x[2],
+                            translation = (0,0)
+                            )
+        track.xp = tform(track.xp)
+        
     def associate_and_update(self, data, dt):
         start = timer()
         clusters = self.cl.cluster(self.laserpoints)
@@ -117,25 +122,15 @@ class lidarUpdater:
         a = np.array([])
         for key in clusters.keys():
             points = self.laserpoints[clusters[key]]
-            if(len(points)>100):
-                print("# of points BEFORE RDP:",len(self.laserpoints[clusters[key]]))
+            if(len(points)>70):
+                # print("# of points BEFORE RDP:",len(self.laserpoints[clusters[key]]))
                 points = simplify_coords(np.array(points, order='c'), 0.02)
-                print("# of points AFTER RDP:",len(points))
+                # print("# of points AFTER RDP:",len(points))
             a = np.append(a, points)
             #self.laserpoints[clusters[key]] = points
 
-
         self.laserpoints = a.reshape(-1, 2)
         clusters = self.cl.cluster(self.laserpoints)
-        # plt.figure()
-        # i = 0
-        # for key in clusters.keys():
-        #     i += 1
-        #     points = self.laserpoints[clusters[key]]
-        #     plt.scatter(points[:,0], points[:,1], label="cluster{}".format(key))
-        #     plt.legend()
-        # plt.show()
-        # breakpoint()
 
 
         end = timer()
@@ -147,6 +142,19 @@ class lidarUpdater:
         start = timer()
         static_association, static_point_pairs, dynamic_association, dynamic_point_pairs, new_tracks = Coarse_Association(clusters).run(self.laserpoints, self.state)
         end = timer()
+        
+        # if 26 in self.state.dynamic_tracks:
+        #     if self.state.dynamic_tracks[26].last_seen > 3:
+        #         plt.figure()
+        #         i = 0
+        #         for key in clusters.keys():
+        #             i += 1
+        #             points = self.laserpoints[clusters[key]]
+        #             plt.scatter(points[:,0], points[:,1], label="cluster{}".format(key))
+        #             plt.legend()
+        #         plt.show()
+        #         breakpoint()
+
         print("Elapsed COARSE_ASSOCATION = %s s" % round(end - start, 2))
         #check how the dynamic point pairs is working... don't want just rough associations for all the dynamic tracks.
         if len(static_association) > 0:
@@ -162,10 +170,7 @@ class lidarUpdater:
             initial_association = np.zeros((2, len(tgt_points)))
             initial_association[0] = np.arange(len(tgt_points))
             #breakpoint()
-            try:
-                xy, x_ind, y_ind = np.intersect1d(pairs[:,0], np.array(tgt_points), return_indices=True)
-            except:
-                breakpoint()
+            xy, x_ind, y_ind = np.intersect1d(pairs[:,0], np.array(tgt_points), return_indices=True)
             initial_association[1, y_ind] = pairs[x_ind, 1]
 
             # print("Scan data static shape{}".format(self.polar_laser_points[tgt_points].shape))
@@ -212,19 +217,19 @@ class lidarUpdater:
                 association = self.jcbb.run(initial_association, boundary_points)
                 association[0] = tgt_points
                 pairings = association[:,~np.isnan(association[1])]
-                if pairings.shape[1] == 0:
+                if pairings.shape[1] < 2:
                     logging.warn("Track {}, num pairings {}".format(track.id, pairings.shape[1]))
                 # if track_id == 7:
                 #     breakpoint()
-                # if track.id == 7:
-                #     np.save("tests/npy_files/xs.npy", self.state.xs)
-                #     np.save("tests/npy_files/scan_data.npy", scan_data)
-                #     np.save("tests/npy_files/track.npy", track.kf.x)
-                #     np.save("tests/npy_files/P.npy", track.kf.P[0:2,0:2])
+                # if track.id == 27:
+                #     # np.save("tests/npy_files/xs.npy", self.state.xs)
+                #     # np.save("tests/npy_files/scan_data.npy", scan_data)
+                #     # np.save("tests/npy_files/track.npy", track.kf.x)
+                #     # np.save("tests/npy_files/P.npy", track.kf.P[0:2,0:2])
 
-                #     np.save("tests/npy_files/psi.npy", self.state.xs[2])
-                #     np.save("tests/npy_files/initial_association.npy", initial_association)
-                #     np.save("tests/npy_files/boundary_points.npy", boundary_points)
+                #     # np.save("tests/npy_files/psi.npy", self.state.xs[2])
+                #     # np.save("tests/npy_files/initial_association.npy", initial_association)
+                #     # np.save("tests/npy_files/boundary_points.npy", boundary_points)
 
 
                 #     # scan_x, scan_y = Helper.convert_scan_polar_cartesian_joint(self.polar_laser_points[tgt_points])
@@ -239,13 +244,11 @@ class lidarUpdater:
                 #     plt.scatter(track.xp[:,0]+track.kf.x[0], track.xp[:,1]+track.kf.x[1], c="purple", marker="o", alpha = 0.5, label="Boundary Points")
                 #     plt.show()
                 #     breakpoint()
-                #     # plt.savefig("output_plots/{}.png".format(self.i))
-                #     # self.i += 1
                 end = timer()
                 print("Elapsed JCBB for track_id %s = %s s" % (track_id,round(end - start, 2)))
                 percent_associated = pairings.shape[1]/boundary_points.shape[0]
 
-                if pairings.shape[1] >= 3:  #need 3 points to compute rigid transformation
+                if pairings.shape[1] >= 2:  #need 2 points to compute rigid transformation
                     #start = timer()
                     track.update_num_viewings()
                     track.reset_seen()
@@ -262,7 +265,7 @@ class lidarUpdater:
                     #     np.save("boundaries.npy", selected_bndr_pts)
                     #     sys.exit()
                     tform = estimate_transform("euclidean", boundaries_adjusted, scans_adjusted)
-                    # if track_id == 3:
+                    # if track_id == 1:
                     #     print("ahhh")
                     #     plt.figure()
 
@@ -285,11 +288,12 @@ class lidarUpdater:
                     measurement = np.zeros((6))
                     measurement[0] = track.kf.x[0]+tform.translation[0] #dx
                     measurement[1] = track.kf.x[1]+tform.translation[1] #dy
-                    measurement[2] = (track.kf.x[2]+angle)%np.pi
-                    measurement[3] = tform.translation[0]/dt #dx/dt
-                    measurement[4] = tform.translation[1]/dt #dy/dt
-                    measurement[5] = angle
-                    logging.info("Track {} received a new measurement! {}".format(track.id, measurement[3:5]))
+                    si = np.sign((track.kf.x[2]+angle))
+                    measurement[2] = si*(abs(track.kf.x[2]+angle)%np.pi)
+                    measurement[3] = tform.translation[0]/dt+track.kf.x[3] #dx/dt
+                    measurement[4] = tform.translation[1]/dt +track.kf.x[4]#dy/dt
+                    measurement[5] = 0
+                    logging.info("Track {} received a new measurement! {}".format(track.id, measurement))
                     # if track.id == 3:
                     #     breakpoint()
                     self.Updater.run(measurement)
@@ -297,8 +301,6 @@ class lidarUpdater:
                     #print("Elapsed TRANSFORM for 1 track= %s s" % round(end - start, 2))
                     # print("Track {} new state {}".format(track.id, track.kf.x[0:4]))
 
-
-            # track.xp = np.append(track.xp, unassociated_boundarypts = ??) #add to track
 
         return new_tracks #need to feed remaining clusters into initialize and update
 
@@ -357,10 +359,6 @@ class Updater:
 
     def run(self, measurement):
         R = self.calc_R(self.associated_points)
-        # g, G = self.calc_g_and_G(self.associated_points)
-        # H = self.calc_Jacobian_H(x, g, G)
-        #May need to come up with custom measurement model for the
-        #special measurement we created..
         self.track.kf.update(measurement, self.calc_Hj, self.calc_hx, R)
 
     def calc_Hj(self, x):
@@ -373,54 +371,3 @@ class Updater:
         #https://dspace.mit.edu/handle/1721.1/32438#files-area
         R = np.eye(6)*0.5
         return R
-
-    # def compute_Kalman_gain(self, H, P, R):
-    #     K = P@H.T@ np.linalg.inv(H@P@H.T + R)
-    #     ##Make 3D? Stack K's on top of each other for every dynamic object.
-    #     return K
-
-    # def calc_Jacobian_H(self, x, g, G):
-    #     U = self.calc_U(x, g)
-    #     H = U.T @ G
-    #     return H
-
-    # def calc_U(self, x, g):
-    #     r = np.sqrt(g[:,0]**2+g[:,1]**2)
-    #     U = (np.array([[r*g[:,0], r*g[:,1]],[-g[:,1], g[:,0]]]))/r**2
-
-    #     U_matrices = tuple([U[:,:,i] for i in range(U.shape[2])])
-    #     U =  block_diag(*U_matrices)
-    #     ###Make 3D? Stack U's on top of each other for every dynamic object.
-    #     return U
-
-
-    # def calc_g_and_G(self, associated_points):
-    #     g = np.zeros((associated_points.shape[0], 2))
-    #     #make 3d?
-    #     G = np.zeros((associated_points.shape[0]*2, 2))
-    #     #make 3d?
-
-    #     alpha = self.xs[0]
-    #     beta = self.xs[1]
-    #     alpha_beta_arr = np.array([alpha, beta])
-    #     phi = self.track.kf.x[0]
-    #     gamma = self.track.kf.x[2]
-    #     delta = self.track.kf.x[1]
-
-    #     ##Make 2D? have phi, gamma, delta be 2D matrices for every object
-
-    #     R_pi_by_2 = Helper.compute_rot_matrix(np.pi/2)
-    #     R_psi = Helper.compute_rot_matrix(self.psi)
-    #     R_phi = Helper.compute_rot_matrix(phi)
-    #     #naive way-- with for loops. need to think how to get rid of.
-    #     for index, point in enumerate(associated_points):
-    #         x = point[0]
-    #         y = point[1]
-
-    #         if self.static:
-    #             g[index] = R_psi.T @ np.array(np.array([x, y])- alpha_beta_arr).T
-    #         else:
-    #             g[index] = R_psi.T@(R_phi@np.array([x, y])+np.array([gamma, delta])-alpha_beta_arr)
-
-    #         G[index*2:index*2+2] = -R_psi.T-R_pi_by_2@g[index]
-    #     return g, G
