@@ -1,6 +1,10 @@
 import numpy as np
 from filterpy.kalman import ExtendedKalmanFilter
 import sys
+from numba.experimental import jitclass
+from numba import types, typed
+from numba import int32, float32
+
 class State:
     def __init__(self):
         self.dynamic_tracks = {}
@@ -11,7 +15,7 @@ class State:
         self.Pxs = np.eye(3) #covariance of ego vehicle pose
         self.xc = np.zeros((3)) #
         self.Pxc = np.eye(3)
-            
+
     def create_new_track(self, laserpoints, clusterIds):
         if len(self.dynamic_tracks) == 0:
             idx = 1
@@ -22,10 +26,10 @@ class State:
         boundary_points = laserpoints[clusterIds] #want boundarypoints to be in cartesian
         track = DynamicTrack(idx, status =0)
         track.kf.x = np.array([np.mean(boundary_points[:,0])+self.xs[0],
-                            np.mean(boundary_points[:,1])+self.xs[1], 
+                            np.mean(boundary_points[:,1])+self.xs[1],
                             0,
                             0,0,0])
-        
+
         track.xp = np.array([boundary_points[:,0]-track.kf.x[0]+self.xs[0],
                             boundary_points[:,1]-track.kf.x[1]+self.xs[1]]).T
         self.dynamic_tracks[idx] = track
@@ -34,7 +38,7 @@ class State:
 
     def cull_dynamic_track(self, idx):
         self.dynamic_tracks.pop(idx)
-        
+
     def merge_tracks(self, track_id, target_id, kind):
         if kind == "dynamic":
             track = self.dynamic_tracks[track_id]
@@ -48,7 +52,7 @@ class State:
             #tracks are by default assumed to be dynamic. If they're being merged to the static boundary,
             #they are removed from list of dynamic objects.
         self.cull_dynamic_track(track_id)
-    
+
     def num_dynamic_tracks(self):
         return len(self.dynamic_tracks)
 
@@ -61,17 +65,17 @@ class Track:
         self.last_seen = 0
         ##Private attributes:
         self.id = idx
-        
+
 
     def update_num_viewings(self):
         self.num_viewings += 1
         if self.status == 0:
             if self.num_viewings >= self.mature_threshold:
                 self.status = not self.status #mark as confirmed
-    
+
     def reset_seen(self):
         self.last_seen = 0
-    
+
     def update_seen(self):
         self.last_seen += 1
 

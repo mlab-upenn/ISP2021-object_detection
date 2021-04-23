@@ -4,17 +4,23 @@ import gym
 import numpy as np
 from argparse import Namespace
 import matplotlib.pyplot as plt
-from numba import jit
 from perception.helper import Helper
 import math
 import logging
-from rdp import rdp
+from simplification.cutil import (
+    simplify_coords,
+    simplify_coords_idx,
+    simplify_coords_vw,
+    simplify_coords_vw_idx,
+    simplify_coords_vwp,
+)
+
 
 class CleanUpStates():
     def __init__(self):
         pass
 
-    def run(self, lidar_center_x, lidar_center_y, lidar, state, lidar_range=15.0):
+    def run(self, lidar_center_x, lidar_center_y, lidar, state, lidar_range=10.0):
         self.lidar_center_x = lidar_center_x
         self.lidar_center_y = lidar_center_y
         self.lidar_range = lidar_range
@@ -26,21 +32,18 @@ class CleanUpStates():
         #cleaned_points = self.removeObscured(valid_points_in_radius)
 
     def rdp(self):
-        if self.state.static_background.xb.size != 0:
-            #plt.scatter(self.state.static_background.xb[:,0],self.state.static_background.xb[:,1], c="r", s=20, label="static before")
-            #print("before:",len(self.state.static_background.xb))
-            self.state.static_background.xb = rdp(self.state.static_background.xb, epsilon=0.01)
-            #print("after:",len(self.state.static_background.xb))
-            #plt.scatter(self.lidar_center_x, self.lidar_center_y, c="r", label="ego vehicle center")
-            #plt.scatter(self.state.static_background.xb[:,0],self.state.static_background.xb[:,1], c="g", s=5, label="static")
-            #plt.legend()
-            #plt.show()
+        for idx, track in self.state.dynamic_tracks.items():
+            if(len(track.xp) > 100):
+                track_np = np.array(track.xp, order='c')
+                print("# of points BEFORE RDP on dynamic track id", idx, ":",len(track.xp))
+                track.xp = simplify_coords(track_np, 0.1)
+
 
 
     def removeOld(self):
         to_rm = []
         for idx, track in self.state.dynamic_tracks.items():
-            print("Clean up states removing track {}. Last seen {}".format(track.id, track.last_seen))
+            #print("Clean up states removing track {}. Last seen {}".format(track.id, track.last_seen))
             if track.last_seen > track.seen_threshold:
                 logging.info("Clean up states removing track {}. Last seen {}".format(track.id, track.last_seen))
                 to_rm.append(track.id)
@@ -86,17 +89,6 @@ class CleanUpStates():
                 self.state.cull_dynamic_track(idx)
                 logging.info("Track {} outside of field of view (in angle {}).... removing".format(idx, angle))
 
-            #self.state.static_background.xb = self.state.static_background.xb[np.where(abs(rads - self.state.xs[2]) <= 4.7/2)]
-            #print("static size after fov cleaning:",self.state.static_background.xb.size)
-        # for idx, track in list(self.state.dynamic_tracks.items()):
-        #     dynamic_P = track.xp+track.kf.x[0:2]
-        #     plt.scatter(dynamic_P[:,0],dynamic_P[:,1],s=8, label="dynamic track")
-
-        # plt.scatter(lidar[:,0], lidar[:,1], c="b", label="incoming lidar data")
-        # plt.scatter(self.lidar_center_x, self.lidar_center_y, c="r", label="ego vehicle center")
-        # #plt.scatter(self.state.static_background.xb[:,0],self.state.static_background.xb[:,1], c="g", s=5, label="static")
-        # plt.legend()
-        # plt.show()
 
 # First, we do some house-keeping where out-of-date dynamic tracks and boundary points on the static background
 # that have fallen out of the sensor’s field of view are dropped.

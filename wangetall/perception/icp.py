@@ -10,31 +10,13 @@ import sys
 
 
 class ICP:
-    """
-    Class Based on the ICP implementation of https://github.com/richardos/icp/blob/master/icp.py and Besl and
-    McKay, 1992 -
-    http://www-evasion.inrialpes.fr/people/Franck.Hetroy/Teaching/ProjetsImage/2007/Bib/besl_mckay-pami1992.pdf
-
-    An implementation of the Iterative Closest Point algorithm that matches a set of M 2D points to another set
-    of N 2D (reference) points.
-    :param reference_points: the reference point set as a numpy array (N x 2)
-    :param points: the point that should be aligned to the reference_points set as a numpy array (M x 2)
-    :param max_iterations: the maximum number of iteration to be executed
-    :param distance_threshold: the distance threshold between two points in order to be considered as a pair
-    :param convergence_translation_threshold: the threshold for the translation parameters (x and y) for the
-                                              transformation to be considered converged
-    :param convergence_rotation_threshold: the threshold for the rotation angle (in rad) for the transformation
-                                               to be considered converged
-    :param point_pairs_threshold: the minimum number of point pairs that should exist
-    :return: aligned points as a numpy array M x 2
-    """
     def __init__(self):
         """
         Testing out with the params
         """
         self.max_iterations=30
         self.distance_threshold=1
-        self.match_ratio_threshold = 0.6
+        self.match_ratio_threshold = 0.5
 
 
     def run(self, reference_points, points, key = None, trackid = None):
@@ -44,38 +26,25 @@ class ICP:
         # nbrs = NearestNeighbors(n_neighbors=1, algorithm='kd_tree').fit(self.reference_points)
 
         for iter_num in range(self.max_iterations):
-            #print('------ iteration', iter_num, '------')
             converged =  False
 
-            # closest_point_pairs = []
             closest_point_pairs_idxs = []
             C = cdist(self.points, self.reference_points)
             try:
                 _, assignment = linear_sum_assignment(C)
             except ValueError:
                 print("ValueError in ICP")
-                print(C)
-                #breakpoint()
             if self.points.shape[0] < self.reference_points.shape[0]:
                 N = self.points.shape[0]
             else:
                 N = self.reference_points.shape[0]
             validIdxs = [i for i in range(N) if C[i, assignment[i]]<self.distance_threshold]
-            # validIdxs = [i for i in range(N)]
 
             closest_point_pairs = np.zeros((len(validIdxs),2, 2))
             closest_point_pairs[:,:,0] = self.points[validIdxs]
             closest_point_pairs[:,:,1] = self.reference_points[assignment[validIdxs]]
             for idx in validIdxs:
                 closest_point_pairs_idxs.append((idx, assignment[idx]))
-
-            # if only few point pairs, stop process
-            #print('number of pairs found:', len(closest_point_pairs))
-            # if key == 25 and trackid == 1:
-            #     print("PINGGGG!!!")
-            #     plt.figure()
-
-            #     breakpoint()
 
 
             # All associations obtained in this way are used to estimate a transform that aligns the point set P to Q.
@@ -88,48 +57,14 @@ class ICP:
             closest_rot_angle = tform.rotation
             closest_translation_x, closest_translation_y = tform.translation
 
-            #T he points in P are then updated to their new positions with the estimated transform
-
+            #The points in P are then updated to their new positions with the estimated transform
             self.points = tform(self.points)
 
-            # rangepts = np.max(self.points, axis = 0)-np.min(self.points, axis = 0)
-            # rangerefs = np.max(self.reference_points, axis = 0)-np.min(self.reference_points, axis = 0)
-            # and the loop continues until convergence
-
-
-            #Karel's idea: reject outliers based on scoring num points in dist, penalize num points out of dist
-            #Possible implementation: do min(len(closest_point_pairs)/self.reference_points.shape[0],len(closest_point_pairs)/self.points.shape[0])
-            #If min < threshold, reject?
-            # print("len(closest_point_pairs):",len(closest_point_pairs))
-            # print("self.reference_points.shape[0]",self.reference_points.shape[0])
-            # print("self.points.shape[0]",self.points.shape[0])
             match_ratio = min(len(closest_point_pairs)/self.reference_points.shape[0],len(closest_point_pairs)/self.points.shape[0])
-            # print("Match ratio {}".format(match_ratio))
-            # #print(C)
-
-            # print("Match ratio {}".format(match_ratio))
-            # breakpoint()
             close_enough = abs(max(tform.translation)) < 0.1 and abs(tform.rotation) < 0.01
-            # print("Trackid {} trans {}, rot {}".format(trackid, tform.translation, tform.rotation))
-            if(match_ratio > self.match_ratio_threshold) or close_enough:
-                if close_enough:
-                    print("Close enough!")
-                converged = True
-                # plt.plot(self.points[:,0], self.points[:,1],'bo', markersize = 7, label ="incoming lidar cluster")
-                # plt.plot(self.reference_points[:,0], self.reference_points[:,1],'rs',  markersize = 7, label ="reference cluster")
-                # for p in range(N):
-                #     plt.plot([self.points[p,0], self.reference_points[assignment[p],0]], [self.points[p,1], self.reference_points[assignment[p],1]], 'k')
-                # plt.legend()
-                # plt.show()
-                # if key == 190 and trackid == 2:
-                #     plt.figure()
-                #     plt.plot(self.points[:,0], self.points[:,1],'bo', markersize = 10)
-                #     plt.plot(self.reference_points[:,0], self.reference_points[:,1],'rs',  markersize = 7)
-                #     for p in range(N):
-                #         plt.plot([self.points[p,0], self.reference_points[assignment[p],0]], [self.points[p,1], self.reference_points[assignment[p],1]], 'k')
-                #     plt.show()
-                #     breakpoint()
 
+            if(match_ratio > self.match_ratio_threshold) or close_enough:
+                converged = True
                 break
 
 
@@ -138,51 +73,19 @@ class ICP:
         return converged, closest_point_pairs_idxs
 
 
-    def point_based_matching(self, point_pairs):
-        """
-        This function is based on the paper "Robot Pose Estimation in Unknown Environments by Matching 2D Range Scans"
-        by F. Lu and E. Milios.
-        :param point_pairs: the matched point pairs [((x1, y1), (x1', y1')), ..., ((xi, yi), (xi', yi')), ...]
-        :return: the rotation angle and the 2D translation (x, y) to be applied for matching the given pairs of points
-        """
-        x_mean = 0
-        y_mean = 0
-        xp_mean = 0
-        yp_mean = 0
-        n = len(point_pairs)
+# def main():
+#     icp = ICP()
+#     points = sys.argv[1]
+#     scans = sys.argv[2]
+#     points = np.load(points)
+#     scans = np.load(scans)
+#
+#     icp.run(points, scans)
 
-        if n == 0:
-            return None, None, None
+    # plt.scatter(points[:,0], points[:,1],'r',  markersize = 30, label = "points")
+    # plt.scatter(scans[:,0], scans[:,1],'b',  markersize = 15, label = "scans")
+    # plt.legend()
+    # plt.show()
 
-        for pair in point_pairs:
-
-            (x, y), (xp, yp) = pair
-
-            x_mean += x
-            y_mean += y
-            xp_mean += xp
-            yp_mean += yp
-
-        x_mean /= n
-        y_mean /= n
-        xp_mean /= n
-        yp_mean /= n
-
-        s_x_xp = 0
-        s_y_yp = 0
-        s_x_yp = 0
-        s_y_xp = 0
-        for pair in point_pairs:
-
-            (x, y), (xp, yp) = pair
-
-            s_x_xp += (x - x_mean)*(xp - xp_mean)
-            s_y_yp += (y - y_mean)*(yp - yp_mean)
-            s_x_yp += (x - x_mean)*(yp - yp_mean)
-            s_y_xp += (y - y_mean)*(xp - xp_mean)
-
-        rot_angle = math.atan2(s_x_yp - s_y_xp, s_x_xp + s_y_yp)
-        translation_x = xp_mean - (x_mean*math.cos(rot_angle) - y_mean*math.sin(rot_angle))
-        translation_y = yp_mean - (x_mean*math.sin(rot_angle) + y_mean*math.cos(rot_angle))
-
-        return rot_angle, translation_x, translation_y
+# if __name__ == "__main__":
+#     main()

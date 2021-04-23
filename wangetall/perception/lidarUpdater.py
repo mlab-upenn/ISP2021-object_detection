@@ -7,14 +7,20 @@ from perception.jcbb import JCBB
 from perception.helper import Helper
 from perception.init_and_merge import InitAndMerge
 from cleanupstates import CleanUpStates
-import time
+from timeit import default_timer as timer
 from skimage.transform import estimate_transform
 import sys
 import matplotlib.pyplot as plt
 import os
 import datetime as dt
 import logging
-
+from simplification.cutil import (
+    simplify_coords,
+    simplify_coords_idx,
+    simplify_coords_vw,
+    simplify_coords_vw_idx,
+    simplify_coords_vwp,
+)
 
 
 class lidarUpdater:
@@ -33,6 +39,7 @@ class lidarUpdater:
 
 
     def update(self, dt, data, state):
+        start_total = timer()
         self.state = state
         self.theta = self.theta_init+self.state.xs[2] #do I need to correct for current heading?
         # self.theta = self.theta_init
@@ -41,24 +48,28 @@ class lidarUpdater:
         self.polar_laser_points[:,1] = self.theta
         self.forward(dt)
         x, y = Helper.convert_scan_polar_cartesian(np.array(data), self.theta)
-        self.laserpoints= np.vstack((x, y)).T
+        self.laserpoints = np.vstack((x, y)).T
+
+        start = timer()
         self.clean_up_states.run(self.state.xs[0], self.state.xs[1], self.laserpoints, self.state)
-
-        # plt.scatter(self.laserpoints[:,0], self.laserpoints[:,1], c="b", label="incoming lidar")
-        # plt.scatter(self.state.xs[0], self.state.xs[1], c="r", label="car")
-        # plt.legend()
-        # plt.show()
-
+        end = timer()
+        print("Elapsed CLEANUPSTATES = %s s" % round(end - start, 2))
         # self.state.laserpoints = laserpoints
 
+        start = timer()
         new_tracks = self.associate_and_update(data, dt)
-
+        end = timer()
+        print("Elapsed ASSOCATE_AND_UPDATE = %s s" % round(end - start, 2))
+        start = timer()
         for key, points in new_tracks.items():
             idx = self.state.create_new_track(self.laserpoints, points)
             logging.info("Created new track {}".format(idx))
+        end = timer()
+        print("Elapsed CREATE_NEW_TRACK = %s s" % round(end - start, 2))
 
         tracks_to_init_and_merge = []
         # print("to init: {}".format(tracks_to_init_and_merge))
+        start = timer()
         for track_id, track in self.state.dynamic_tracks.items():
             logging.info("Track id {}, num_viewings {}, last_seen {}".format(track_id, track.num_viewings, track.last_seen))
             if track.num_viewings >= track.mature_threshold:
@@ -66,6 +77,11 @@ class lidarUpdater:
         if len(tracks_to_init_and_merge) > 0:
             logging.info("Tracks to init and merge {}".format(tracks_to_init_and_merge))
             self.InitAndMerge.run(tracks_to_init_and_merge, self.state)
+        end = timer()
+        print("Elapsed INIT_AND_MERGE = %s s" % round(end - start, 2))
+        end_total = timer()
+        print("ONE STEP TIME = %s s" % round(end_total - start_total, 4))
+        print("-----------------------------")
 
 
     def forward(self, dt):
@@ -95,22 +111,32 @@ class lidarUpdater:
 
 
     def associate_and_update(self, data, dt):
+        start = timer()
         clusters = self.cl.cluster(self.laserpoints)
-        # plt.figure()
-        # i = 0
-        # for key in clusters.keys():
-        #     i = i + 1
-        #     selected_points = self.laserpoints[clusters[key]]
-        #     plt.scatter(selected_points[:,0], selected_points[:,1], label="cluster{}".format(i))
-        # plt.scatter(self.state.xs[0], self.state.xs[1], label="ego vehicle center")
-        # plt.legend()
-        # plt.show()
+
+        a = np.array([])
+        for key in clusters.keys():
+            points = self.laserpoints[clusters[key]]
+            if(len(points)>100):
+                print("# of points BEFORE RDP:",len(self.laserpoints[clusters[key]]))
+                points = simplify_coords(np.array(points, order='c'), 0.02)
+                print("# of points AFTER RDP:",len(points))
+            a = np.append(a, points)
+            #self.laserpoints[clusters[key]] = points
+
+
+        self.laserpoints = a.reshape(-1, 2)
+        clusters = self.cl.cluster(self.laserpoints)
+        end = timer()
+        print("Elapsed CLUSTERING = %s s" % round(end - start, 2))
         # plt.savefig("output_plots/cluster_idx{}.png".format(self.i2))
         # self.i2 += 1
 
         #First, do the static points.
+        start = timer()
         static_association, static_point_pairs, dynamic_association, dynamic_point_pairs, new_tracks = Coarse_Association(clusters).run(self.laserpoints, self.state)
-
+        end = timer()
+        print("Elapsed COARSE_ASSOCATION = %s s" % round(end - start, 2))
         #check how the dynamic point pairs is working... don't want just rough associations for all the dynamic tracks.
         if len(static_association) > 0:
             # print("Stat point pairs {}".format(static_point_pairs.size))
@@ -150,6 +176,7 @@ class lidarUpdater:
 
         for track_id, dyn_association in dynamic_association.items():
             if dyn_association != {}:
+                start = timer()
                 # if track_id == 1:
                 #     breakpoint()
 
@@ -191,7 +218,6 @@ class lidarUpdater:
 
                 self.jcbb.assign_values(xs = self.state.xs, scan_data = scan_data, track = track.kf.x, P = track.kf.P[0:2,0:2], static=False, psi=self.state.xs[2])
 
-
                 association = self.jcbb.run(initial_association, boundary_points)
                 # sys.exit()
                 association[0] = tgt_points
@@ -219,8 +245,10 @@ class lidarUpdater:
                 #     breakpoint()
                 #     # plt.savefig("output_plots/{}.png".format(self.i))
                 #     # self.i += 1
-
+                end = timer()
+                print("Elapsed JCBB for track_id %s = %s s" % (track_id,round(end - start, 2)))
                 if pairings.shape[1] >= 3: #need 3 points to compute rigid transformation
+                    #start = timer()
                     self.Updater.assign_values(track, association, self.state, static=False)
 
                     selected_bndr_pts = track.xp[pairings[1].astype(int)]+track.kf.x[0:2]
@@ -265,6 +293,8 @@ class lidarUpdater:
                     measurement[5] = angle
                     logging.info("Track {} received a new measurement! {}".format(track.id, measurement[3:5]))
                     self.Updater.run(measurement)
+                    #end = timer()
+                    #print("Elapsed TRANSFORM for 1 track= %s s" % round(end - start, 2))
                     # print("Track {} new state {}".format(track.id, track.kf.x[0:4]))
 
 

@@ -20,7 +20,7 @@ class RecursionStop(Exception):
 class JCBB:
     def __init__(self):
         self.alpha = 1-0.90
-    
+
     def assign_values(self, xs, scan_data, track, P, static, psi):
         self.xs = xs
         self.scan_data = scan_data
@@ -34,15 +34,15 @@ class JCBB:
 
     def run(self, initial_association, boundary_points):
         # track is vector [gamma_i, delta_i, phi_i, gamma_dot_i, delta_dot_i, phi_dot_i]
-        #initial association as 1D vector. Indices of 
-        # vector correspond to indices of lidar scan datapoints, 
+        #initial association as 1D vector. Indices of
+        # vector correspond to indices of lidar scan datapoints,
         # and values in vector correspond to indices of track datapoints
         #unassociated datapoints are replaced with NaN maybe?
 
         assert initial_association.shape[0] == 2
         assert boundary_points.shape[1] == 2
         assert self.scan_data.shape[1] == 2
-        print("Boundary points shape {}".format(boundary_points.shape))
+        #print("Boundary points shape {}".format(boundary_points.shape))
 
         individual_compatibilities = self.compute_compatibility(boundary_points)
         # print(individual_compatibilities)
@@ -56,7 +56,7 @@ class JCBB:
         while True:
             self.loop += 1
             if self.loop >= 1000:
-                break 
+                break
             curr_association = np.copy(pruned_associations)
             for index in np.arange(pruned_associations.shape[1])[~np.isnan(pruned_associations[1])]:
                 curr_pairing = pruned_associations[1, index]
@@ -89,11 +89,11 @@ class JCBB:
 
             selected_boundaries = selected_boundaries-set(minimal_association[1])
             compat_boundaries[measurement] = list(selected_boundaries)
-        
+
         assigned_associations = self.branch_and_bound(unassociated_measurements, minimal_association, compat_boundaries, boundary_points)
-    
+
         return assigned_associations
-    
+
     def branch_and_bound(self, unassociated_measurements, minimal_association, compat_boundaries, boundary_points):
         self.best_JNIS = np.inf
         self.best_num_associated = np.count_nonzero(~np.isnan(minimal_association[1]))
@@ -157,13 +157,13 @@ class JCBB:
         else:
             chi2 = stats.chi2.ppf(self.alpha, df=DOF)
             return JNIS <= chi2
- 
+
     def compute_compatibility(self, boundary_points):
         #returns MxN matrix of compatibility boolean
         individual_compatabilities = np.zeros((self.scan_data.shape[0], boundary_points.shape[0]))
         chi2_val = stats.chi2.ppf(self.alpha, df=2)
         for i in range(self.scan_data.shape[0]):
-                
+
             association = np.zeros((2, boundary_points.shape[0]))
             association[0] = i
             association[1] = np.arange(boundary_points.shape[0])
@@ -189,7 +189,7 @@ class JCBB:
             associations[1][rm_idxs] = np.nan
         return associations
 
-        
+
     def calc_JNIS(self, association, boundary_points, indiv= False, i = 0):
         #want JNIS to output vector of JNIS's if individual
         #want single JNIS if joint.
@@ -270,10 +270,10 @@ class JCBB:
 
     def calc_g_and_G(self, associated_points, indiv):
         """inputs: xs, measured laserpoint
-        
+
         xs is dict of measurements with xs["alpha"] = const, xs["beta"] = const maybe?
-        
-        measured_laserpoint is 2d matrix with one col of angles, one col of x coords, one col of y coords 
+
+        measured_laserpoint is 2d matrix with one col of angles, one col of x coords, one col of y coords
         where psi is the current rotation angle
         """
         g = np.zeros((associated_points.shape[0], 2))
@@ -301,7 +301,7 @@ class JCBB:
                 g[index] = R_psi.T @ np.array(np.array([x, y])- alpha_beta_arr).T
             else:
                 g[index] = R_psi.T@(R_phi@np.array([x, y])+np.array([gamma, delta])-alpha_beta_arr)
-            
+
             if indiv:
                 G[index] = -R_psi.T-R_pi_by_2@g[index]
             else:
@@ -318,7 +318,7 @@ class JCBB:
     def calc_U(self, g, num_tiles, indiv):
         r = np.sqrt(g[:,0]**2+g[:,1]**2)
         U = (np.array([[r*g[:,0], r*g[:,1]],[-g[:,1], g[:,0]]]))/r**2
-            
+
         if not indiv:
             U_matrices = tuple([U[:,:,i] for i in range(U.shape[2])])
             U =  block_diag(*U_matrices)
@@ -430,9 +430,9 @@ if __name__ == "__main__":
     track = [20, 25, 0]
     P = np.eye(2)*0
     static = False
-    psi = 0 #sensor angle. Will work if adjusted for JCBB running purposes, but 
+    psi = 0 #sensor angle. Will work if adjusted for JCBB running purposes, but
             #don't change-- need to refactor a bit to make the plot look nice too.
-    
+
     jc.assign_values(xs, scan_data, track, P, static, psi)
 
 

@@ -6,10 +6,12 @@ from argparse import Namespace
 from scipy.sparse import block_diag
 import matplotlib
 import sys
+from timeit import default_timer as timer
 
 matplotlib.use("Qt5Agg")
 
 from matplotlib import pyplot as plt
+from pylab import *
 
 ##CUSTOM IMPORTS
 from perception.helper import Helper
@@ -77,7 +79,7 @@ class Tracker:
 
 def main():
     work = {'mass': 3.463388126201571, 'lf': 0.15597534362552312, 'tlad': 0.82461887897713965, 'vgain': 0.90338203837889}
-    with open('maps/Melbourne/config_example_map.yaml') as file:
+    with open('maps/Melbourne/config_example_map0.yaml') as file:
         conf_dict = yaml.load(file, Loader=yaml.FullLoader)
     conf = Namespace(**conf_dict)
 
@@ -89,17 +91,18 @@ def main():
         env.render()
     planner = PurePursuitPlanner(conf, 0.17145+0.15875)
     planner2 = PurePursuitPlanner(conf, 0.17145+0.15875)
+    planner3 = PurePursuitPlanner(conf, 0.17145+0.15875)
 
     laptime = 0.0
-    start = time.time()
+    start_total = time.time()
 
     tracker = Tracker(1,env.timestep)
     assert env.timestep == 0.01
-    plot = True
+    plot = False
     if plot:
         fig, ax = plt.subplots(figsize=(6, 6))
-        ax.set_xlim([-30, 30])
-        ax.set_ylim([-30,30])
+        #ax.set_xlim([-30, 30])
+        #ax.set_ylim([-30,30])
     count = 0
     # breakpoint()
     while not done:
@@ -115,9 +118,10 @@ def main():
         time_now = time.time()
         tracker.update(obs, time_now)
         if plot:
+            fig.canvas.manager.window.move(0,0)
             ax.clear()
-            ax.set_xlim([-15, 15])
-            ax.set_ylim([-15,15])
+            ax.set_xlim([tracker.state.xs[0] - 10, tracker.state.xs[0] + 10])
+            ax.set_ylim([tracker.state.xs[1] - 10, tracker.state.xs[1] + 10])
             static_background_state = tracker.state.static_background
             ax.scatter(static_background_state.xb[:,0], static_background_state.xb[:,1], color="black", label="Static Background", s=20)
 
@@ -130,6 +134,7 @@ def main():
             plt.legend()
 
             plt.pause(0.1)
+
         # plt.clf()
 
 
@@ -138,7 +143,8 @@ def main():
         if show_env:
             env.render(mode='human')
         count += 1
-    print('Sim elapsed time:', laptime, 'Real elapsed time:', time.time()-start)
+        end = timer()
+    print('Sim elapsed time:', laptime, 'Real elapsed time:', time.time()-start_total)
 
 
 if __name__ == '__main__':

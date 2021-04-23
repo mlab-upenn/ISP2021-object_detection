@@ -8,8 +8,6 @@ import random
 import sys
 import time
 import matplotlib.pyplot as plt
-from numba import njit
-from numba import jitclass
 import logging
 import datetime as dt
 import os
@@ -42,8 +40,8 @@ class JCBB:
 
     def run(self, initial_association, boundary_points):
         # track is vector [gamma_i, delta_i, phi_i, gamma_dot_i, delta_dot_i, phi_dot_i]
-        #initial association as 1D vector. Indices of 
-        # vector correspond to indices of lidar scan datapoints, 
+        #initial association as 1D vector. Indices of
+        # vector correspond to indices of lidar scan datapoints,
         # and values in vector correspond to indices of track datapoints
         #unassociated datapoints are replaced with NaN maybe?
 
@@ -75,7 +73,7 @@ class JCBB:
         minimal_association = np.zeros((pruned_associations.shape))
         minimal_association[0] = np.arange(len(self.scan_data))
         minimal_association[1] = np.nan
-        print("While loop begin.")
+        #print("While loop begin.")
         while i < max_iter:
             curr_association = np.copy(pruned_associations)
             start = time.time()
@@ -110,7 +108,7 @@ class JCBB:
             else:
                 pruned_associations = np.copy(curr_association)
                 i+=1
-        print("While loop complete.")
+        #print("While loop complete.")
 
         unassociated_measurements = minimal_association[0, np.isnan(minimal_association[1])]
         compat_boundaries = {}
@@ -129,7 +127,8 @@ class JCBB:
         assigned_associations = self.branch_and_bound(unassociated_measurements, minimal_association, compat_boundaries, boundary_points)
 
         return assigned_associations
-    
+
+
     def branch_and_bound(self, unassociated_measurements, minimal_association, compat_boundaries, boundary_points):
         self.best_JNIS = np.inf
         self.best_num_associated = np.count_nonzero(~np.isnan(minimal_association[1]))
@@ -137,19 +136,20 @@ class JCBB:
         boundaries_taken = set()
         self.unassociated_measurements = unassociated_measurements
         try:
-            print("DFS begin.")
+            #print("DFS begin.")
             self.DFS(0, minimal_association, compat_boundaries, boundary_points, boundaries_taken)
         except RecursionStop:
-            print("DFS complete!")
+            #print("DFS complete!")
             pass
 
         # jnis = self.calc_JNIS(self.best_association, boundary_points)
         joint_compat = self.check_compat(self.best_JNIS, DOF =np.count_nonzero(~np.isnan(self.best_association[1]))*2)
         if joint_compat:
-            print("Best JNIS {}".format(self.best_JNIS))
+            #print("Best JNIS {}".format(self.best_JNIS))
             return self.best_association
         else:
             return np.zeros((self.best_association.shape))
+
 
     def DFS(self, level, association, compat_boundaries, boundary_points, boundaries_taken):
         self.recursion += 1
@@ -185,7 +185,7 @@ class JCBB:
                         self.DFS(level+1, np.copy(test_association), compat_boundaries, boundary_points, boundaries_taken)
                     except RecursionStop:
                         raise RecursionStop
-    
+
     def check_compat(self, JNIS, DOF):
         if DOF == 0:
             return True
@@ -193,7 +193,7 @@ class JCBB:
             chi2 = stats.chi2.ppf(self.alpha, df=DOF)
             # print("JNIS {}, DOF {}, chi2 {}".format(JNIS, DOF, chi2))
             return JNIS <= chi2
- 
+
     def compute_compatibility(self, boundary_points):
         #returns MxN matrix of compatibility boolean
         individual_compatabilities = np.zeros((self.scan_data.shape[0], boundary_points.shape[0]))
@@ -225,7 +225,7 @@ class JCBB:
             associations[1][rm_idxs] = np.nan
         return associations
 
-        
+
     def calc_JNIS(self, association, boundary_points, indiv= False, i = 0):
         #want JNIS to output vector of JNIS's if individual
         #want single JNIS if joint.
@@ -279,7 +279,7 @@ class JCBB:
             a = (z_hat-h)
             y = solve_triangular(L, a)
             JNIS = np.linalg.norm(y)**2
-            
+
         return JNIS
 
     def calc_R(self, associated_points, indiv):
@@ -312,10 +312,10 @@ class JCBB:
 
     def calc_g_and_G(self, associated_points, indiv):
         """inputs: xs, measured laserpoint
-        
+
         xs is dict of measurements with xs["alpha"] = const, xs["beta"] = const maybe?
-        
-        measured_laserpoint is 2d matrix with one col of angles, one col of x coords, one col of y coords 
+
+        measured_laserpoint is 2d matrix with one col of angles, one col of x coords, one col of y coords
         where psi is the current rotation angle
         """
         g = np.zeros((associated_points.shape[0], 2))
@@ -360,7 +360,7 @@ class JCBB:
     def calc_U(self, g, indiv):
         r = np.sqrt(g[:,0]**2+g[:,1]**2)
         U = (np.array([[r*g[:,0], r*g[:,1]],[-g[:,1], g[:,0]]]))/r**2
-            
+
         U_matrices = tuple([U[:,:,i] for i in range(U.shape[2])])
         Us =  block_diag(*U_matrices)
         return U, Us
@@ -369,11 +369,11 @@ class JCBB:
 def convert_scan_polar_cartesian(scan):
     return np.cos(scan[:,1])*scan[:,0], np.sin(scan[:,1])*scan[:,0]
 
+
 def convert_cartesian_to_polar(data):
     r = np.sqrt(data[:,0]**2+data[:,1]**2)
     phi = np.arctan2(data[:,1], data[:,0])
     return r, phi
-
 
 def plot_association(asso, polar):
     pairings = asso[:,~np.isnan(asso[1])]
@@ -453,7 +453,7 @@ if __name__ == "__main__":
 
     initial_association= np.load("tests/npy_files/initial_association.npy")
     P = np.load("tests/npy_files/P.npy")
-    
+
     psi = np.load("tests/npy_files/psi.npy")
     scan_data = np.load("tests/npy_files/scan_data.npy")
     xs = np.load("tests/npy_files/xs.npy")
@@ -489,7 +489,7 @@ if __name__ == "__main__":
     # track = [20, 25, 0]
     # P = np.eye(2)*0
     # static = False
-    # psi = 0 #sensor angle. Will work if adjusted for JCBB running purposes, but 
+    # psi = 0 #sensor angle. Will work if adjusted for JCBB running purposes, but
     #         #don't change-- need to refactor a bit to make the plot look nice too.
     # xs = np.load("xs.npy")
     # scan_data = np.load("scan_data.npy")

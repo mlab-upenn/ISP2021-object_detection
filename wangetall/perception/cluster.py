@@ -5,6 +5,7 @@ from itertools import permutations
 from collections import defaultdict
 import random
 import time
+import mlpack as mlp
 # from numba import jit
 
 #Numba help:
@@ -22,10 +23,10 @@ class Cluster:
 
     def EMST(self, points):
         #https://en.wikipedia.org/wiki/Euclidean_minimum_spanning_tree
-        simplices = self.compute_delauney(points)
-        graph = self.label_edge(simplices, points)
-        tree = self.min_spanning_tree(graph, points)
-        return tree
+        # simplices = self.compute_delauney(points)
+        # graph = self.label_edge(simplices, points)
+        # tree = self.min_spanning_tree(graph, points)
+        return mlp.emst(points)['output']
 
 
     def compute_delauney(self, points):
@@ -118,7 +119,7 @@ class Cluster:
         return components
 
     def get_tau(self, size):
-        k = 50
+        k = 70
         return k/size
 
 class Universe:
@@ -134,7 +135,7 @@ class Universe:
         y = int(x)
         while (y != self.elts[y, 2]):
             y = int(self.elts[y,2])
-        self.elts[x,2] = y
+        self.elts[int(x),2] = y
         return y
 
     def join(self, x, y):
@@ -165,11 +166,6 @@ class Universe:
     #         out_arr[i] = parent
     #     return out_arr
 
-
-# def get_cmap(n, name='hsv'):
-#     '''Returns a function that maps each index in 0, 1, ..., n-1 to a distinct
-#     RGB color; the keyword argument name must be a standard mpl colormap name.'''
-#     return plt.cm.get_cmap(name, n)
 
 if __name__ == "__main__":
     # points= np.array(random.sample(range(2000), 2000)).reshape((1000,2))
