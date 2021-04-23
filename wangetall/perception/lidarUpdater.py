@@ -221,29 +221,29 @@ class lidarUpdater:
                     logging.warn("Track {}, num pairings {}".format(track.id, pairings.shape[1]))
                 # if track_id == 7:
                 #     breakpoint()
-                # if track.id == 27:
-                #     # np.save("tests/npy_files/xs.npy", self.state.xs)
-                #     # np.save("tests/npy_files/scan_data.npy", scan_data)
-                #     # np.save("tests/npy_files/track.npy", track.kf.x)
-                #     # np.save("tests/npy_files/P.npy", track.kf.P[0:2,0:2])
+                if pairings.shape[1] > 2 and scan_data.shape[0] > 100 and boundary_points.shape[0] > 20:
+                    np.save("tests/npy_files/xs.npy", self.state.xs)
+                    np.save("tests/npy_files/scan_data.npy", scan_data)
+                    np.save("tests/npy_files/track.npy", track.kf.x)
+                    np.save("tests/npy_files/P.npy", track.kf.P[0:2,0:2])
 
-                #     # np.save("tests/npy_files/psi.npy", self.state.xs[2])
-                #     # np.save("tests/npy_files/initial_association.npy", initial_association)
-                #     # np.save("tests/npy_files/boundary_points.npy", boundary_points)
+                    np.save("tests/npy_files/psi.npy", self.state.xs[2])
+                    np.save("tests/npy_files/initial_association.npy", initial_association)
+                    np.save("tests/npy_files/boundary_points.npy", boundary_points)
 
 
-                #     # scan_x, scan_y = Helper.convert_scan_polar_cartesian_joint(self.polar_laser_points[tgt_points])
-                #     sel_scan = self.laserpoints[tgt_points]
-                #     scan_x = sel_scan[:,0]
-                #     scan_y = sel_scan[:,1]
+                    scan_x, scan_y = Helper.convert_scan_polar_cartesian_joint(self.polar_laser_points[tgt_points])
+                    sel_scan = self.laserpoints[tgt_points]
+                    scan_x = sel_scan[:,0]
+                    scan_y = sel_scan[:,1]
 
-                #     plt.figure()
-                #     # plt.xlim(-15,15)
-                #     # plt.ylim(-15,15)
-                #     plt.scatter(scan_x+self.state.xs[0], scan_y+self.state.xs[1], c="red", marker="o", alpha = 0.5, label="Scan Data")
-                #     plt.scatter(track.xp[:,0]+track.kf.x[0], track.xp[:,1]+track.kf.x[1], c="purple", marker="o", alpha = 0.5, label="Boundary Points")
-                #     plt.show()
-                #     breakpoint()
+                    plt.figure()
+                    # plt.xlim(-15,15)
+                    # plt.ylim(-15,15)
+                    plt.scatter(scan_x+self.state.xs[0], scan_y+self.state.xs[1], c="red", marker="o", alpha = 0.5, label="Scan Data")
+                    plt.scatter(track.xp[:,0]+track.kf.x[0], track.xp[:,1]+track.kf.x[1], c="purple", marker="o", alpha = 0.5, label="Boundary Points")
+                    plt.show()
+                    breakpoint()
                 end = timer()
                 print("Elapsed JCBB for track_id %s = %s s" % (track_id,round(end - start, 2)))
                 percent_associated = pairings.shape[1]/boundary_points.shape[0]
