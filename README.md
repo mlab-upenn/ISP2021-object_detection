@@ -13,9 +13,9 @@ Use the provided `requirements.txt` in the root directory of this repo, in order
 The code is developed with Python 3.XX.
 
 ## Running the code
-* `Step 1:` ```bash git clone git@github.com:mlab-upenn/ISP2021-object_detection.git```
-* `Step 2:` ```bash cd wangetall```
-* `Step 3:` ```bash python tracker_gym.py```
+* `Step 1:` ```git clone git@github.com:mlab-upenn/ISP2021-object_detection.git```
+* `Step 2:` ```cd wangetall```
+* `Step 3:` ```python tracker_gym.py```
 
 
 
