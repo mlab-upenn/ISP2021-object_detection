@@ -2,7 +2,7 @@ import numpy as np
 import scipy as sp
 from scipy.linalg import block_diag
 from scipy import stats
-from perception.helper import Helper
+# from perception.helper import Helper
 import random
 import sys
 import time
@@ -402,6 +402,7 @@ def plot_association(asso, polar):
 
 
 if __name__ == "__main__":
+    from helper import Helper
     jc = JCBB()
     # for i in range(100):
     np.random.seed(2003)

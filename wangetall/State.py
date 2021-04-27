@@ -27,7 +27,7 @@ class State:
         track.kf.x = np.array([np.mean(boundary_points[:,0])+self.xs[0],
                             np.mean(boundary_points[:,1])+self.xs[1],
                             0,
-                            0,0,0])
+                            0,0,0]) #v_x, v_y, angular_vel
 
         track.xp = np.array([boundary_points[:,0]-track.kf.x[0]+self.xs[0],
                             boundary_points[:,1]-track.kf.x[1]+self.xs[1]]).T

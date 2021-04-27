@@ -13,7 +13,6 @@ print(i)
 start = time.time()
 x_sub = np.ones((len(i)))
 M_sub = M[i[:,None],i]
-print(M_sub)
 S_m = np.linalg.inv(M_sub)
 print(x_sub.T@S_m@x_sub)
 end = time.time()
@@ -23,7 +22,7 @@ L = np.linalg.cholesky(M)
 
 start = time.time()
 L_sub = L[i[:,None],i]
-y = linalg.solve_triangular(L_sub, x_sub)
+y = np.linalg.solve(L_sub, x_sub)
 c = np.linalg.norm(y)**2
 print(c)
 end = time.time()
