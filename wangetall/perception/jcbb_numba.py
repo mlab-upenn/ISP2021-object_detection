@@ -1,21 +1,18 @@
 import numpy as np
 import scipy as sp
+from scipy import stats
 from scipy.linalg import block_diag
 from scipy.linalg import solve_triangular
-from scipy import stats
 # from perception.helper import Helper
 import random
 import sys
 import time
 import matplotlib.pyplot as plt
 import logging
-import datetime as dt
 import os
 import logging
-from numba import jit
+from numba import jit, types, gdb, objmode
 from numba.typed import Dict
-from numba import types, gdb
-from numba.extending import overload
 import numba
 from numba.experimental import jitclass
 compat_boundaries = Dict.empty(
@@ -44,49 +41,45 @@ class JCBBVals:
     best_num_associated: types.int64
     best_association: types.float64[:, :]
     unassociated_measurements: types.float64[:]
+    recursion: types.int64
 
     def __init__(self, minimal_association):
         self.best_JNIS = np.inf
         self.best_num_associated = np.count_nonzero(~np.isnan(minimal_association[1]))
         self.best_association = np.copy(minimal_association)
         self.unassociated_measurements = np.zeros(3)
+        self.recursion = 0
 
     def set_best_JNIS(self, JNIS):
         self.best_JNIS = JNIS
 
-    def get_best_JNIS(self) -> types.float64:
-        return self.best_JNIS
-
     def set_best_num_associated(self, num_associated):
         self.best_num_associated = num_associated
-
-    def get_best_num_associated(self) -> types.int64:
-        return self.best_num_associated
 
     def set_best_association(self, test_association):
         self.best_association = np.copy(test_association)
 
-    def get_best_association(self) -> types.float64[:, :]:
-        return self.best_association
 
 @jit(nopython=True)
-def numba_DFS(recursion, \
-                level, association, compat_boundaries, \
+def numba_DFS(level, association, compat_boundaries, \
                 boundary_points, boundaries_taken, L, h, scan_data, \
                 chi2table, jcbb_vals):
     # print(jcbb_vals.get_best_JNIS())
-    recursion +=1
+    jcbb_vals.recursion += 1
     
-    if recursion >= 200:
-        print("Recursion", recursion)
-        print("RECURSION STOP")
+    if jcbb_vals.recursion >= 200:
         raise RecursionStop
     boundaries_taken = boundaries_taken.copy()
     avail_boundaries = compat_boundaries[int(jcbb_vals.unassociated_measurements[level])]
     for next_boundary in avail_boundaries:
+        # print("avail_bound", avail_boundaries)
+        # print("next boundary", next_boundary)
         isValidBoundary = np.all(boundaries_taken != next_boundary) or np.isnan(next_boundary)
-
+        # print("boundaries_taken", boundaries_taken)
+        # print("Valid", isValidBoundary)
         if isValidBoundary and level < len(jcbb_vals.unassociated_measurements):
+            with objmode(time1='f8'):
+                time1 = time.perf_counter()
             test_association = np.copy(association)
             test_association[1,int(jcbb_vals.unassociated_measurements[level])] = next_boundary #2xn
 
@@ -101,21 +94,22 @@ def numba_DFS(recursion, \
             # print("next boundary", next_boundary)
             # # print("asso", association)
             # print("test_asso", test_association)
+            with objmode():
+                print(time.perf_counter() - time1,",")
 
             update = False
 
-            if joint_compat and num_associated >= jcbb_vals.get_best_num_associated():
-                if num_associated == jcbb_vals.get_best_num_associated():
-                    if JNIS < jcbb_vals.get_best_JNIS() and JNIS != 0:
+            if joint_compat and num_associated >= jcbb_vals.best_num_associated:
+                if num_associated == jcbb_vals.best_num_associated:
+                    if JNIS < jcbb_vals.best_JNIS and JNIS != 0:
                         update = True
                 else:
                     update = True
             if update:
                 # print("1: prevJNIS",jcbb_vals.get_best_JNIS(),"JNIS", JNIS)
-                print("2: prevnumAsso",jcbb_vals.get_best_num_associated(),"numAsso", num_associated)
-                jcbb_vals.set_best_JNIS(JNIS)
-                jcbb_vals.set_best_num_associated(num_associated)
-                jcbb_vals.set_best_association(test_association)
+                jcbb_vals.best_JNIS = JNIS
+                jcbb_vals.best_num_associated = num_associated
+                jcbb_vals.best_association = test_association
                 #print("2: bnbJN",bnbJN,"JNIS", JNIS, "joint_compat", joint_compat)
             if joint_compat and level+1 < len(jcbb_vals.unassociated_measurements):
                 # print("n level", level+1)
@@ -126,7 +120,7 @@ def numba_DFS(recursion, \
                 # print("boundaries_taken", boundaries_taken)
                 #print("unassociated_measurements",jcbb_vals.unassociated_measurements)
                 #print("best_association:", jcbb_vals.get_best_association())
-                numba_DFS(recursion, level+1, \
+                numba_DFS(level+1, \
                             test_association, compat_boundaries, boundary_points, boundaries_taken, \
                             L, h, scan_data, chi2table, jcbb_vals)
 
@@ -143,8 +137,6 @@ def numba_check_compat(JNIS, chi2table, DOF):
 
 @jit(nopython=True)
 def numba_calc_JNIS(association, boundary_points, L, h, scan_data):
-    #want JNIS to output vector of JNIS's if individual
-    #want single JNIS if joint.
     bndry_points_idx = association[1][~np.isnan(association[1])].astype(np.int64)
     z_hat_idx = association[0][~np.isnan(association[1])].astype(np.int64)
 
@@ -156,24 +148,11 @@ def numba_calc_JNIS(association, boundary_points, L, h, scan_data):
     idxs = np.zeros((bndry_points_idx.shape[0]*2), dtype=np.int64)
     idxs[::2] = bndry_points_idx*2
     idxs[1::2]=bndry_points_idx*2+1
-    # expanded_idxs = np.expand_dims(idxs, axis = 1)
-    # raveled_idxs = np.ravel_multi_index((idxs,idxs), dims = L.shape)
-    #From here: https://jax.readthedocs.io/en/latest/_modules/jax/_src/numpy/lax_numpy.html#ravel_multi_index
 
     L_new = np.zeros((idxs.shape[0], idxs.shape[0]))
     for i, idx_x in enumerate(idxs):
         for j, idx_y in enumerate(idxs):
             L_new[i,j] = L[idx_x, idx_y]
-    # h_ = h.take(list(bndry_points_idx))
-
-    # h_ = np.zeros(len(bndry_points_idx)*2)
-    # for i, idx in enumerate(bndry_points_idx):
-    #     h_[i:i+2] = h[idx]
-
-    # h_ = np.zeros(bndry_points_idx.shape[0])
-    # # h_r = h.ravel()
-    # for i, idx in enumerate(bndry_points_idx):
-    #     h_[i] = h_r[idx*2:idx*2+1]
     h_ = h[bndry_points_idx]
     z_hat = scan_data[z_hat_idx].flatten()
     h_ = h_.flatten()
@@ -182,8 +161,6 @@ def numba_calc_JNIS(association, boundary_points, L, h, scan_data):
     JNIS = (np.linalg.norm(y)**2) * 0.04
     return JNIS
 
-def scipy_solve_triangular(L, a):
-    return solve_triangular(L, a)
 
 #Sample code:
 #https://github.com/Scarabrine/EECS568Project_Team2_iSAM/blob/master/JCBB_R.m
@@ -225,7 +202,7 @@ class JCBB:
         scan_data = np.array([[-0.76376504, -0.06098794]], dtype=np.float64)
 
         jcbb_vals = JCBBVals(minimal_association)
-        numba_DFS(0, \
+        numba_DFS(
                 0, minimal_association, compat_boundaries, \
                 boundary_points, boundaries_taken, L, h, scan_data, \
                 self.chi2table, jcbb_vals)
@@ -320,7 +297,6 @@ class JCBB:
                     key_type=types.int64,
                     value_type=types.float64[:],
         )
-
         for measurement in unassociated_measurements:
             boundary_idxs = np.where(individual_compatibilities[int(measurement),:] == 1)[0]
 
@@ -345,30 +321,27 @@ class JCBB:
         boundaries_taken = np.array([], dtype=np.float64)
         # compat_boundaries = np.array(list(compat_boundaries.values()))
         #breakpoint()
+        st = time.time()
         try:
             #print("DFS begin.")
             # self.DFS(0, minimal_association, compat_boundaries, boundary_points, boundaries_taken)
             jcbb_vals = JCBBVals(minimal_association)
             jcbb_vals.unassociated_measurements = unassociated_measurements
-            numba_DFS(0, \
+            numba_DFS(
                 0, minimal_association, compat_boundaries, \
                 boundary_points, boundaries_taken, self.L, self.h, self.scan_data, \
                 self.chi2table, jcbb_vals)
-
-
-            self.best_JNIS = jcbb_vals.get_best_JNIS()
-            self.best_num_associated = jcbb_vals.get_best_num_associated()
-            print(self.best_JNIS)
-            print(self.best_num_associated)
-
-            self.best_association = jcbb_vals.get_best_association()
-            print(self.best_association)
-            print("dfs complete!")
         except RecursionStop:
-            print("DFS complete!")
             pass
+        et = time.time()
+        print("DFS time {}".format(et-st))
+        self.best_JNIS = jcbb_vals.best_JNIS# 0.04s
+
+        self.best_num_associated = jcbb_vals.best_num_associated #0.04s
+        self.best_association = jcbb_vals.best_association #0.1s
 
         # jnis = self.calc_JNIS(self.best_association, boundary_points)
+
         joint_compat = self.check_compat(self.best_JNIS, DOF =np.count_nonzero(~np.isnan(self.best_association[1]))*2)
         if joint_compat:
             #print("Best JNIS {}".format(self.best_JNIS))
