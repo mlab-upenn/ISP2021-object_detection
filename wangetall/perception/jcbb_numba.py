@@ -84,12 +84,8 @@ def numba_DFS(level, association, compat_boundaries, \
             JNIS = numba_calc_JNIS(test_association, boundary_points, L, h, scan_data)
 
             joint_compat = numba_check_compat(JNIS, chi2table, DOF =len(np.nonzero(~np.isnan(test_association[1]))[0])*2)
-            with objmode(time1='f8'):
-                time1 = time.perf_counter()
             num_associated = len(np.nonzero(~np.isnan(test_association[1]))[0])
             num_asso_orig = len(np.nonzero(~np.isnan(association[1]))[0])
-            with objmode():
-                print(time.perf_counter() - time1,",")
 
             # if num_associated > 1:
             #     print("JNIS, num_asso", JNIS, num_associated)
@@ -152,14 +148,21 @@ def numba_calc_JNIS(association, boundary_points, L, h, scan_data):
     idxs[1::2]=bndry_points_idx*2+1
 
     L_new = np.zeros((idxs.shape[0], idxs.shape[0]))
+
     for i, idx_x in enumerate(idxs):
         for j, idx_y in enumerate(idxs):
             L_new[i,j] = L[idx_x, idx_y]
+
     h_ = h[bndry_points_idx]
     z_hat = scan_data[z_hat_idx].flatten()
     h_ = h_.flatten()
     a = (z_hat-h_)
+    with objmode(time1='f8'):
+        time1 = time.perf_counter()
     y = np.linalg.solve(L_new, a) #or scipy solve_triangular
+    with objmode():
+        print(time.perf_counter() - time1,",")
+
     JNIS = (np.linalg.norm(y)**2) * 0.04
     return JNIS
 

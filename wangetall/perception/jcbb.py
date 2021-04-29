@@ -12,6 +12,7 @@ import logging
 import datetime as dt
 import os
 import logging
+import torch
 
 
 
@@ -284,8 +285,10 @@ class JCBB:
             z_hat = self.scan_data[z_hat_idx].flatten()
             h = h.flatten()
             a = (z_hat-h)
-            y = np.linalg.solve(L, a) #or solve_triangular, with lower = True??
-            JNIS = (np.linalg.norm(y)**2) * 0.04
+            L_t = torch.from_numpy(L)
+            a_t = torch.from_numpy(a).unsqueeze(1)
+            y, LU = torch.solve(a_t, L_t) #or solve_triangular, with lower = True??
+            JNIS = (np.linalg.norm(y.detach().numpy())**2) * 0.04
         return JNIS
 
     def calc_R(self, associated_points, indiv):
