@@ -78,15 +78,19 @@ def numba_DFS(level, association, compat_boundaries, \
         # print("boundaries_taken", boundaries_taken)
         # print("Valid", isValidBoundary)
         if isValidBoundary and level < len(jcbb_vals.unassociated_measurements):
-            with objmode(time1='f8'):
-                time1 = time.perf_counter()
             test_association = np.copy(association)
             test_association[1,int(jcbb_vals.unassociated_measurements[level])] = next_boundary #2xn
 
             JNIS = numba_calc_JNIS(test_association, boundary_points, L, h, scan_data)
+
             joint_compat = numba_check_compat(JNIS, chi2table, DOF =len(np.nonzero(~np.isnan(test_association[1]))[0])*2)
+            with objmode(time1='f8'):
+                time1 = time.perf_counter()
             num_associated = len(np.nonzero(~np.isnan(test_association[1]))[0])
             num_asso_orig = len(np.nonzero(~np.isnan(association[1]))[0])
+            with objmode():
+                print(time.perf_counter() - time1,",")
+
             # if num_associated > 1:
             #     print("JNIS, num_asso", JNIS, num_associated)
             #     print("2. num_asso_orig", num_asso_orig)
@@ -94,8 +98,6 @@ def numba_DFS(level, association, compat_boundaries, \
             # print("next boundary", next_boundary)
             # # print("asso", association)
             # print("test_asso", test_association)
-            with objmode():
-                print(time.perf_counter() - time1,",")
 
             update = False
 
