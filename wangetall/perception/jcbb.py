@@ -3,7 +3,7 @@ import scipy as sp
 from scipy.linalg import block_diag
 from scipy.linalg import solve_triangular
 from scipy import stats
-from perception.helper import Helper
+# from perception.helper import Helper
 import random
 import sys
 import time
@@ -159,7 +159,6 @@ class JCBB:
             raise RecursionStop
         boundaries_taken = boundaries_taken.copy()
         avail_boundaries = compat_boundaries[self.unassociated_measurements[level]]
-        breakpoint()
         # print(avail_boundaries)
         for next_boundary in avail_boundaries:
             # print("Next boundary {}".format(next_boundary))
@@ -170,11 +169,12 @@ class JCBB:
                 JNIS = self.calc_JNIS(test_association, boundary_points, DFS = True)
                 joint_compat = self.check_compat(JNIS, DOF =np.count_nonzero(~np.isnan(test_association[1]))*2)
                 num_associated = np.count_nonzero(~np.isnan(test_association[1]))
+                # print(JNIS)
 
                 update = False
                 if joint_compat and num_associated >= self.best_num_associated:
                     if num_associated == self.best_num_associated:
-                        if JNIS <= self.best_JNIS:
+                        if JNIS < self.best_JNIS:
                             update = True
                     else:
                         update = True
@@ -183,6 +183,8 @@ class JCBB:
                     self.best_num_associated = num_associated
                     self.best_association = np.copy(test_association)
                 if joint_compat and level+1 < len(self.unassociated_measurements):
+                    print("next_boundary {}".format(next_boundary))
+                    print("level {}".format(level+1))
                     boundaries_taken.add(next_boundary)
                     try:
                         self.DFS(level+1, np.copy(test_association), compat_boundaries, boundary_points, boundaries_taken)
@@ -280,11 +282,6 @@ class JCBB:
             a = (z_hat-h)
             y = np.linalg.solve(L, a) #or solve_triangular, with lower = True??
             JNIS = (np.linalg.norm(y)**2) * 0.04
-            if DFS:
-                if JNIS < 1:
-                    print(JNIS)
-
-
         return JNIS
 
     def calc_R(self, associated_points, indiv):
