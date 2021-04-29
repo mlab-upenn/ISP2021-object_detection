@@ -119,7 +119,7 @@ class Cluster:
         return components
 
     def get_tau(self, size):
-        k = 70
+        k = 10
         return k/size
 
 class Universe:
@@ -156,6 +156,8 @@ class Universe:
         for i in range(self.num_vertices):
             parent = self.find(i)
             components_dict[parent].append(i)
+        #cut clusters that are too small
+        components_dict = {k:components_dict[k] for k in components_dict if len(components_dict[k])>1}
         return components_dict
 
 

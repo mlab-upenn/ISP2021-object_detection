@@ -79,7 +79,7 @@ class Tracker:
 
 def main():
     work = {'mass': 3.463388126201571, 'lf': 0.15597534362552312, 'tlad': 0.82461887897713965, 'vgain': 0.90338203837889}
-    with open('maps/Melbourne/config_example_map0.yaml') as file:
+    with open('maps/Melbourne/config_example_map.yaml') as file:
         conf_dict = yaml.load(file, Loader=yaml.FullLoader)
     conf = Namespace(**conf_dict)
 
@@ -98,7 +98,7 @@ def main():
 
     tracker = Tracker(1,env.timestep)
     assert env.timestep == 0.01
-    plot = False
+    plot = True
     if plot:
         fig, ax = plt.subplots(figsize=(6, 6))
         #ax.set_xlim([-30, 30])

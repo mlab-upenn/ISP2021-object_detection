@@ -2,9 +2,8 @@ import random
 import numpy as np
 import matplotlib.pyplot as plt
 import perception.icp
-
 import perception.cluster
-
+import logging
 
 class Coarse_Association():
     def __init__(self, C):
@@ -22,6 +21,7 @@ class Coarse_Association():
             A, static_point_pairs = self.associateAndUpdateWithStatic(Z)
             #4. C <- C/A
             for key in A.keys():
+                # print(key)
                 del self.C[key]
         else:
             A = {}
@@ -55,7 +55,7 @@ class Coarse_Association():
         for key in dynamic_associations.keys():
             if len(dynamic_associations[key]) > 0:
                 cl_w_asso.append(key)
-
+        logging.info("Tracks with associations: {}".format(cl_w_asso))
         return A, static_point_pairs, dynamic_associations, dynamic_point_pairs, new_tracks #A_d, new_tracks
 
     def associateAndUpdateWithStatic(self, Z):
@@ -64,8 +64,15 @@ class Coarse_Association():
         if self.state.static_background.xb.size != 0:
             for key in self.C.keys():
                 P = Z[self.C[key]]+self.state.xs[0:2]
-                static, point_pairs = self.ICP.run(self.state.static_background.xb, P)
-                # print("static? {}".format(static))
+                static, point_pairs, tform = self.ICP.run(self.state.static_background.xb, P)
+                # if key == 221:
+                # plt.figure()
+                # plt.scatter(P[:,0], P[:,1], c="blue")
+                # track = self.state.static_background
+                # plt.scatter(track.xb[:,0], track.xb[:,1], c="orange", marker="o", alpha = 0.7, label="Boundary Points")
+                # plt.show()
+                # breakpoint()
+
                 if static:
                     static_C[key] = self.C[key]
                     point_pairs_list = point_pairs_list+point_pairs
@@ -76,7 +83,8 @@ class Coarse_Association():
         point_idx_pairs = []
         for key in self.C.keys():
             P = Z[self.C[key]]+self.state.xs[0:2]
-            dynamic, point_pairs = self.ICP.run(points, P, key, trackid)
+            dynamic, point_pairs, _ = self.ICP.run(points, P, key, trackid)
+
             if dynamic:
                 dynamic_C[key] = self.C[key]
                 point_idx_pairs = point_idx_pairs+point_pairs
