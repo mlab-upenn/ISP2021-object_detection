@@ -64,7 +64,7 @@ class Coarse_Association():
         if self.state.static_background.xb.size != 0:
             for key in self.C.keys():
                 P = Z[self.C[key]]+self.state.xs[0:2]
-                static, point_pairs, tform = self.ICP.run(self.state.static_background.xb, P)
+                static, point_pairs = self.ICP.run(self.state.static_background.xb, P)
                 # if key == 221:
                 # plt.figure()
                 # plt.scatter(P[:,0], P[:,1], c="blue")
@@ -83,7 +83,7 @@ class Coarse_Association():
         point_idx_pairs = []
         for key in self.C.keys():
             P = Z[self.C[key]]+self.state.xs[0:2]
-            dynamic, point_pairs, _ = self.ICP.run(points, P, key, trackid)
+            dynamic, point_pairs = self.ICP.run(points, P, key, trackid)
 
             if dynamic:
                 dynamic_C[key] = self.C[key]

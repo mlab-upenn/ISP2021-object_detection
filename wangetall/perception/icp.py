@@ -34,6 +34,7 @@ class ICP:
                 _, assignment = linear_sum_assignment(C)
             except ValueError:
                 print("ValueError in ICP")
+                breakpoint()
             if self.points.shape[0] < self.reference_points.shape[0]:
                 N = self.points.shape[0]
             else:
@@ -48,16 +49,14 @@ class ICP:
 
 
             # All associations obtained in this way are used to estimate a transform that aligns the point set P to Q.
-            if len(closest_point_pairs) == 0:
+            if closest_point_pairs.shape[0]<=2:
                 #print('No better solution can be found!')
-                tform = None
                 break
 
 
             tform = estimate_transform("euclidean", closest_point_pairs[:,:,0], closest_point_pairs[:,:,1])
             closest_rot_angle = tform.rotation
             closest_translation_x, closest_translation_y = tform.translation
-
             #The points in P are then updated to their new positions with the estimated transform
             mini_tform = transform.EuclideanTransform(
                             rotation=tform.rotation*0.1,
@@ -81,7 +80,7 @@ class ICP:
 
         #The association upon convergence is taken as the final association, with outlier rejection from P to Q.
         # -- outliers not in points now
-        return converged, closest_point_pairs_idxs, tform
+        return converged, closest_point_pairs_idxs
 
 def convert_to_SE2(x):
     ret = np.hstack((x, np.ones((x.shape[0], 1))))
