@@ -15,6 +15,9 @@ import matplotlib.pyplot as plt
 import os
 import datetime as dt
 import logging
+from scipy.spatial.distance import cdist
+from scipy.optimize import linear_sum_assignment
+
 from simplification.cutil import (
     simplify_coords,
     simplify_coords_idx,
@@ -27,7 +30,7 @@ from simplification.cutil import (
 class lidarUpdater:
     def __init__(self):
         self.cl = Cluster()
-        self.jcbb = JCBB()
+        # self.jcbb = JCBB()
         self.Updater = Updater()
         self.InitAndMerge = InitAndMerge()
         self.num_beams = 1080
@@ -203,47 +206,69 @@ class lidarUpdater:
 
                 initial_association = np.zeros((2, len(tgt_points)))
                 initial_association[0] = np.arange(len(tgt_points))
-                try:
-                    xy, x_ind, y_ind = np.intersect1d(pairs[:,0], np.array(tgt_points), return_indices=True)
-                except:
-                    breakpoint()
+                xy, x_ind, y_ind = np.intersect1d(pairs[:,0], np.array(tgt_points), return_indices=True)
                 initial_association[1, y_ind] = pairs[x_ind, 1]
 
-                scan_data = self.laserpoints[tgt_points]
+                scan_data = self.laserpoints[tgt_points]+self.state.xs[0:2]
 
-                boundary_points = track.xp
-                self.jcbb.assign_values(xs = self.state.xs, scan_data = scan_data, track = track.kf.x, P = track.kf.P[0:2,0:2], static=False, psi=self.state.xs[2])
+                boundary_points = track.xp+track.kf.x[0:2]
+                C = cdist(scan_data, boundary_points)
+                try:
+                    _, assignment = linear_sum_assignment(C)
+                except ValueError:
+                    print("ValueError in ICP")
+                if scan_data.shape[0] < boundary_points.shape[0]:
+                    N = scan_data.shape[0]
+                else:
+                    N = boundary_points.shape[0]
+                dist_threshold = 0.3
+                validIdxs = [i for i in range(N) if C[i, assignment[i]]<dist_threshold]
 
-                association = self.jcbb.run(initial_association, boundary_points)
-                association[0] = tgt_points
-                pairings = association[:,~np.isnan(association[1])]
+                pairings = np.zeros((2, len(validIdxs)), dtype=np.int64)
+                pairings[0, :] = validIdxs
+                pairings[1,:] = assignment[validIdxs]
+                # self.jcbb.assign_values(xs = self.state.xs, scan_data = scan_data, track = track.kf.x, P = track.kf.P[0:2,0:2], static=False, psi=self.state.xs[2])
+
+                # association = self.jcbb.run(initial_association, boundary_points)
+                # association[0] = tgt_points
+                # pairings = association[:,~np.isnan(association[1])]
                 if pairings.shape[1] < 2:
                     logging.warn("Track {}, num pairings {}".format(track.id, pairings.shape[1]))
                 # if track_id == 7:
                 #     breakpoint()
-                if pairings.shape[1] > 2 and scan_data.shape[0] > 100 and boundary_points.shape[0] > 20:
-                    np.save("tests/npy_files/xs.npy", self.state.xs)
-                    np.save("tests/npy_files/scan_data.npy", scan_data)
-                    np.save("tests/npy_files/track.npy", track.kf.x)
-                    np.save("tests/npy_files/P.npy", track.kf.P[0:2,0:2])
+                if pairings.shape[1] < 2:
+                    # np.save("tests/npy_files/xs.npy", self.state.xs)
+                    # np.save("tests/npy_files/scan_data.npy", scan_data)
+                    # np.save("tests/npy_files/track.npy", track.kf.x)
+                    # np.save("tests/npy_files/P.npy", track.kf.P[0:2,0:2])
 
-                    np.save("tests/npy_files/psi.npy", self.state.xs[2])
-                    np.save("tests/npy_files/initial_association.npy", initial_association)
-                    np.save("tests/npy_files/boundary_points.npy", boundary_points)
+                    # np.save("tests/npy_files/psi.npy", self.state.xs[2])
+                    # np.save("tests/npy_files/initial_association.npy", initial_association)
+                    # np.save("tests/npy_files/boundary_points.npy", boundary_points)
 
-
-                    scan_x, scan_y = Helper.convert_scan_polar_cartesian_joint(self.polar_laser_points[tgt_points])
                     sel_scan = self.laserpoints[tgt_points]
                     scan_x = sel_scan[:,0]
                     scan_y = sel_scan[:,1]
+                    scan_x_paired = sel_scan[pairings[0], 0]
+                    scan_y_paired = sel_scan[pairings[0], 1]
+
+                    bndr_x_paired = track.xp[pairings[1], 0]
+                    bndr_y_paired = track.xp[pairings[1], 1]
 
                     plt.figure()
                     # plt.xlim(-15,15)
                     # plt.ylim(-15,15)
                     plt.scatter(scan_x+self.state.xs[0], scan_y+self.state.xs[1], c="red", marker="o", alpha = 0.5, label="Scan Data")
                     plt.scatter(track.xp[:,0]+track.kf.x[0], track.xp[:,1]+track.kf.x[1], c="purple", marker="o", alpha = 0.5, label="Boundary Points")
+                    plt.scatter(scan_x_paired+self.state.xs[0], scan_y_paired+self.state.xs[1], c="green", marker="o", alpha = 0.5, label="Scan Data")
+                    for i in range(scan_x_paired.shape[0]):
+                        plt.text((scan_x_paired+self.state.xs[0])[i], (scan_y_paired+self.state.xs[1])[i], str(i))
+
+                    plt.scatter(bndr_x_paired+track.kf.x[0], bndr_y_paired+track.kf.x[1], c="blue", marker="o", alpha = 0.5, label="Boundary Points")
+                    for i in range(bndr_x_paired.shape[0]):
+                        plt.text((bndr_x_paired+track.kf.x[0])[i], (bndr_y_paired+track.kf.x[1])[i], str(i))
+
                     plt.show()
-                    breakpoint()
                 end = timer()
                 print("Elapsed JCBB for track_id %s = %s s" % (track_id,round(end - start, 2)))
                 percent_associated = pairings.shape[1]/boundary_points.shape[0]
@@ -253,10 +278,10 @@ class lidarUpdater:
                     track.update_num_viewings()
                     track.reset_seen()
 
-                    self.Updater.assign_values(track, association, self.state, static=False)
+                    self.Updater.assign_values(track, self.state, static=False)
 
-                    selected_bndr_pts = track.xp[pairings[1].astype(int)]+track.kf.x[0:2]
-                    selected_scan_cartesian = self.laserpoints[pairings[0].astype(int)]+self.state.xs[0:2]
+                    selected_bndr_pts = track.xp[pairings[1]]+track.kf.x[0:2]
+                    selected_scan_cartesian = self.laserpoints[tgt_points][pairings[0]]+self.state.xs[0:2]
 
                     boundaries_adjusted = selected_bndr_pts-np.mean(selected_bndr_pts, axis = 0)
                     scans_adjusted = selected_scan_cartesian - np.mean(selected_bndr_pts, axis = 0)
@@ -293,6 +318,8 @@ class lidarUpdater:
                     measurement[3] = tform.translation[0]/dt+track.kf.x[3] #dx/dt
                     measurement[4] = tform.translation[1]/dt +track.kf.x[4]#dy/dt
                     measurement[5] = 0
+                    # if track.id == 7:
+                    #     breakpoint()
                     logging.info("Track {} received a new measurement! {}".format(track.id, measurement))
                     # if track.id == 3:
                     #     breakpoint()
@@ -346,19 +373,18 @@ class Updater:
 
     def __init__(self):
         pass
-    def assign_values(self, track,associated_points, state, static):
+    def assign_values(self, track, state, static):
         self.state = state
         self.track = track
         self.xs = self.state.xs
         # self.psi = self.state.xs[2]
         self.psi = 0
 
-        self.associated_points = associated_points
         #HOW DO WE USE ASSOCIATED POINTS AS MEASUREMENT?
         self.static = static
 
     def run(self, measurement):
-        R = self.calc_R(self.associated_points)
+        R = self.calc_R()
         self.track.kf.update(measurement, self.calc_Hj, self.calc_hx, R)
 
     def calc_Hj(self, x):
@@ -367,7 +393,7 @@ class Updater:
     def calc_hx(self, x):
         return x
 
-    def calc_R(self, associated_points):
+    def calc_R(self):
         #https://dspace.mit.edu/handle/1721.1/32438#files-area
         R = np.eye(6)*0.5
         return R

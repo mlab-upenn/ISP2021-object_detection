@@ -15,6 +15,8 @@ from numba import jit, types, gdb, objmode
 from numba.typed import Dict
 import numba
 from numba.experimental import jitclass
+import torch
+
 compat_boundaries = Dict.empty(
             key_type=types.int64,
             value_type=types.float64[:],
@@ -159,7 +161,7 @@ def numba_calc_JNIS(association, boundary_points, L, h, scan_data):
     a = (z_hat-h_)
     with objmode(time1='f8'):
         time1 = time.perf_counter()
-    y = np.linalg.solve(L_new, a) #or scipy solve_triangular
+    y, _, _, _= np.linalg.lstsq(L_new, a) #or scipy solve_triangular
     with objmode():
         print(time.perf_counter() - time1,",")
 
@@ -174,6 +176,7 @@ class RecursionStop(Exception):
 
 class JCBB:
     def __init__(self):
+        print("hi")
         self.alpha = 1-0.95
         self.chi2table = np.zeros(1000)
 

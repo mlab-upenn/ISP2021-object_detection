@@ -14,11 +14,6 @@ import os
 import logging
 import torch
 
-
-
-
-
-
 #Sample code:
 #https://github.com/Scarabrine/EECS568Project_Team2_iSAM/blob/master/JCBB_R.m
 class RecursionStop(Exception):
@@ -285,9 +280,14 @@ class JCBB:
             z_hat = self.scan_data[z_hat_idx].flatten()
             h = h.flatten()
             a = (z_hat-h)
-            L_t = torch.from_numpy(L)
-            a_t = torch.from_numpy(a).unsqueeze(1)
-            y, LU = torch.solve(a_t, L_t) #or solve_triangular, with lower = True??
+            print("{},".format(a.shape[0]))
+            st = time.time()
+            with torch.no_grad():
+                L_t = torch.from_numpy(L)
+                a_t = torch.from_numpy(a).unsqueeze(1)
+                y, LU = torch.solve(a_t, L_t) #or solve_triangular, with lower = True??
+            et = time.time()
+            # print("{},".format(et-st))
             JNIS = (np.linalg.norm(y.detach().numpy())**2) * 0.04
         return JNIS
 
