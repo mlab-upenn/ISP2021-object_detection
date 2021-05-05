@@ -52,11 +52,15 @@ class ICP:
             if closest_point_pairs.shape[0]<=2:
                 #print('No better solution can be found!')
                 break
+        
+            #center points
+            selected_scan_points = closest_point_pairs[:,:,0] - np.mean(closest_point_pairs[:,:,0], axis = 0)
+            selected_boundary_points = closest_point_pairs[:,:,1] - np.mean(closest_point_pairs[:,:,1], axis = 0)
 
-
-            tform = estimate_transform("euclidean", closest_point_pairs[:,:,0], closest_point_pairs[:,:,1])
+            tform = estimate_transform("euclidean", selected_scan_points, selected_boundary_points)
             closest_rot_angle = tform.rotation
             closest_translation_x, closest_translation_y = tform.translation
+                
             #The points in P are then updated to their new positions with the estimated transform
             mini_tform = transform.EuclideanTransform(
                             rotation=tform.rotation*0.1,
@@ -66,7 +70,18 @@ class ICP:
 
             match_ratio = min(len(closest_point_pairs)/self.reference_points.shape[0],len(closest_point_pairs)/self.points.shape[0])
             close_constraint = abs(max(tform.translation)) < 0.3 and abs(tform.rotation) < 1
-            close_enough = abs(max(tform.translation)) < 0.1 and abs(tform.rotation) < 0.1
+            close_enough = abs(max(tform.translation)) < 0.1 and abs(tform.rotation) < 0.15
+            # if trackid == None:
+            #     plt.figure()
+            #     plt.scatter(self.points[:,0], self.points[:,1], c = "green", label="Scan points")
+            #     plt.scatter(self.reference_points[:,0], self.reference_points[:,1], c = "orange", label="Boundary points")
+
+            #     plt.scatter(self.points[validIdxs][:,0], self.points[validIdxs][:,1], c = "blue", label="Matched Scan points")
+            #     plt.scatter(self.reference_points[assignment[validIdxs]][:,0], self.reference_points[assignment[validIdxs]][:,1], c = "red", label="Matched Boundary points")
+            #     plt.legend()
+            #     plt.show()
+            #     breakpoint()
+
             if(match_ratio > self.match_ratio_threshold and close_constraint) or close_enough:
                 # if close_enough:
                 #     print("Close enough!")

@@ -30,7 +30,7 @@ from simplification.cutil import (
 class lidarUpdater:
     def __init__(self):
         self.cl = Cluster()
-        # self.jcbb = JCBB()
+        self.jcbb = JCBB()
         self.Updater = Updater()
         self.InitAndMerge = InitAndMerge()
         self.num_beams = 1080
@@ -122,24 +122,22 @@ class lidarUpdater:
         start = timer()
         clusters = self.cl.cluster(self.laserpoints)
 
-        # a = np.array([])
-        # for key in clusters.keys():
-        #     points = self.laserpoints[clusters[key]]
+        a = np.array([])
+        for key in clusters.keys():
+            points = self.laserpoints[clusters[key]]
 
-            # if(len(points)>100):
-            #     # print("# of points BEFORE RDP:",len(self.laserpoints[clusters[key]]))
-            #     points = simplify_coords(np.array(points, order='c'), 0.02)
-            #     # print("# of points AFTER RDP:",len(points))
-            # a = np.append(a, points)
+            if(len(points)>100):
+                # print("# of points BEFORE RDP:",len(self.laserpoints[clusters[key]]))
+                points = simplify_coords(np.array(points, order='c'), 0.02)
+                # print("# of points AFTER RDP:",len(points))
+            a = np.append(a, points)
 
-        # self.laserpoints = a.reshape(-1, 2)
-        # clusters = self.cl.cluster(self.laserpoints)
+        self.laserpoints = a.reshape(-1, 2)
+        clusters = self.cl.cluster(self.laserpoints)
 
 
         end = timer()
         print("Elapsed CLUSTERING = %s s" % round(end - start, 2))
-        # plt.savefig("output_plots/cluster_idx{}.png".format(self.i2))
-        # self.i2 += 1
 
         #First, do the static points.
         start = timer()
@@ -160,20 +158,11 @@ class lidarUpdater:
             xy, x_ind, y_ind = np.intersect1d(pairs[:,0], np.array(tgt_points), return_indices=True)
             initial_association[1, y_ind] = pairs[x_ind, 1]
 
-            scan_data = self.laserpoints[tgt_points]+ self.state.xs[0:2]
+            self.jcbb.assign_values(xs = self.state.xs, scan_data = self.laserpoints[tgt_points], track=None, P = P_static_sub, static=True, psi=self.state.xs[2])
+            association = self.jcbb.run(initial_association, self.state.static_background.xb)
+            association[0] = tgt_points
+            pairings = association[:,~np.isnan(association[1])]
 
-            C = cdist(scan_data, self.state.static_background.xb)
-            _, assignment = linear_sum_assignment(C)
-            if scan_data.shape[0] < self.state.static_background.xb.shape[0]:
-                N = scan_data.shape[0]
-            else:
-                N = self.state.static_background.xb.shape[0]
-            dist_threshold = self.distance_threshold(np.eye(2)*0.1)
-            validIdxs = [i for i in range(N) if C[i, assignment[i]]<dist_threshold]
-
-            pairings = np.zeros((2, len(validIdxs)), dtype=np.int64)
-            pairings[0, :] = validIdxs
-            pairings[1,:] = assignment[validIdxs]
             if pairings.shape[1] >= 2:
                 selected_bndr_pts = self.state.static_background.xb[pairings[1].astype(int)]
                 selected_scan_cartesian = self.laserpoints[pairings[0].astype(int)]+self.state.xs[0:2]
@@ -186,6 +175,29 @@ class lidarUpdater:
                 print("Translation Norm {}".format(np.linalg.norm(tform.translation)))
                 if np.linalg.norm(tform.translation)/dt < 0.1:
                     self.state.static_background.xb = np.concatenate((self.state.static_background.xb, selected_scan_cartesian))
+
+
+
+                    # if track_id == 1:
+                    #     print("ahhh")
+                    #     plt.figure()
+
+                    #     plt.scatter(selected_scan_cartesian[:,0],selected_scan_cartesian[:,1],alpha=0.5, s=4,c="red")
+                    #     for i in range(selected_scan_cartesian.shape[0]):
+                    #         plt.text(selected_scan_cartesian[i,0], selected_scan_cartesian[i,1], str(i), size = "xx-small")
+
+
+                    #     plt.scatter(selected_bndr_pts[:,0],selected_bndr_pts[:,1],alpha=0.5, s = 4,c="purple")
+                    #     for i in range(selected_bndr_pts.shape[0]):
+                    #         plt.text(selected_bndr_pts[i,0], selected_bndr_pts[i,1], str(i), size = "xx-small")
+                    #     ### plt.scatter(scans_adjusted[:,0],scans_adjusted[:,1],alpha=0.5, c="red")
+                    #     ### plt.scatter(boundaries_adjusted[:,0],boundaries_adjusted[:,1],alpha=0.5, c="purple")
+                    #     plt.show()
+                    #     breakpoint()
+
+            # update_x, update_y = Helper.convert_scan_polar_cartesian_joint(self.polar_laser_points[pairings[0].astype(int)])
+            # update_points = np.vstack((update_x, update_y)).T +self.state.xs[0:2]
+            # self.state.static_background.xb[pairings[1].astype(int)] = update_points
 
         #then, do dynamic tracks
 
@@ -205,26 +217,30 @@ class lidarUpdater:
                 xy, x_ind, y_ind = np.intersect1d(pairs[:,0], np.array(tgt_points), return_indices=True)
                 initial_association[1, y_ind] = pairs[x_ind, 1]
 
-                scan_data = self.laserpoints[tgt_points]+self.state.xs[0:2]
+                scan_data = self.laserpoints[tgt_points]
 
-                boundary_points = track.xp+track.kf.x[0:2]
-                C = cdist(scan_data, boundary_points)
-                _, assignment = linear_sum_assignment(C)
-                if scan_data.shape[0] < boundary_points.shape[0]:
-                    N = scan_data.shape[0]
-                else:
-                    N = boundary_points.shape[0]
-                dist_threshold = self.distance_threshold(track.kf.P[0:2,0:2])
-                validIdxs = [i for i in range(N) if C[i, assignment[i]]<dist_threshold]
+                boundary_points = track.xp
 
-                pairings = np.zeros((2, len(validIdxs)), dtype=np.int64)
-                pairings[0, :] = validIdxs
-                pairings[1,:] = assignment[validIdxs]
-                # self.jcbb.assign_values(xs = self.state.xs, scan_data = scan_data, track = track.kf.x, P = track.kf.P[0:2,0:2], static=False, psi=self.state.xs[2])
+                # scan_data = self.laserpoints[tgt_points]+self.state.xs[0:2]
 
-                # association = self.jcbb.run(initial_association, boundary_points)
-                # association[0] = tgt_points
-                # pairings = association[:,~np.isnan(association[1])]
+                # boundary_points = track.xp+track.kf.x[0:2]
+                # C = cdist(scan_data, boundary_points)
+                # _, assignment = linear_sum_assignment(C)
+                # if scan_data.shape[0] < boundary_points.shape[0]:
+                #     N = scan_data.shape[0]
+                # else:
+                #     N = boundary_points.shape[0]
+                # dist_threshold = self.distance_threshold(track.kf.P[0:2,0:2])
+                # validIdxs = [i for i in range(N) if C[i, assignment[i]]<dist_threshold]
+
+                # pairings = np.zeros((2, len(validIdxs)), dtype=np.int64)
+                # pairings[0, :] = validIdxs
+                # pairings[1,:] = assignment[validIdxs]
+                self.jcbb.assign_values(xs = self.state.xs, scan_data = scan_data, track = track.kf.x, P = track.kf.P[0:2,0:2], static=False, psi=self.state.xs[2])
+
+                association = self.jcbb.run(initial_association, boundary_points)
+                association[0] = tgt_points
+                pairings = association[:,~np.isnan(association[1])]
                 if pairings.shape[1] < 2:
                     logging.warn("Track {}, num pairings {}".format(track.id, pairings.shape[1]))
                 # if track_id == 7:
@@ -273,8 +289,8 @@ class lidarUpdater:
 
                     self.Updater.assign_values(track, self.state, static=False)
 
-                    selected_bndr_pts = track.xp[pairings[1]]+track.kf.x[0:2]
-                    selected_scan_cartesian = self.laserpoints[tgt_points][pairings[0]]+self.state.xs[0:2]
+                    selected_bndr_pts = track.xp[pairings[1].astype(int)]+track.kf.x[0:2]
+                    selected_scan_cartesian = self.laserpoints[pairings[0].astype(int)]+self.state.xs[0:2]
 
                     boundaries_adjusted = selected_bndr_pts-np.mean(selected_bndr_pts, axis = 0)
                     scans_adjusted = selected_scan_cartesian - np.mean(selected_bndr_pts, axis = 0)
@@ -325,9 +341,10 @@ class lidarUpdater:
         return new_tracks #need to feed remaining clusters into initialize and update
 
     def distance_threshold(self, P):
-        base_threshold = 0.1
+        base_threshold = 0.8
         uncertainty = np.trace(P)
-        threshold = base_threshold*uncertainty
+        C = 1
+        threshold = C*base_threshold*uncertainty
         # breakpoint()
         #trace(P); P[0][0]
         return threshold

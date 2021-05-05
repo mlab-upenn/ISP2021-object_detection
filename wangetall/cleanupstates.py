@@ -31,19 +31,23 @@ class CleanUpStates():
         self.bbPath = mplPath.Path(contour)
         self.removeOldandFree()
         self.removeOutOfRangeAndOutOfView()
-        #enforce free space. Contour plot??
 
-        #self.rdp()
+        self.rdp()
         # how to remove obsucred tracks?
         #cleaned_points = self.removeObscured(valid_points_in_radius)
 
 
     def rdp(self):
-        for idx, track in self.state.dynamic_tracks.items():
-            if(len(track.xp) > 100):
-                track_np = np.array(track.xp, order='c')
-                print("# of points BEFORE RDP on dynamic track id", idx, ":",len(track.xp))
-                track.xp = simplify_coords(track_np, 0.1)
+        if(len(self.state.static_background.xb) > 200):
+            track_np = np.array(self.state.static_background.xb, order='c')
+            print("# of points BEFORE RDP on static background:",len(self.state.static_background.xb))
+            self.state.static_background.xb = simplify_coords(track_np, 0.03)
+            print("# of points AFTER RDP on static background:",len(self.state.static_background.xb))
+        # for idx, track in self.state.dynamic_tracks.items():
+        #     if(len(track.xp) > 100):
+        #         track_np = np.array(track.xp, order='c')
+        #         print("# of points BEFORE RDP on dynamic track id", idx, ":",len(track.xp))
+        #         track.xp = simplify_coords(track_np, 0.1)
 
 
 
@@ -97,7 +101,6 @@ class CleanUpStates():
                 angle = abs((angle - math.degrees(self.state.xs[2]))%180)
             else:
                 angle = abs((angle - math.degrees(self.state.xs[2])))
-            #breakpoint()
             if(angle > math.degrees(4.7/2)):
                 self.state.cull_dynamic_track(idx)
                 logging.info("Track {} outside of field of view (in angle {}).... removing".format(idx, angle))

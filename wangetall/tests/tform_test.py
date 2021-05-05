@@ -2,8 +2,8 @@ import numpy as np
 from skimage.transform import estimate_transform
 import matplotlib.pyplot as plt
 
-bndrs = np.load("tests/npy_files/boundaries_adjusted.npy")
-scans = np.load("tests/npy_files/scans_adjusted.npy")
+bndrs = np.load("tests/npy_files/sel_scan_points.npy")
+scans = np.load("tests/npy_files/sel_bndr_points.npy")
 
 bndrs = bndrs - np.mean(bndrs, axis=0)
 scans = scans- np.mean(scans, axis=0)
@@ -17,6 +17,7 @@ tformed_bndrs = tform(bndrs)
 # H = np.array([[1, 0, 0.13048156], [0, 1, 0.00534306], [0,0,1]])
 bndrs_expanded = convert_to_SE2(bndrs)
 tformed_bndrs2 = (tform.params@bndrs_expanded.T).T[:,0:2]
+print(tform)
 plt.scatter(scans[:,0],scans[:,1], c="green")
 
 

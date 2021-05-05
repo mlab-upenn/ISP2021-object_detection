@@ -3,7 +3,7 @@ import scipy as sp
 from scipy.linalg import block_diag
 from scipy.linalg import solve_triangular
 from scipy import stats
-# from perception.helper import Helper
+from perception.helper import Helper
 import random
 import sys
 import time
@@ -154,7 +154,7 @@ class JCBB:
 
     def DFS(self, level, association, compat_boundaries, boundary_points, boundaries_taken):
         self.recursion += 1
-        if self.recursion >= 200:
+        if self.recursion >= 50:
             print("RECURSIONSTOP")
             raise RecursionStop
         boundaries_taken = boundaries_taken.copy()
@@ -280,15 +280,9 @@ class JCBB:
             z_hat = self.scan_data[z_hat_idx].flatten()
             h = h.flatten()
             a = (z_hat-h)
-            print("{},".format(a.shape[0]))
-            st = time.time()
-            with torch.no_grad():
-                L_t = torch.from_numpy(L)
-                a_t = torch.from_numpy(a).unsqueeze(1)
-                y, LU = torch.solve(a_t, L_t) #or solve_triangular, with lower = True??
-            et = time.time()
+            y = solve_triangular(L, a)
             # print("{},".format(et-st))
-            JNIS = (np.linalg.norm(y.detach().numpy())**2) * 0.04
+            JNIS = (np.linalg.norm(y)**2) * 0.04
         return JNIS
 
     def calc_R(self, associated_points, indiv):
