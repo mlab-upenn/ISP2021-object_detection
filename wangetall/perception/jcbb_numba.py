@@ -3,7 +3,7 @@ import scipy as sp
 from scipy import stats
 from scipy.linalg import block_diag
 from scipy.linalg import solve_triangular
-# from perception.helper import Helper
+from perception.helper import Helper
 import random
 import sys
 import time
@@ -68,8 +68,9 @@ def numba_DFS(level, association, compat_boundaries, \
                 chi2table, jcbb_vals):
     # print(jcbb_vals.get_best_JNIS())
     jcbb_vals.recursion += 1
-    
-    if jcbb_vals.recursion >= 200:
+    #print("jcbb numba")
+
+    if jcbb_vals.recursion >= 50:
         raise RecursionStop
     boundaries_taken = boundaries_taken.copy()
     avail_boundaries = compat_boundaries[int(jcbb_vals.unassociated_measurements[level])]
@@ -159,11 +160,11 @@ def numba_calc_JNIS(association, boundary_points, L, h, scan_data):
     z_hat = scan_data[z_hat_idx].flatten()
     h_ = h_.flatten()
     a = (z_hat-h_)
-    with objmode(time1='f8'):
-        time1 = time.perf_counter()
+    # with objmode(time1='f8'):
+    #     time1 = time.perf_counter()
     y, _, _, _= np.linalg.lstsq(L_new, a) #or scipy solve_triangular
-    with objmode():
-        print(time.perf_counter() - time1,",")
+    # with objmode():
+    #     print(time.perf_counter() - time1,",")
 
     JNIS = (np.linalg.norm(y)**2) * 0.5
     return JNIS
@@ -176,7 +177,7 @@ class RecursionStop(Exception):
 
 class JCBB:
     def __init__(self):
-        print("hi")
+        #print("hi")
         self.alpha = 1-0.95
         self.chi2table = np.zeros(1000)
 
@@ -342,7 +343,7 @@ class JCBB:
         except RecursionStop:
             pass
         et = time.time()
-        print("DFS time {}".format(et-st))
+        #print("DFS time {}".format(et-st))
         self.best_JNIS = jcbb_vals.best_JNIS# 0.04s
 
         self.best_num_associated = jcbb_vals.best_num_associated #0.04s

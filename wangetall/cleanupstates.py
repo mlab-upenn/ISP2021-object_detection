@@ -40,9 +40,9 @@ class CleanUpStates():
     def rdp(self):
         if(len(self.state.static_background.xb) > 200):
             track_np = np.array(self.state.static_background.xb, order='c')
-            print("# of points BEFORE RDP on static background:",len(self.state.static_background.xb))
+            #print("# of points BEFORE RDP on static background:",len(self.state.static_background.xb))
             self.state.static_background.xb = simplify_coords(track_np, 0.03)
-            print("# of points AFTER RDP on static background:",len(self.state.static_background.xb))
+            #print("# of points AFTER RDP on static background:",len(self.state.static_background.xb))
         # for idx, track in self.state.dynamic_tracks.items():
         #     if(len(track.xp) > 100):
         #         track_np = np.array(track.xp, order='c')

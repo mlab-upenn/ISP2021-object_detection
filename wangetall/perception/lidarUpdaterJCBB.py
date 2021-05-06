@@ -3,7 +3,7 @@ from scipy.linalg import block_diag
 
 from perception.cluster import Cluster
 from coarse_association import Coarse_Association
-from perception.jcbb import JCBB
+from perception.jcbb_numba import JCBB
 from perception.helper import Helper
 from perception.init_and_merge import InitAndMerge
 from cleanupstates import CleanUpStates
@@ -57,19 +57,19 @@ class lidarUpdater:
         start = timer()
         self.clean_up_states.run(self.state.xs[0], self.state.xs[1], self.laserpoints, self.state)
         end = timer()
-        print("Elapsed CLEANUPSTATES = %s s" % round(end - start, 2))
+        #print("Elapsed CLEANUPSTATES = %s s" % round(end - start, 2))
         # self.state.laserpoints = laserpoints
 
         start = timer()
         new_tracks = self.associate_and_update(data, dt)
         end = timer()
-        print("Elapsed ASSOCATE_AND_UPDATE = %s s" % round(end - start, 2))
+        #print("Elapsed ASSOCATE_AND_UPDATE = %s s" % round(end - start, 2))
         start = timer()
         for key, points in new_tracks.items():
             idx = self.state.create_new_track(self.laserpoints, points)
             logging.info("Created new Track {}".format(idx))
         end = timer()
-        print("Elapsed CREATE_NEW_TRACK = %s s" % round(end - start, 2))
+        #print("Elapsed CREATE_NEW_TRACK = %s s" % round(end - start, 2))
 
         tracks_to_init_and_merge = []
         # print("to init: {}".format(tracks_to_init_and_merge))
@@ -82,10 +82,9 @@ class lidarUpdater:
             logging.info("Tracks to init and merge {}".format(tracks_to_init_and_merge))
             self.InitAndMerge.run(tracks_to_init_and_merge, self.state)
         end = timer()
-        print("Elapsed INIT_AND_MERGE = %s s" % round(end - start, 2))
+        #print("Elapsed INIT_AND_MERGE = %s s" % round(end - start, 2))
         end_total = timer()
-        print("ONE STEP TIME = %s s" % round(end_total - start_total, 4))
-        print("-----------------------------")
+        print("%s," % round(end_total - start_total, 4))
 
 
     def forward(self, dt):
@@ -117,35 +116,36 @@ class lidarUpdater:
                             translation = (0,0)
                             )
         track.xp = tform(track.xp)
-        
+
     def associate_and_update(self, data, dt):
         start = timer()
         clusters = self.cl.cluster(self.laserpoints)
-
-        a = np.array([])
+        #print("numba")
+        RDPed_points = np.array([])
         for key in clusters.keys():
             points = self.laserpoints[clusters[key]]
-
-            if(len(points)>100):
+            points = simplify_coords(np.array(points, order='c'), 0.06)
+            if(len(points) < 5):
+                RDPed_points = np.append(RDPed_points, self.laserpoints[clusters[key]])
                 # print("# of points BEFORE RDP:",len(self.laserpoints[clusters[key]]))
-                points = simplify_coords(np.array(points, order='c'), 0.02)
+            else:
+                RDPed_points = np.append(RDPed_points, points)
                 # print("# of points AFTER RDP:",len(points))
-            a = np.append(a, points)
 
-        self.laserpoints = a.reshape(-1, 2)
+        self.laserpoints = RDPed_points.reshape(-1, 2)
         clusters = self.cl.cluster(self.laserpoints)
 
 
         end = timer()
-        print("Elapsed CLUSTERING = %s s" % round(end - start, 2))
+        #print("Elapsed CLUSTERING = %s s" % round(end - start, 2))
 
         #First, do the static points.
         start = timer()
         static_association, static_point_pairs, dynamic_association, dynamic_point_pairs, new_tracks = Coarse_Association(clusters).run(self.laserpoints, self.state)
         end = timer()
-        
 
-        print("Elapsed COARSE_ASSOCATION = %s s" % round(end - start, 2))
+
+        #print("Elapsed COARSE_ASSOCATION = %s s" % round(end - start, 2))
         if len(static_association) > 0:
             P_static_sub = self.state.static_background.kf.P
 
@@ -172,7 +172,7 @@ class lidarUpdater:
                 tform = estimate_transform("euclidean", boundaries_adjusted, scans_adjusted)
 
                 angle= tform.rotation
-                print("Translation Norm {}".format(np.linalg.norm(tform.translation)))
+                #print("Translation Norm {}".format(np.linalg.norm(tform.translation)))
                 if np.linalg.norm(tform.translation)/dt < 1:
                     self.state.static_background.xb = np.concatenate((self.state.static_background.xb, self.laserpoints[tgt_points]+self.state.xs[0:2]))
 
@@ -206,7 +206,7 @@ class lidarUpdater:
                 if pairings.shape[1] < 2:
                     logging.warn("Track {}, num pairings {}".format(track.id, pairings.shape[1]))
                 end = timer()
-                print("Elapsed JCBB for track_id %s = %s s" % (track_id,round(end - start, 2)))
+                #print("Elapsed JCBB for track_id %s = %s s" % (track_id,round(end - start, 2)))
                 percent_associated = pairings.shape[1]/boundary_points.shape[0]
 
                 if pairings.shape[1] >= 2:  #need 2 points to compute rigid transformation
@@ -221,7 +221,7 @@ class lidarUpdater:
 
                     boundaries_adjusted = selected_bndr_pts-np.mean(selected_bndr_pts, axis = 0)
                     scans_adjusted = selected_scan_cartesian - np.mean(selected_bndr_pts, axis = 0)
-                    
+
                     # if len(boundaries_adjusted[:,0]) < 10:
                     #     bndrs_interped_x = np.linspace(np.min(boundaries_adjusted[:,0]), np.max(boundaries_adjusted[:,0]), num = len(boundaries_adjusted[:,0])*10)
                     #     bndrs_interped_y = np.interp(bndrs_interped_x, boundaries_adjusted[:,0], boundaries_adjusted[:,1])
@@ -231,8 +231,8 @@ class lidarUpdater:
                     #     scans_interped_y = np.interp(scans_interped_x, scans_adjusted[:,0], scans_adjusted[:,1])
                     #     scans_adjusted = np.vstack((scans_interped_x, scans_interped_y)).T
 
-                    
-                    
+
+
                     tform = estimate_transform("euclidean", boundaries_adjusted, scans_adjusted)
 
                     angle= tform.rotation
@@ -246,8 +246,8 @@ class lidarUpdater:
                     measurement[3] = tform.translation[0]/dt+track.kf.x[3] #dx/dt
                     measurement[4] = tform.translation[1]/dt +track.kf.x[4]#dy/dt
                     measurement[5] = 0
-                    if tform.rotation > 0.1:
-                        breakpoint()
+                    #if tform.rotation > 0.1:
+                        #breakpoint()
                     logging.info("Track {} received a new measurement! {}".format(track.id, measurement))
                     # if track.id == 3:
                     #     breakpoint()
@@ -269,7 +269,7 @@ class lidarUpdater:
 
                         # plt.scatter(scan_x+self.state.xs[0], scan_y+self.state.xs[1], c="red", marker="o", alpha = 0.5, label="Scan Data")
                         # plt.scatter(track.xp[:,0]+track.kf.x[0], track.xp[:,1]+track.kf.x[1], c="purple", marker="o", alpha = 0.5, label="Boundary Points")
-                        
+
                         # plt.scatter(scan_x_paired+self.state.xs[0], scan_y_paired+self.state.xs[1], c="orange", marker="o", alpha = 0.5, label="Scan Data Paired")
                         # for i in range(scan_x_paired.shape[0]):
                         #     plt.text((scan_x_paired+self.state.xs[0])[i], (scan_y_paired+self.state.xs[1])[i], str(i))
@@ -293,7 +293,7 @@ class lidarUpdater:
 
 
         return new_tracks #need to feed remaining clusters into initialize and update
-        
+
     def calc_F(self, dt):
         F = np.zeros((6,6))
         F[0:3,0:3] = np.eye(3)

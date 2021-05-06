@@ -42,7 +42,7 @@ class JCBB:
         # vector correspond to indices of lidar scan datapoints,
         # and values in vector correspond to indices of track datapoints
         #unassociated datapoints are replaced with NaN maybe?
-
+        #print("jcbb no numba")
         # megacluster = self.combine_clusters(clusters) #
         assert initial_association.shape[0] == 2
         assert boundary_points.shape[1] == 2
@@ -136,13 +136,13 @@ class JCBB:
         self.unassociated_measurements = unassociated_measurements
         st = time.time()
         try:
-            print("DFS begin.")
+            #print("DFS begin.")
             self.DFS(0, minimal_association, compat_boundaries, boundary_points, boundaries_taken)
         except RecursionStop:
             #print("DFS complete!")
             pass
         et = time.time()
-        print("DFS time {}".format(et-st))
+        #print("DFS time {}".format(et-st))
         # jnis = self.calc_JNIS(self.best_association, boundary_points)
         joint_compat = self.check_compat(self.best_JNIS, DOF =np.count_nonzero(~np.isnan(self.best_association[1]))*2)
         if joint_compat:
@@ -155,7 +155,7 @@ class JCBB:
     def DFS(self, level, association, compat_boundaries, boundary_points, boundaries_taken):
         self.recursion += 1
         if self.recursion >= 50:
-            print("RECURSIONSTOP")
+            #print("RECURSIONSTOP")
             raise RecursionStop
         boundaries_taken = boundaries_taken.copy()
         avail_boundaries = compat_boundaries[self.unassociated_measurements[level]]
@@ -493,9 +493,9 @@ if __name__ == "__main__":
     asso = jc.run(initial_association, boundary_points)
     endtime = time.time()
     runtime = endtime-starttime
-    print(runtime)
+    #print(runtime)
     if np.any(asso):
         plot_association(asso, polar=False)
     else:
         print("No associations found.")
-        # plot_association(asso)
+        plot_association(asso)
