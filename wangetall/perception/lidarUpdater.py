@@ -3,7 +3,7 @@ from scipy.linalg import block_diag
 
 from perception.cluster import Cluster
 from coarse_association import Coarse_Association
-from perception.jcbb import JCBB
+from perception.jcbb_numba import JCBB
 from perception.helper import Helper
 from perception.init_and_merge import InitAndMerge
 from cleanupstates import CleanUpStates

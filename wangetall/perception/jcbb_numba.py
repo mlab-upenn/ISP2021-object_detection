@@ -165,7 +165,7 @@ def numba_calc_JNIS(association, boundary_points, L, h, scan_data):
     with objmode():
         print(time.perf_counter() - time1,",")
 
-    JNIS = (np.linalg.norm(y)**2) * 0.04
+    JNIS = (np.linalg.norm(y)**2) * 0.5
     return JNIS
 
 
@@ -479,14 +479,14 @@ class JCBB:
 
             a = (z_hat-h)
             b = np.linalg.inv(S)
-            JNIS = np.einsum('ki,kij,kj->k', a, b, a)*0.04
+            JNIS = np.einsum('ki,kij,kj->k', a, b, a)*0.5
         else:
             h = self.h[bndry_points_idx]
             z_hat = self.scan_data[z_hat_idx].flatten()
             h = h.flatten()
             a = (z_hat-h)
             y = solve_triangular(L, a)
-            JNIS = (np.linalg.norm(y)**2) * 0.04
+            JNIS = (np.linalg.norm(y)**2) * 0.5
         return JNIS
 
     def calc_R(self, associated_points, indiv):

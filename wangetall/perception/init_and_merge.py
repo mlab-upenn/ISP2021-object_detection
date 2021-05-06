@@ -5,7 +5,7 @@ import sys
 import logging
 class InitAndMerge:
     def __init__(self):
-        self.alpha = 1-0.95
+        self.alpha = 1-0.90
 
     def run(self, tentative, state):
         self.tentative = tentative #xt is a 1D list where each element corresponds with the id of

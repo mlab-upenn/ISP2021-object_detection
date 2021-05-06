@@ -274,7 +274,8 @@ class JCBB:
             z_hat = self.scan_data[z_hat_idx]
             a = (z_hat-h)
             b = np.linalg.inv(S)
-            JNIS = np.einsum('ki,kij,kj->k', a, b, a)*0.04
+            JNIS = np.einsum('ki,kij,kj->k', a, b, a)*0.5
+
         else:
             h = self.h[bndry_points_idx]
             z_hat = self.scan_data[z_hat_idx].flatten()
@@ -282,7 +283,7 @@ class JCBB:
             a = (z_hat-h)
             y = solve_triangular(L, a)
             # print("{},".format(et-st))
-            JNIS = (np.linalg.norm(y)**2) * 0.04
+            JNIS = (np.linalg.norm(y)**2)*0.1
         return JNIS
 
     def calc_R(self, associated_points, indiv):
@@ -389,13 +390,13 @@ def plot_association(asso, polar):
         scan_y = scan_data[:,1]
 
 
-        #scan data points plot
-        plt.scatter(scan_x+xs[0], scan_y+xs[1], c="b", marker="o", alpha = 0.5, label="Scan Data")
+        # #scan data points plot
+        # plt.scatter(scan_x+xs[0], scan_y+xs[1], c="b", marker="o", alpha = 0.5, label="Scan Data")
         # for i in range(scan_x.shape[0]):
-        #     plt.text(scan_x[i], scan_y[i], str(i), size = "xx-small")
+        #     plt.text(scan_x[i]+xs[0], scan_y[i]+xs[1], str(i), size = "xx-small")
 
-        #boundary points plot
-        plt.scatter(boundary_points[:,0]+track[0], boundary_points[:,1]+track[1], c="orange", marker="o", alpha = 0.5, label="Boundary Points")
+        # #boundary points plot
+        # plt.scatter(boundary_points[:,0]+track[0], boundary_points[:,1]+track[1], c="orange", marker="o", alpha = 0.5, label="Boundary Points")
         # for i in range(boundary_points.shape[0]):
         #     plt.text(boundary_points[i,0]+track[0], boundary_points[i,1]+track[1], str(i), size = "xx-small")
 
@@ -412,33 +413,6 @@ def plot_association(asso, polar):
         plt.legend()
         plt.title("Runtime: {}".format(runtime))
         plt.show()
-    else:
-        selected_bndr_pts[:,0]+= track[0]
-        selected_bndr_pts[:,1]+= track[1]
-        boundary_points[:,0] += track[0]
-        boundary_points[:,1] += track[1]
-
-        selected_boundary_r, selected_boundary_phi = convert_cartesian_to_polar(selected_bndr_pts)
-        boundary_r, boundary_phi = convert_cartesian_to_polar(boundary_points)
-        fig = plt.figure()
-        ax = fig.add_subplot(111, projection='polar')
-        ax.scatter(boundary_phi, boundary_r, c="orange",marker = "o", alpha=0.5, label="Boundary Points")
-        ax.scatter(scan_data[:,1], scan_data[:,0], c="b", marker="o", alpha=0.5,label="Scan Data")
-
-        ax.scatter(selected_boundary_phi, selected_boundary_r, c="black",marker = "v", alpha=0.5)
-        for i in range(selected_boundary_phi.shape[0]):
-            plt.text(selected_boundary_phi[i], selected_boundary_r[i], str(i))
-
-        ax.scatter(selected_scan_pts[:,1], selected_scan_pts[:,0], c="red", marker = "v",label="Paired Scan Points")
-        for i in range(selected_scan_pts[:,1].shape[0]):
-            plt.text(selected_scan_pts[:,1][i], selected_scan_pts[:,0][i], str(i))
-
-        ax.set_xlim(0.7*np.pi, 0.9*np.pi)
-        # ax.set_ylim(27, 38)
-
-        plt.title("Runtime: {}".format(runtime))
-        plt.show()
-
 
 
 
@@ -465,7 +439,6 @@ if __name__ == "__main__":
     track = np.load("tests/npy_files/track.npy")
     boundary_points = np.load("tests/npy_files/boundary_points.npy")
     jc.assign_values(xs = xs, scan_data = scan_data, track = track, P = P, static=False, psi=psi)
-
     # for i in range(100):
     # np.random.seed(2003)
     # xs = [0,0]
