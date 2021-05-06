@@ -30,7 +30,7 @@ from simplification.cutil import (
 class lidarUpdater:
     def __init__(self):
         self.cl = Cluster()
-        # self.jcbb = JCBB()
+        self.jcbb = JCBB()
         self.Updater = Updater()
         self.InitAndMerge = InitAndMerge()
         self.num_beams = 1080
@@ -57,19 +57,19 @@ class lidarUpdater:
         start = timer()
         self.clean_up_states.run(self.state.xs[0], self.state.xs[1], self.laserpoints, self.state)
         end = timer()
-        print("Elapsed CLEANUPSTATES = %s s" % round(end - start, 2))
+        #print("Elapsed CLEANUPSTATES = %s s" % round(end - start, 2))
         # self.state.laserpoints = laserpoints
 
         start = timer()
         new_tracks = self.associate_and_update(data, dt)
         end = timer()
-        print("Elapsed ASSOCATE_AND_UPDATE = %s s" % round(end - start, 2))
+        #print("Elapsed ASSOCATE_AND_UPDATE = %s s" % round(end - start, 2))
         start = timer()
         for key, points in new_tracks.items():
             idx = self.state.create_new_track(self.laserpoints, points)
             logging.info("Created new Track {}".format(idx))
         end = timer()
-        print("Elapsed CREATE_NEW_TRACK = %s s" % round(end - start, 2))
+        #print("Elapsed CREATE_NEW_TRACK = %s s" % round(end - start, 2))
 
         tracks_to_init_and_merge = []
         # print("to init: {}".format(tracks_to_init_and_merge))
@@ -82,10 +82,9 @@ class lidarUpdater:
             logging.info("Tracks to init and merge {}".format(tracks_to_init_and_merge))
             self.InitAndMerge.run(tracks_to_init_and_merge, self.state)
         end = timer()
-        print("Elapsed INIT_AND_MERGE = %s s" % round(end - start, 2))
+        #print("Elapsed INIT_AND_MERGE = %s s" % round(end - start, 2))
         end_total = timer()
-        print("ONE STEP TIME = %s s" % round(end_total - start_total, 4))
-        print("-----------------------------")
+        print("%s," % round(end_total - start_total, 4))
 
 
     def forward(self, dt):
@@ -117,37 +116,36 @@ class lidarUpdater:
                             translation = (0,0)
                             )
         track.xp = tform(track.xp)
-        
+
     def associate_and_update(self, data, dt):
         start = timer()
         clusters = self.cl.cluster(self.laserpoints)
+        #print("numba")
+        RDPed_points = np.array([])
+        for key in clusters.keys():
+            points = self.laserpoints[clusters[key]]
+            points = simplify_coords(np.array(points, order='c'), 0.06)
+            if(len(points) < 5):
+                RDPed_points = np.append(RDPed_points, self.laserpoints[clusters[key]])
+                # print("# of points BEFORE RDP:",len(self.laserpoints[clusters[key]]))
+            else:
+                RDPed_points = np.append(RDPed_points, points)
+                # print("# of points AFTER RDP:",len(points))
 
-        # a = np.array([])
-        # for key in clusters.keys():
-        #     points = self.laserpoints[clusters[key]]
-
-            # if(len(points)>100):
-            #     # print("# of points BEFORE RDP:",len(self.laserpoints[clusters[key]]))
-            #     points = simplify_coords(np.array(points, order='c'), 0.02)
-            #     # print("# of points AFTER RDP:",len(points))
-            # a = np.append(a, points)
-
-        # self.laserpoints = a.reshape(-1, 2)
-        # clusters = self.cl.cluster(self.laserpoints)
+        self.laserpoints = RDPed_points.reshape(-1, 2)
+        clusters = self.cl.cluster(self.laserpoints)
 
 
         end = timer()
-        print("Elapsed CLUSTERING = %s s" % round(end - start, 2))
-        # plt.savefig("output_plots/cluster_idx{}.png".format(self.i2))
-        # self.i2 += 1
+        #print("Elapsed CLUSTERING = %s s" % round(end - start, 2))
 
         #First, do the static points.
         start = timer()
         static_association, static_point_pairs, dynamic_association, dynamic_point_pairs, new_tracks = Coarse_Association(clusters).run(self.laserpoints, self.state)
         end = timer()
-        
 
-        print("Elapsed COARSE_ASSOCATION = %s s" % round(end - start, 2))
+
+        #print("Elapsed COARSE_ASSOCATION = %s s" % round(end - start, 2))
         if len(static_association) > 0:
             P_static_sub = self.state.static_background.kf.P
 
@@ -160,32 +158,23 @@ class lidarUpdater:
             xy, x_ind, y_ind = np.intersect1d(pairs[:,0], np.array(tgt_points), return_indices=True)
             initial_association[1, y_ind] = pairs[x_ind, 1]
 
-            scan_data = self.laserpoints[tgt_points]+ self.state.xs[0:2]
+            self.jcbb.assign_values(xs = self.state.xs, scan_data = self.laserpoints[tgt_points], track=None, P = P_static_sub, static=True, psi=self.state.xs[2])
+            association = self.jcbb.run(initial_association, self.state.static_background.xb)
+            association[0] = tgt_points
+            pairings = association[:,~np.isnan(association[1])]
 
-            C = cdist(scan_data, self.state.static_background.xb)
-            _, assignment = linear_sum_assignment(C)
-            if scan_data.shape[0] < self.state.static_background.xb.shape[0]:
-                N = scan_data.shape[0]
-            else:
-                N = self.state.static_background.xb.shape[0]
-            dist_threshold = self.distance_threshold(np.eye(2)*0.1)
-            validIdxs = [i for i in range(N) if C[i, assignment[i]]<dist_threshold]
-
-            pairings = np.zeros((2, len(validIdxs)), dtype=np.int64)
-            pairings[0, :] = validIdxs
-            pairings[1,:] = assignment[validIdxs]
             if pairings.shape[1] >= 2:
                 selected_bndr_pts = self.state.static_background.xb[pairings[1].astype(int)]
                 selected_scan_cartesian = self.laserpoints[pairings[0].astype(int)]+self.state.xs[0:2]
 
                 boundaries_adjusted = selected_bndr_pts-np.mean(selected_bndr_pts, axis = 0)
-                scans_adjusted = selected_scan_cartesian - np.mean(selected_scan_cartesian, axis = 0)
+                scans_adjusted = selected_scan_cartesian - np.mean(selected_bndr_pts, axis = 0)
                 tform = estimate_transform("euclidean", boundaries_adjusted, scans_adjusted)
 
                 angle= tform.rotation
-                print("Translation Norm {}".format(np.linalg.norm(tform.translation)))
-                if np.linalg.norm(tform.translation)/dt < 0.1:
-                    self.state.static_background.xb = np.concatenate((self.state.static_background.xb, selected_scan_cartesian))
+                #print("Translation Norm {}".format(np.linalg.norm(tform.translation)))
+                if np.linalg.norm(tform.translation)/dt < 1:
+                    self.state.static_background.xb = np.concatenate((self.state.static_background.xb, self.laserpoints[tgt_points]+self.state.xs[0:2]))
 
         #then, do dynamic tracks
 
@@ -205,65 +194,19 @@ class lidarUpdater:
                 xy, x_ind, y_ind = np.intersect1d(pairs[:,0], np.array(tgt_points), return_indices=True)
                 initial_association[1, y_ind] = pairs[x_ind, 1]
 
-                scan_data = self.laserpoints[tgt_points]+self.state.xs[0:2]
+                scan_data = self.laserpoints[tgt_points]
 
-                boundary_points = track.xp+track.kf.x[0:2]
-                C = cdist(scan_data, boundary_points)
-                _, assignment = linear_sum_assignment(C)
-                if scan_data.shape[0] < boundary_points.shape[0]:
-                    N = scan_data.shape[0]
-                else:
-                    N = boundary_points.shape[0]
-                dist_threshold = self.distance_threshold(track.kf.P[0:2,0:2])
-                validIdxs = [i for i in range(N) if C[i, assignment[i]]<dist_threshold]
+                boundary_points = track.xp
 
-                pairings = np.zeros((2, len(validIdxs)), dtype=np.int64)
-                pairings[0, :] = validIdxs
-                pairings[1,:] = assignment[validIdxs]
-                # self.jcbb.assign_values(xs = self.state.xs, scan_data = scan_data, track = track.kf.x, P = track.kf.P[0:2,0:2], static=False, psi=self.state.xs[2])
+                self.jcbb.assign_values(xs = self.state.xs, scan_data = scan_data, track = track.kf.x, P = track.kf.P[0:2,0:2], static=False, psi=self.state.xs[2])
 
-                # association = self.jcbb.run(initial_association, boundary_points)
-                # association[0] = tgt_points
-                # pairings = association[:,~np.isnan(association[1])]
+                association = self.jcbb.run(initial_association, boundary_points)
+                association[0] = tgt_points
+                pairings = association[:,~np.isnan(association[1])]
                 if pairings.shape[1] < 2:
                     logging.warn("Track {}, num pairings {}".format(track.id, pairings.shape[1]))
-                # if track_id == 7:
-                #     breakpoint()
-                # if pairings.shape[1] < 2:
-                #     # np.save("tests/npy_files/xs.npy", self.state.xs)
-                #     # np.save("tests/npy_files/scan_data.npy", scan_data)
-                #     # np.save("tests/npy_files/track.npy", track.kf.x)
-                #     # np.save("tests/npy_files/P.npy", track.kf.P[0:2,0:2])
-
-                #     # np.save("tests/npy_files/psi.npy", self.state.xs[2])
-                #     # np.save("tests/npy_files/initial_association.npy", initial_association)
-                #     # np.save("tests/npy_files/boundary_points.npy", boundary_points)
-
-                #     sel_scan = self.laserpoints[tgt_points]
-                #     scan_x = sel_scan[:,0]
-                #     scan_y = sel_scan[:,1]
-                #     scan_x_paired = sel_scan[pairings[0], 0]
-                #     scan_y_paired = sel_scan[pairings[0], 1]
-
-                #     bndr_x_paired = track.xp[pairings[1], 0]
-                #     bndr_y_paired = track.xp[pairings[1], 1]
-
-                #     plt.figure()
-                #     # plt.xlim(-15,15)
-                #     # plt.ylim(-15,15)
-                #     plt.scatter(scan_x+self.state.xs[0], scan_y+self.state.xs[1], c="red", marker="o", alpha = 0.5, label="Scan Data")
-                #     plt.scatter(track.xp[:,0]+track.kf.x[0], track.xp[:,1]+track.kf.x[1], c="purple", marker="o", alpha = 0.5, label="Boundary Points")
-                #     plt.scatter(scan_x_paired+self.state.xs[0], scan_y_paired+self.state.xs[1], c="green", marker="o", alpha = 0.5, label="Scan Data")
-                #     for i in range(scan_x_paired.shape[0]):
-                #         plt.text((scan_x_paired+self.state.xs[0])[i], (scan_y_paired+self.state.xs[1])[i], str(i))
-
-                #     plt.scatter(bndr_x_paired+track.kf.x[0], bndr_y_paired+track.kf.x[1], c="blue", marker="o", alpha = 0.5, label="Boundary Points")
-                #     for i in range(bndr_x_paired.shape[0]):
-                #         plt.text((bndr_x_paired+track.kf.x[0])[i], (bndr_y_paired+track.kf.x[1])[i], str(i))
-
-                #     plt.show()
                 end = timer()
-                print("Elapsed JCBB for track_id %s = %s s" % (track_id,round(end - start, 2)))
+                #print("Elapsed JCBB for track_id %s = %s s" % (track_id,round(end - start, 2)))
                 percent_associated = pairings.shape[1]/boundary_points.shape[0]
 
                 if pairings.shape[1] >= 2:  #need 2 points to compute rigid transformation
@@ -273,34 +216,24 @@ class lidarUpdater:
 
                     self.Updater.assign_values(track, self.state, static=False)
 
-                    selected_bndr_pts = track.xp[pairings[1]]+track.kf.x[0:2]
-                    selected_scan_cartesian = self.laserpoints[tgt_points][pairings[0]]+self.state.xs[0:2]
+                    selected_bndr_pts = track.xp[pairings[1].astype(int)]+track.kf.x[0:2]
+                    selected_scan_cartesian = self.laserpoints[pairings[0].astype(int)]+self.state.xs[0:2]
 
                     boundaries_adjusted = selected_bndr_pts-np.mean(selected_bndr_pts, axis = 0)
                     scans_adjusted = selected_scan_cartesian - np.mean(selected_bndr_pts, axis = 0)
-                    # if track_id == 1:
-                    #     np.save("scan.npy", selected_scan_cartesian)
-                    #     np.save("boundaries.npy", selected_bndr_pts)
-                    #     sys.exit()
+
+                    # if len(boundaries_adjusted[:,0]) < 10:
+                    #     bndrs_interped_x = np.linspace(np.min(boundaries_adjusted[:,0]), np.max(boundaries_adjusted[:,0]), num = len(boundaries_adjusted[:,0])*10)
+                    #     bndrs_interped_y = np.interp(bndrs_interped_x, boundaries_adjusted[:,0], boundaries_adjusted[:,1])
+                    #     boundaries_adjusted = np.vstack((bndrs_interped_x, bndrs_interped_y)).T
+
+                    #     scans_interped_x = np.linspace(np.min(scans_adjusted[:,0]), np.max(scans_adjusted[:,0]), num = len(scans_adjusted[:,0])*10)
+                    #     scans_interped_y = np.interp(scans_interped_x, scans_adjusted[:,0], scans_adjusted[:,1])
+                    #     scans_adjusted = np.vstack((scans_interped_x, scans_interped_y)).T
+
+
+
                     tform = estimate_transform("euclidean", boundaries_adjusted, scans_adjusted)
-                    # if track_id == 1:
-                    #     print("ahhh")
-                    #     plt.figure()
-
-                    #     plt.scatter(selected_scan_cartesian[:,0],selected_scan_cartesian[:,1],alpha=0.5, s=4,c="red")
-                    #     for i in range(selected_scan_cartesian.shape[0]):
-                    #         plt.text(selected_scan_cartesian[i,0], selected_scan_cartesian[i,1], str(i), size = "xx-small")
-
-
-                    #     plt.scatter(selected_bndr_pts[:,0],selected_bndr_pts[:,1],alpha=0.5, s = 4,c="purple")
-                    #     for i in range(selected_bndr_pts.shape[0]):
-                    #         plt.text(selected_bndr_pts[i,0], selected_bndr_pts[i,1], str(i), size = "xx-small")
-                    #     ### plt.scatter(scans_adjusted[:,0],scans_adjusted[:,1],alpha=0.5, c="red")
-                    #     ### plt.scatter(boundaries_adjusted[:,0],boundaries_adjusted[:,1],alpha=0.5, c="purple")
-                    #     plt.show()
-                    #     breakpoint()
-
-                    # breakpoint()
 
                     angle= tform.rotation
                     measurement = np.zeros((6))
@@ -308,15 +241,52 @@ class lidarUpdater:
                     measurement[1] = track.kf.x[1]+tform.translation[1] #dy
                     si = np.sign((track.kf.x[2]+angle))
                     measurement[2] = si*(abs(track.kf.x[2]+angle)%np.pi)
+                    if len(boundaries_adjusted) > 30:
+                        measurement[2] = 0 #temp fix to correct for raytracing issues causing code to think walls are rotating
                     measurement[3] = tform.translation[0]/dt+track.kf.x[3] #dx/dt
                     measurement[4] = tform.translation[1]/dt +track.kf.x[4]#dy/dt
                     measurement[5] = 0
-                    # if track.id == 7:
-                    #     breakpoint()
+                    #if tform.rotation > 0.1:
+                        #breakpoint()
                     logging.info("Track {} received a new measurement! {}".format(track.id, measurement))
                     # if track.id == 3:
                     #     breakpoint()
                     self.Updater.run(measurement)
+
+                    # if track.id == 50:
+
+                        # sel_scan = self.laserpoints[tgt_points]
+                        # scan_x = sel_scan[:,0]
+                        # scan_y = sel_scan[:,1]
+
+                        # sel_scan_paired = self.laserpoints[pairings[0].astype(int)]
+                        # scan_x_paired = sel_scan_paired[:, 0]
+                        # scan_y_paired = sel_scan_paired[:, 1]
+
+                        # bndr_x_paired = track.xp[pairings[1].astype(int), 0]
+                        # bndr_y_paired = track.xp[pairings[1].astype(int), 1]
+
+
+                        # plt.scatter(scan_x+self.state.xs[0], scan_y+self.state.xs[1], c="red", marker="o", alpha = 0.5, label="Scan Data")
+                        # plt.scatter(track.xp[:,0]+track.kf.x[0], track.xp[:,1]+track.kf.x[1], c="purple", marker="o", alpha = 0.5, label="Boundary Points")
+
+                        # plt.scatter(scan_x_paired+self.state.xs[0], scan_y_paired+self.state.xs[1], c="orange", marker="o", alpha = 0.5, label="Scan Data Paired")
+                        # for i in range(scan_x_paired.shape[0]):
+                        #     plt.text((scan_x_paired+self.state.xs[0])[i], (scan_y_paired+self.state.xs[1])[i], str(i))
+
+                        # plt.scatter(bndr_x_paired+track.kf.x[0], bndr_y_paired+track.kf.x[1], c="cyan", marker="o", alpha = 0.5, label="Boundary Points Paired")
+                        # for i in range(bndr_x_paired.shape[0]):
+                        #     plt.text((bndr_x_paired+track.kf.x[0])[i], (bndr_y_paired+track.kf.x[1])[i], str(i))
+
+
+                        # plt.scatter(boundaries_adjusted[:,0], boundaries_adjusted[:,1], c="blue", marker="o", alpha = 0.5, label="Boundary Points")
+                        # plt.scatter(scans_adjusted[:,0], scans_adjusted[:,1], c="green", marker="o", alpha = 0.5, label="Scan Points")
+                        # np.save("tests/npy_files/boundaries_adjusted.npy", boundaries_adjusted)
+                        # np.save("tests/npy_files/scans_adjusted.npy", scans_adjusted)
+                        # plt.legend()
+                        # plt.show()
+                    #     breakpoint()
+
                     #end = timer()
                     #print("Elapsed TRANSFORM for 1 track= %s s" % round(end - start, 2))
                     # print("Track {} new state {}".format(track.id, track.kf.x[0:4]))
@@ -324,14 +294,6 @@ class lidarUpdater:
 
         return new_tracks #need to feed remaining clusters into initialize and update
 
-    def distance_threshold(self, P):
-        base_threshold = 0.1
-        uncertainty = np.trace(P)
-        threshold = base_threshold*uncertainty
-        # breakpoint()
-        #trace(P); P[0][0]
-        return threshold
-        
     def calc_F(self, dt):
         F = np.zeros((6,6))
         F[0:3,0:3] = np.eye(3)
@@ -395,5 +357,5 @@ class Updater:
 
     def calc_R(self):
         #https://dspace.mit.edu/handle/1721.1/32438#files-area
-        R = np.eye(6)*0.5
+        R = np.diag([0.5, 0.5, 2, 0.5, 0.5, 2])
         return R

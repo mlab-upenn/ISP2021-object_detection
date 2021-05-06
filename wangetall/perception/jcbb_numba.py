@@ -3,7 +3,7 @@ import scipy as sp
 from scipy import stats
 from scipy.linalg import block_diag
 from scipy.linalg import solve_triangular
-# from perception.helper import Helper
+from perception.helper import Helper
 import random
 import sys
 import time
@@ -15,6 +15,8 @@ from numba import jit, types, gdb, objmode
 from numba.typed import Dict
 import numba
 from numba.experimental import jitclass
+import torch
+
 compat_boundaries = Dict.empty(
             key_type=types.int64,
             value_type=types.float64[:],
@@ -66,8 +68,9 @@ def numba_DFS(level, association, compat_boundaries, \
                 chi2table, jcbb_vals):
     # print(jcbb_vals.get_best_JNIS())
     jcbb_vals.recursion += 1
-    
-    if jcbb_vals.recursion >= 200:
+    #print("jcbb numba")
+
+    if jcbb_vals.recursion >= 50:
         raise RecursionStop
     boundaries_taken = boundaries_taken.copy()
     avail_boundaries = compat_boundaries[int(jcbb_vals.unassociated_measurements[level])]
@@ -84,12 +87,8 @@ def numba_DFS(level, association, compat_boundaries, \
             JNIS = numba_calc_JNIS(test_association, boundary_points, L, h, scan_data)
 
             joint_compat = numba_check_compat(JNIS, chi2table, DOF =len(np.nonzero(~np.isnan(test_association[1]))[0])*2)
-            with objmode(time1='f8'):
-                time1 = time.perf_counter()
             num_associated = len(np.nonzero(~np.isnan(test_association[1]))[0])
             num_asso_orig = len(np.nonzero(~np.isnan(association[1]))[0])
-            with objmode():
-                print(time.perf_counter() - time1,",")
 
             # if num_associated > 1:
             #     print("JNIS, num_asso", JNIS, num_associated)
@@ -152,15 +151,22 @@ def numba_calc_JNIS(association, boundary_points, L, h, scan_data):
     idxs[1::2]=bndry_points_idx*2+1
 
     L_new = np.zeros((idxs.shape[0], idxs.shape[0]))
+
     for i, idx_x in enumerate(idxs):
         for j, idx_y in enumerate(idxs):
             L_new[i,j] = L[idx_x, idx_y]
+
     h_ = h[bndry_points_idx]
     z_hat = scan_data[z_hat_idx].flatten()
     h_ = h_.flatten()
     a = (z_hat-h_)
-    y = np.linalg.solve(L_new, a) #or scipy solve_triangular
-    JNIS = (np.linalg.norm(y)**2) * 0.04
+    # with objmode(time1='f8'):
+    #     time1 = time.perf_counter()
+    y, _, _, _= np.linalg.lstsq(L_new, a) #or scipy solve_triangular
+    # with objmode():
+    #     print(time.perf_counter() - time1,",")
+
+    JNIS = (np.linalg.norm(y)**2) * 0.5
     return JNIS
 
 
@@ -171,6 +177,7 @@ class RecursionStop(Exception):
 
 class JCBB:
     def __init__(self):
+        #print("hi")
         self.alpha = 1-0.95
         self.chi2table = np.zeros(1000)
 
@@ -336,7 +343,7 @@ class JCBB:
         except RecursionStop:
             pass
         et = time.time()
-        print("DFS time {}".format(et-st))
+        #print("DFS time {}".format(et-st))
         self.best_JNIS = jcbb_vals.best_JNIS# 0.04s
 
         self.best_num_associated = jcbb_vals.best_num_associated #0.04s
@@ -473,14 +480,14 @@ class JCBB:
 
             a = (z_hat-h)
             b = np.linalg.inv(S)
-            JNIS = np.einsum('ki,kij,kj->k', a, b, a)*0.04
+            JNIS = np.einsum('ki,kij,kj->k', a, b, a)*0.5
         else:
             h = self.h[bndry_points_idx]
             z_hat = self.scan_data[z_hat_idx].flatten()
             h = h.flatten()
             a = (z_hat-h)
             y = solve_triangular(L, a)
-            JNIS = (np.linalg.norm(y)**2) * 0.04
+            JNIS = (np.linalg.norm(y)**2) * 0.5
         return JNIS
 
     def calc_R(self, associated_points, indiv):

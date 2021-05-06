@@ -6,17 +6,19 @@ from argparse import Namespace
 from scipy.sparse import block_diag
 import matplotlib
 import sys
+import math
 from timeit import default_timer as timer
 
 matplotlib.use("Qt5Agg")
 
 from matplotlib import pyplot as plt
 from pylab import *
+from matplotlib.patches import Arc
 
 ##CUSTOM IMPORTS
 from perception.helper import Helper
 from perception.odomUpdater import OdomUpdater
-from perception.lidarUpdater import lidarUpdater
+from perception.lidarUpdaterJCBB import lidarUpdater
 
 from gym_testing.pure_pursuit_planner import PurePursuitPlanner
 from State import State
@@ -126,9 +128,15 @@ def main():
             ax.scatter(static_background_state.xb[:,0], static_background_state.xb[:,1], color="black", label="Static Background", s=20)
 
             ax.scatter(tracker.state.xs[0], tracker.state.xs[1], color="blue")
+            lidararc = Arc((tracker.state.xs[0], tracker.state.xs[1]), \
+                width = 2, height = 2,\
+                angle = math.degrees(tracker.state.xs[2]),\
+                theta1= math.degrees(-4.7/2), theta2 = math.degrees(4.7/2), color="turquoise", linestyle="--",  alpha=0.8)
+            ax.add_patch(lidararc)
+
             for idx, track in tracker.state.dynamic_tracks.items():
                 ax.scatter(track.kf.x[0], track.kf.x[1], color="purple", s=60)
-                ax.scatter(track.xp[:,0]+track.kf.x[0], track.xp[:,1]+track.kf.x[1], s = 1, label="Dynamic B Points")
+                ax.scatter(track.xp[:,0]+track.kf.x[0], track.xp[:,1]+track.kf.x[1], s = 1)
                 trackspeed = round(np.sqrt(track.kf.x[3]**2+track.kf.x[4]**2), 2)
                 ax.text(track.kf.x[0], track.kf.x[1], "T{} S:{}".format(idx, trackspeed), size = "x-small")
             plt.legend()
