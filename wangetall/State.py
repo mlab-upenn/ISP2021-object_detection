@@ -56,7 +56,7 @@ class State:
         return len(self.dynamic_tracks)
 
 class Track:
-    mature_threshold = 3
+    mature_threshold = 2
     seen_threshold = 5
     def __init__(self,idx, status):
         self.num_viewings = 1

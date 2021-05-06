@@ -3,6 +3,8 @@ from scipy import stats
 from perception.helper import Helper
 import sys
 import logging
+
+
 class InitAndMerge:
     def __init__(self):
         self.alpha = 1-0.90
@@ -55,8 +57,6 @@ class InitAndMerge:
         chi2 = stats.chi2.ppf(self.alpha, df=3)
 
         h2 = np.zeros((len(self.tentative), 4, 1))
-        # R_phi_e = np.zeros((len(self.tentative), 2, 2))
-        # R_phi_rot_e = np.zeros((len(self.tentative), 2, 2))
         vel_e = np.zeros((len(self.tentative), 2))
         pos_e = np.zeros((len(self.tentative), 2))
 
@@ -69,17 +69,7 @@ class InitAndMerge:
         for idx, track_id in enumerate(self.tentative):
             vel_t[idx] = self.state.dynamic_tracks[track_id].kf.x[3:5] 
 
-        
-        #need to change all of these...
-        # pos_t = pos_t.reshape(-1, 1, pos_t.shape[1])
-        # vel_t = vel_t.reshape(-1, 1, vel_t.shape[1])
-
-        # HT = np.zeros((len(self.tentative), 3, 6))
-
-        # HE = np.zeros((len(self.tentative), 3, 6))
-        # D = np.zeros((len(self.tentative), 2, 3))
-        # D[:] = np.array([[0,1,0],[-1,0,0]])
-        
+            
         z_hat = np.zeros((len(self.tentative), 4, 1))
         z_hat[:] = np.zeros((4,1))
 
@@ -92,49 +82,28 @@ class InitAndMerge:
             vel_e[:] = np.array([track.kf.x[3], track.kf.x[4]])
             pos_e[:] = np.array([track.kf.x[0], track.kf.x[1]])
 
-            # R_phi_e[:] = Helper.compute_rot_matrix(-track.kf.x[2])
-            # R_phi_rot_e[:] = Helper.compute_rot_matrix(np.pi/2- track.kf.x[2])
             dvel= vel_t-vel_e
             dpos = pos_t-pos_e
             dvel = dvel.reshape(-1, dvel.shape[1], 1)
             dpos = dpos.reshape(-1, dpos.shape[1], 1)
 
-            
-            # h2[:, 0:2] = R_phi_e @ dvel-track.kf.x[5]*R_phi_rot_e @ dpos
-
-            # h2[:, 0:2] = np.einsum("ijk, ijl -> ijl", R_phi_e, dvel) - track.kf.x[5]*np.einsum("ijk, ijl -> ijl", R_phi_rot_e, dpos)
             h2[:, 0:2] = dpos
 
 
             h2[:, 2:4] = dvel
 
-            # HT[:,0:2, 0:2] = -track.kf.x[5]*R_phi_rot_e
-            # HT[:,0:2, 3:5] = R_phi_e
-            # HT[:,2,5] = 1
-
-            # HE[:,0:2, 0:2] = track.kf.x[5]*R_phi_rot_e
-
-            # HE[:,0:2, 2] =(D@h2).transpose(0, 2, 1)
-            # HE[:,0:2, 3:5] = -R_phi_e
-            # HE[:,0:2, 5] = np.einsum("ijk, ijl -> ijl", R_phi_rot_e, dpos).transpose(0,2,1)
-            # HE[:,2, 5] = 1
-
-            # H = HT-HE
             P = np.zeros((len(self.tentative), 4, 4))
-            # P[:] = track.kf.P[3:6,3:6]
 
             P[:,0:2,0:2] = track.kf.P[0:2,0:2]
             P[:,2:4,2:4] = track.kf.P[3:5,3:5]
 
             S = P
-            # S = H.transpose(0,2, 1)@P@H
 
             a = z_hat - h2
             b = np.linalg.inv(S)
 
             val = np.einsum('kil,kij,kji->k', a, b, a)
             joint_check[idx, np.where(val <= chi2)] = 1 #1 indicates that the track has been flagged by joint check.
-            # breakpoint()
         idxs = zip(*np.where(joint_check))
         rmed_list = []
         merged_list = []
