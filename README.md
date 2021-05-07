@@ -13,9 +13,11 @@ Use the provided `requirements.txt` in the root directory of this repo, in order
 The code is developed with Python 3.7.4.
 
 ## Running the code
-* `Step 1:` In step 1 you need to do this and that...
-* `Step 2:` In step 2 you have to do the following...
-* `Step 3:` ....
+````sh
+cd wangetall
+
+python trackergym.py
+````
 
 
 
