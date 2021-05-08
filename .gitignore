@@ -136,6 +136,8 @@ f1tenthgym/
 =======
 #f1tenth gym
 /f1tenth_gym
+/src
+/petrovaskaya
 
 #.vscode
 ./vscode
