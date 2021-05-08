@@ -10,6 +10,7 @@ This is the github project for the F1Tenth Independent Study Projects 2021. In t
 To install this repo please clone it to your local machine: 
 ````sh
 git clone git@github.com:mlab-upenn/ISP2021-object_detection.git
+cd ISP2021-object_detection/
 ````
 
 Use the provided `requirements.txt` in the root directory of this repo, in order to install all required modules.\
@@ -20,7 +21,6 @@ The code is developed with Python 3.7.4.
 
 ## Running the code
 ````sh
-cd ISP2021-object_detection/
 cd wangetall/
 python tracker_gym.py [-noplot]
 ````
