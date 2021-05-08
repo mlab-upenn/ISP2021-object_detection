@@ -11,7 +11,9 @@ Use the provided `requirements.txt` in the root directory of this repo, in order
 `pip3 install -r /path/to/requirements.txt`
 
 The code is developed with Python 3.7.4.
-
+````sh
+git clone git@github.com:mlab-upenn/ISP2021-object_detection.git
+````
 ## Running the code
 ````sh
 cd wangetall
