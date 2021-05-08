@@ -1,4 +1,5 @@
 import time
+import sys
 import yaml
 import gym
 import numpy as np
@@ -79,7 +80,7 @@ class Tracker:
         self.odom_updater.update(self.control_input, self.state)
 
 
-def main():
+def main(arg):
     work = {'mass': 3.463388126201571, 'lf': 0.15597534362552312, 'tlad': 0.82461887897713965, 'vgain': 0.90338203837889}
     with open('maps/Melbourne/config_example_map.yaml') as file:
         conf_dict = yaml.load(file, Loader=yaml.FullLoader)
@@ -100,7 +101,10 @@ def main():
 
     tracker = Tracker(1,env.timestep)
     assert env.timestep == 0.01
-    plot = True
+    if arg == "-noplot":
+        plot = False
+    else:
+        plot = True
     if plot:
         fig, ax = plt.subplots(figsize=(6, 6))
         #ax.set_xlim([-30, 30])
@@ -141,7 +145,7 @@ def main():
                 ax.text(track.kf.x[0], track.kf.x[1], "T{} S:{}".format(idx, trackspeed), size = "x-small")
             plt.legend()
 
-            plt.pause(0.1)
+            plt.pause(0.00001)
 
         # plt.clf()
 
@@ -157,4 +161,4 @@ def main():
 
 if __name__ == '__main__':
     log.get_logger()
-    main()
+    main(sys.argv[1])
