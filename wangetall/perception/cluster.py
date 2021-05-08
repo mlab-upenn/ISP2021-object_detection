@@ -119,7 +119,7 @@ class Cluster:
         return components
 
     def get_tau(self, size):
-        k = 15
+        k = 10
         return k/size
 
 class Universe:
