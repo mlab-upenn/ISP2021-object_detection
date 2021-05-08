@@ -37,7 +37,7 @@ All main scripts depend on the following subfolders:
     * perception/ contains core parts of the object detection algorithm
 
 
-## wanetall folder content
+## wangetall folder content
 | File | Description |
 |----|----|
 cleanupstates.py | part of algorithm for removal of unnecessary points for cleaning up memory
@@ -51,15 +51,15 @@ tracker.py | Template for ROS version of the algorithm
 ## perception folder content
 | File | Description |
 |----|----|
-cluster.py | 
-helper.py |
-icp.py |
-init_and_merge.py |
-jcbb_Cartesian.py |
-jcbb_numba.py |
-jcbb.py |
-lidarUpdater.py |
-lidarUpdaterJCBB.py |
-odomUpdater.py |
-walldetector.py |
+cluster.py | clustering algorithm
+helper.py | helper functions used troughout the code
+icp.py | algorrithm used for coarse association
+init_and_merge.py | algorithm to init and merge new tracks
+jcbb_Cartesian.py | caresian version of jcbb
+jcbb_numba.py | numba version of jcbb
+jcbb.py | base version of jcbb
+lidarUpdater.py | update lidar information
+lidarUpdaterJCBB.py | update lidar information with numba
+odomUpdater.py | update odometry information
+walldetector.py | template for non-model free version of the algorithm for better recognition of walls
 
