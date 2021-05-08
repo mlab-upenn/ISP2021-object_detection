@@ -42,3 +42,18 @@ State.py | Maintains the state of the tracked objects
 tracker_gym.py   | Is used to start the algorithm
 tracker.py | Template for ROS version of the algorithm
 
+## perception folder content
+| File | Description |
+|----|----|
+cluster.py | 
+helper.py |
+icp.py |
+init_and_merge.py |
+jcbb_Cartesian.py |
+jcbb_numba.py |
+jcbb.py |
+lidarUpdater.py |
+lidarUpdaterJCBB.py |
+odomUpdater.py |
+walldetector.py |
+
