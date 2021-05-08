@@ -16,8 +16,10 @@ The code is developed with Python 3.7.4.
 ````sh
 cd wangetall
 
-python trackergym.py
+python tracker_gym.py [-noplot]
 ````
+Use ````-noplot```` to prevent the algorithm from displaying the plot information. Currently plotting is causing significant slowback of the visualisation of the algorithm. This option should be only used to check the real run-time of the algorithm. 
+
 
 
 
@@ -25,13 +27,18 @@ python trackergym.py
 
 All main scripts depend on the following subfolders:
 
-1. Folder 1 contains the files for xxx...
+1. wangatall contains all the scripts and files needed to run the whole algorithm and is divided into following subfolders
 2. Folder 2 contains the files for...
 
 
-## Files
+## wanetall folder content
 | File | Description |
 |----|----|
-main.py   | Is used to start the algorithm
-test.py | Is used to create the results
+cleanupstates.py | part of algorithm for removal of unnecessary points for cleaning up memory
+clearlogs.py | resets the log files
+coarse_association.py | coarse association part of object tracking algorithm 
+log.py | logger file
+State.py | Maintains the state of the tracked objects
+tracker_gym.py   | Is used to start the algorithm
+tracker.py | Template for ROS version of the algorithm
 
