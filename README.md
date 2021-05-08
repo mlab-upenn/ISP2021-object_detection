@@ -1,6 +1,8 @@
 # ISP2021-object_detection
 This is the github project for the F1Tenth Independent Study Projects 2021. In this project we are focusing on the development of different approaches to achieve object detection and tracking based on lidar and camera.
 
+![example](https://github.com/mlab-upenn/ISP2021-object_detection/blob/main/example.gif)
+
 ## Requirements
 - Linux Ubuntu (tested on versions 18.04.5 LTS)/ MacOS BigSur 11.2.3
 - Python 3.7.4.
