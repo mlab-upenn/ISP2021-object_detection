@@ -80,7 +80,7 @@ class Tracker:
         self.odom_updater.update(self.control_input, self.state)
 
 
-def main(arg):
+def main(arg=None):
     work = {'mass': 3.463388126201571, 'lf': 0.15597534362552312, 'tlad': 0.82461887897713965, 'vgain': 0.90338203837889}
     with open('maps/Melbourne/config_example_map.yaml') as file:
         conf_dict = yaml.load(file, Loader=yaml.FullLoader)
@@ -161,4 +161,8 @@ def main(arg):
 
 if __name__ == '__main__':
     log.get_logger()
-    main(sys.argv[1])
+    if len(sys.argv) > 1:
+        main(sys.argv[1])
+    else:
+        main()
+    

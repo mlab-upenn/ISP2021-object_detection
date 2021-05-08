@@ -15,7 +15,6 @@ from numba import jit, types, gdb, objmode
 from numba.typed import Dict
 import numba
 from numba.experimental import jitclass
-import torch
 
 compat_boundaries = Dict.empty(
             key_type=types.int64,
