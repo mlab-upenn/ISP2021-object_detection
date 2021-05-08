@@ -7,15 +7,21 @@ This is the github project for the F1Tenth Independent Study Projects 2021. In t
 - F1Tenth Gym (tested on version 0.2)
 
 ## Installation
+To install this repo please clone it to your local machine: 
+````sh
+git clone git@github.com:mlab-upenn/ISP2021-object_detection.git
+````
+
 Use the provided `requirements.txt` in the root directory of this repo, in order to install all required modules.\
-`pip3 install -r /path/to/requirements.txt`
+`pip3 install -r requirements.txt`
 
 The code is developed with Python 3.7.4.
 
+
 ## Running the code
 ````sh
-cd wangetall
-
+cd ISP2021-object_detection/
+cd wangetall/
 python tracker_gym.py [-noplot]
 ````
 Use ````-noplot```` to prevent the algorithm from displaying the plot information. Currently plotting is causing significant slowback of the visualisation of the algorithm. This option should be only used to check the real run-time of the algorithm. 
