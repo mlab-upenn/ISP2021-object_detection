@@ -27,8 +27,8 @@ Use ````-noplot```` to prevent the algorithm from displaying the plot informatio
 
 All main scripts depend on the following subfolders:
 
-1. wangatall contains all the scripts and files needed to run the whole algorithm and is divided into following subfolders
-2. Folder 2 contains the files for...
+1. wangatall/ contains all the scripts and files needed to run the whole algorithm and is divided into following subfolders
+    * perception/ contains core parts of the object detection algorithm
 
 
 ## wanetall folder content
