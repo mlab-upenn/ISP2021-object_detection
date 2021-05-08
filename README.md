@@ -1,5 +1,5 @@
 # ISP2021-object_detection
-This is the github project for the F1Tenth Independent Study Projects 2021. In this project we are focusing on the development of different approaches to achieve object detection and tracking based on lidar and camera.
+This is the github project for the F1Tenth Independent Study Projects 2021. In this project we are focusing on the development of different approaches to achieve object detection and tracking based on lidar and camera. This work is heavily inspired by paper [wangetal2015](hhttps://www.researchgate.net/publication/277910424_Model-free_detection_and_tracking_of_dynamic_objects_with_2D_lidar)
 
 ![example](https://github.com/mlab-upenn/ISP2021-object_detection/blob/main/example.gif)
 
