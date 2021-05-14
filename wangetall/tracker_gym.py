@@ -1,4 +1,5 @@
 import time
+import sys
 import yaml
 import gym
 import numpy as np
@@ -24,7 +25,7 @@ from gym_testing.pure_pursuit_planner import PurePursuitPlanner
 from State import State
 import log
 
-
+np.random.seed(10)
 class Tracker:
     def __init__(self, idx, dt):
 
@@ -62,7 +63,6 @@ class Tracker:
         dt =self.dt
         self.prev_Odom_callback_time = time
 
-        # print("Theta {}".format(theta))
         self.control_input["dt"] = dt
         # self.control_input["theta"] = theta
         # self.control_input["v"] = data["linear_vels_x"][self.id]
@@ -79,7 +79,7 @@ class Tracker:
         self.odom_updater.update(self.control_input, self.state)
 
 
-def main():
+def main(arg=None):
     work = {'mass': 3.463388126201571, 'lf': 0.15597534362552312, 'tlad': 0.82461887897713965, 'vgain': 0.90338203837889}
     with open('maps/Melbourne/config_example_map.yaml') as file:
         conf_dict = yaml.load(file, Loader=yaml.FullLoader)
@@ -88,7 +88,7 @@ def main():
     env = gym.make('f110_gym:f110-v0', map=conf.map_path, map_ext=conf.map_ext)
     obs, step_reward, done, info = env.reset(np.array([[conf.sx, conf.sy, conf.stheta], [conf.sx2, conf.sy2, conf.stheta2]]))
 
-    show_env = True
+    show_env = False
     if show_env:
         env.render()
     planner = PurePursuitPlanner(conf, 0.17145+0.15875)
@@ -100,16 +100,28 @@ def main():
 
     tracker = Tracker(1,env.timestep)
     assert env.timestep == 0.01
-    plot = True
+    if arg == "-noplot":
+        plot = False
+    else:
+        plot = True
     if plot:
         fig, ax = plt.subplots(figsize=(6, 6))
         #ax.set_xlim([-30, 30])
         #ax.set_ylim([-30,30])
     count = 0
     # breakpoint()
+    tot_num_counts = 1000
+    tracked_object_speeds = np.zeros((tot_num_counts,3))
+    tracked_object_speeds[:,0] = np.arange(tot_num_counts)
+    true_speeds = np.zeros((tot_num_counts))
+    i = 0
     while not done:
         speed, steer = planner.plan(obs['poses_x'][0], obs['poses_y'][0], obs['poses_theta'][0], work['tlad'], work['vgain'])
         speed2, steer2 = planner2.plan(obs['poses_x'][1], obs['poses_y'][1], obs['poses_theta'][1], work['tlad'], work['vgain'])
+        tgt_speed_x = obs["linear_vels_x"][0]*np.cos(obs["poses_theta"][0])
+        tgt_speed_y = obs["linear_vels_x"][0]*np.sin(obs["poses_theta"][0])
+        tgt_speed = np.sqrt(tgt_speed_x**2+tgt_speed_y**2)
+        true_speeds[i] = tgt_speed
         # print("Agent 2 speed {}".format(speed2))
         if count % 3 == 0 and count != 0:
             obs["Odom"] = False
@@ -136,12 +148,31 @@ def main():
 
             for idx, track in tracker.state.dynamic_tracks.items():
                 ax.scatter(track.kf.x[0], track.kf.x[1], color="purple", s=60)
-                ax.scatter(track.xp[:,0]+track.kf.x[0], track.xp[:,1]+track.kf.x[1], s = 1)
-                trackspeed = round(np.sqrt(track.kf.x[3]**2+track.kf.x[4]**2), 2)
-                ax.text(track.kf.x[0], track.kf.x[1], "T{} S:{}".format(idx, trackspeed), size = "x-small")
+                ax.scatter(track.xp[:,0]+track.kf.x[0], track.xp[:,1]+track.kf.x[1], s = 1, c = track.color)
+                trackspeed = round(np.sqrt(track.kf.x[3]**2+track.kf.x[4]**2), 2)                    
+                if track.parent is not None:
+                    ax.text(track.kf.x[0], track.kf.x[1], "T{} S:{}, P:{}".format(idx, trackspeed, track.parent), size = "x-small")
+                else:
+                    ax.text(track.kf.x[0], track.kf.x[1], "T{} S:{}".format(idx, trackspeed), size = "x-small")
+                if track.id ==  13 or track.id == 24 or track.id == 131:
+                    tracked_object_speeds[i,1:3] = [track.id, trackspeed]
+            ax.scatter(obs["poses_x"][0], obs["poses_y"][0], c="orange",s = 5)
             plt.legend()
 
-            plt.pause(0.1)
+            plt.pause(0.00001)
+        else:
+            for idx, track in tracker.state.dynamic_tracks.items():
+                trackspeed = round(np.sqrt(track.kf.x[3]**2+track.kf.x[4]**2), 2)
+                if track.id ==  13 or track.id == 24 or track.id == 131:
+                    tracked_object_speeds[i,1:3] = [track.id, trackspeed]
+        
+        np.save("Tracked_obj_speed.npy", tracked_object_speeds)
+        np.save("true_speed.npy", true_speeds)
+        i += 1
+        print(i)
+        if i > 999:
+            break
+        
 
         # plt.clf()
 
@@ -152,9 +183,13 @@ def main():
             env.render(mode='human')
         count += 1
         end = timer()
-    print('Sim elapsed time:', laptime, 'Real elapsed time:', time.time()-start_total)
+    # print('Sim elapsed time:', laptime, 'Real elapsed time:', time.time()-start_total)
 
 
 if __name__ == '__main__':
     log.get_logger()
-    main()
+    if len(sys.argv) > 1:
+        main(sys.argv[1])
+    else:
+        main()
+    

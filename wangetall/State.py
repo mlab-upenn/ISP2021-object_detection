@@ -45,6 +45,7 @@ class State:
 
             target.kf.x = (target.kf.x+track.kf.x)/2
             target.xp = np.append(target.xp, track.xp, axis = 0) #do I need to adjust their centerpoints?
+            target.parent = track_id
         elif kind=="static":
             track = self.dynamic_tracks[track_id]
             self.static_background.xb = np.append(self.static_background.xb, track.xp+track.kf.x[0:2], axis = 0)
@@ -57,13 +58,15 @@ class State:
 
 class Track:
     mature_threshold = 2
-    seen_threshold = 5
+    seen_threshold = 7
     def __init__(self,idx, status):
         self.num_viewings = 1
         self.status = status #Status: 0, 1 --> tentative, confirmed
         self.last_seen = 0
         ##Private attributes:
         self.id = idx
+        self.color = tuple(np.random.random(size=3))
+        self.parent = None
 
 
     def update_num_viewings(self):
@@ -89,6 +92,7 @@ class DynamicTrack(Track):
         self.kind = 1
         self.xp = None
         self.kf = ExtendedKalmanFilter(dim_x=6, dim_z=6)
+        self.curr_rotation = 0
 
 
 class StaticTrack(Track):

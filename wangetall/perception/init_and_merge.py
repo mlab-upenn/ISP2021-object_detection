@@ -54,7 +54,7 @@ class InitAndMerge:
     
 
     def dynamic_check(self):
-        chi2 = stats.chi2.ppf(self.alpha, df=3)
+        chi2 = stats.chi2.ppf(self.alpha*3, df=3)
 
         h2 = np.zeros((len(self.tentative), 4, 1))
         vel_e = np.zeros((len(self.tentative), 2))
@@ -88,14 +88,12 @@ class InitAndMerge:
             dpos = dpos.reshape(-1, dpos.shape[1], 1)
 
             h2[:, 0:2] = dpos
-
-
             h2[:, 2:4] = dvel
 
             P = np.zeros((len(self.tentative), 4, 4))
 
             P[:,0:2,0:2] = track.kf.P[0:2,0:2]
-            P[:,2:4,2:4] = track.kf.P[3:5,3:5]
+            P[:,2:4,2:4] = track.kf.P[3:5,3:5]*2
 
             S = P
 
@@ -103,12 +101,21 @@ class InitAndMerge:
             b = np.linalg.inv(S)
 
             val = np.einsum('kil,kij,kji->k', a, b, a)
+
             joint_check[idx, np.where(val <= chi2)] = 1 #1 indicates that the track has been flagged by joint check.
+            # if track.last_seen > 3:
+            #     trackspeed = round(np.sqrt(track.kf.x[3]**2+track.kf.x[4]**2), 2)      
+            #     if trackspeed > 3:
+            #         breakpoint()
+
+
         idxs = zip(*np.where(joint_check))
         rmed_list = []
         merged_list = []
         for i, j in idxs:
             track_id = track_arr[i]
+            # if 92 in track_arr:
+            #     breakpoint()
             target_id = self.tentative[j]
             if track_id != target_id and j not in rmed_list and track_id not in merged_list:
                 logging.info("Merging dynamic Track {} with dynamic Track {}".format(target_id, track_id))

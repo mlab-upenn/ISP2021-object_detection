@@ -84,7 +84,7 @@ class lidarUpdater:
         end = timer()
         #print("Elapsed INIT_AND_MERGE = %s s" % round(end - start, 2))
         end_total = timer()
-        print("%s," % round(end_total - start_total, 4))
+        # print("%s," % round(end_total - start_total, 4))
 
 
     def forward(self, dt):
@@ -104,18 +104,25 @@ class lidarUpdater:
                 #     breakpoint()
 
                 self.rotate_points(track)
-            if track.last_seen > 1:
+            elif track.last_seen > 1:
                 track.update_seen()
                 track.kf.P *= 1.1
                 logging.info("Increasing Track {} covariance.".format(track.id))
 
 
     def rotate_points(self, track):
+        curr_rotation = track.curr_rotation
+        dTheta = track.kf.x[2] - curr_rotation
         tform = transform.EuclideanTransform(
-                            rotation=track.kf.x[2],
+                            rotation=dTheta,
                             translation = (0,0)
                             )
         track.xp = tform(track.xp)
+        track.curr_rotation = track.kf.x[2]
+        # if track.id == 6:
+        #     print("Curr rotation {}".format(track.kf.x[2]))
+            # print("Dtheta {}".format(dTheta))
+            # print("Curr rotation {}".format(track.curr_rotation))
 
     def associate_and_update(self, data, dt):
         start = timer()
@@ -208,8 +215,7 @@ class lidarUpdater:
                 end = timer()
                 #print("Elapsed JCBB for track_id %s = %s s" % (track_id,round(end - start, 2)))
                 percent_associated = pairings.shape[1]/boundary_points.shape[0]
-
-                if pairings.shape[1] >= 2:  #need 2 points to compute rigid transformation
+                if pairings.shape[1] >= 4:  #need 2 points to compute rigid transformation
                     #start = timer()
                     track.update_num_viewings()
                     track.reset_seen()
@@ -241,18 +247,15 @@ class lidarUpdater:
                     measurement[1] = track.kf.x[1]+tform.translation[1] #dy
                     si = np.sign((track.kf.x[2]+angle))
                     measurement[2] = si*(abs(track.kf.x[2]+angle)%np.pi)
-                    if len(boundaries_adjusted) > 30:
-                        measurement[2] = 0 #temp fix to correct for raytracing issues causing code to think walls are rotating
+                    # if len(boundaries_adjusted) > 10:
+                    #     measurement[2] = 0 #temp fix to correct for raytracing issues causing code to think walls are rotating
                     measurement[3] = tform.translation[0]/dt+track.kf.x[3] #dx/dt
                     measurement[4] = tform.translation[1]/dt +track.kf.x[4]#dy/dt
                     measurement[5] = 0
-                    #if tform.rotation > 0.1:
-                        #breakpoint()
                     logging.info("Track {} received a new measurement! {}".format(track.id, measurement))
                     # if track.id == 3:
                     #     breakpoint()
                     self.Updater.run(measurement)
-
                     # if track.id == 50:
 
                         # sel_scan = self.laserpoints[tgt_points]
@@ -357,5 +360,5 @@ class Updater:
 
     def calc_R(self):
         #https://dspace.mit.edu/handle/1721.1/32438#files-area
-        R = np.diag([0.5, 0.5, 2, 0.5, 0.5, 2])
+        R = np.diag([0.5, 0.5, 1, .75, .75, 0])
         return R
