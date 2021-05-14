@@ -9,13 +9,14 @@ import matplotlib
 import sys
 import math
 from timeit import default_timer as timer
+from pyqtgraph.Qt import QtCore, QtGui
 
 matplotlib.use("Qt5Agg")
 
 from matplotlib import pyplot as plt
 from pylab import *
 from matplotlib.patches import Arc
-
+from Plot import App
 ##CUSTOM IMPORTS
 from perception.helper import Helper
 from perception.odomUpdater import OdomUpdater
@@ -105,9 +106,16 @@ def main(arg=None):
     else:
         plot = True
     if plot:
+        # app = QtGui.QApplication(sys.argv)
+        # thisapp = App()
+        # thisapp.show()
+
+        # app = App()
+        pass
         fig, ax = plt.subplots(figsize=(6, 6))
-        #ax.set_xlim([-30, 30])
-        #ax.set_ylim([-30,30])
+
+        ax.set_xlim([-30, 30])
+        ax.set_ylim([-30,30])
     count = 0
     # breakpoint()
     tot_num_counts = 1000
@@ -132,6 +140,7 @@ def main(arg=None):
         time_now = time.time()
         tracker.update(obs, time_now)
         if plot:
+            # thisapp._update(tracker)
             fig.canvas.manager.window.move(0,0)
             ax.clear()
             ax.set_xlim([tracker.state.xs[0] - 10, tracker.state.xs[0] + 10])
@@ -154,22 +163,19 @@ def main(arg=None):
                     ax.text(track.kf.x[0], track.kf.x[1], "T{} S:{}, P:{}".format(idx, trackspeed, track.parent), size = "x-small")
                 else:
                     ax.text(track.kf.x[0], track.kf.x[1], "T{} S:{}".format(idx, trackspeed), size = "x-small")
-                if track.id ==  13 or track.id == 24 or track.id == 131:
+                if track.id ==  21 or track.id == 60:
                     tracked_object_speeds[i,1:3] = [track.id, trackspeed]
-            ax.scatter(obs["poses_x"][0], obs["poses_y"][0], c="orange",s = 5)
             plt.legend()
-
-            plt.pause(0.00001)
+            plt.pause(0.0001)
         else:
             for idx, track in tracker.state.dynamic_tracks.items():
                 trackspeed = round(np.sqrt(track.kf.x[3]**2+track.kf.x[4]**2), 2)
-                if track.id ==  13 or track.id == 24 or track.id == 131:
+                if track.id ==  21 or track.id == 60:
                     tracked_object_speeds[i,1:3] = [track.id, trackspeed]
         
         np.save("Tracked_obj_speed.npy", tracked_object_speeds)
         np.save("true_speed.npy", true_speeds)
         i += 1
-        print(i)
         if i > 999:
             break
         

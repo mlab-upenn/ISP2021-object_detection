@@ -84,7 +84,7 @@ class lidarUpdater:
         end = timer()
         #print("Elapsed INIT_AND_MERGE = %s s" % round(end - start, 2))
         end_total = timer()
-        # print("%s," % round(end_total - start_total, 4))
+        print("%s," % round(end_total - start_total, 4))
 
 
     def forward(self, dt):
@@ -290,7 +290,7 @@ class lidarUpdater:
                         # plt.show()
                     #     breakpoint()
 
-                    #end = timer()
+                    # end = timer()
                     #print("Elapsed TRANSFORM for 1 track= %s s" % round(end - start, 2))
                     # print("Track {} new state {}".format(track.id, track.kf.x[0:4]))
 
