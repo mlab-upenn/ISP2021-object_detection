@@ -54,7 +54,7 @@ class InitAndMerge:
     
 
     def dynamic_check(self):
-        chi2 = stats.chi2.ppf(self.alpha*3, df=3)
+        chi2 = stats.chi2.ppf(self.alpha*4, df=3)
 
         h2 = np.zeros((len(self.tentative), 4, 1))
         vel_e = np.zeros((len(self.tentative), 2))

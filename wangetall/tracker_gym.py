@@ -24,7 +24,7 @@ from gym_testing.pure_pursuit_planner import PurePursuitPlanner
 from State import State
 import log
 
-np.random.seed(10)
+np.random.seed(20)
 class Tracker:
     def __init__(self, idx, dt):
 
