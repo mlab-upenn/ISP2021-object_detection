@@ -123,9 +123,11 @@ def numba_calc_JNIS(association, boundary_points, L, h, scan_data):
     z_hat = scan_data[z_hat_idx].flatten()
     h_ = h_.flatten()
     a = (z_hat-h_)
-    y, _, _, _= np.linalg.lstsq(L_new, a) #or scipy solve_triangular
+    # y, _, _, _= np.linalg.lstsq(L_new, a) #or scipy solve_triangular
+    y = np.linalg.solve(L_new, a)
+    JNIS = (np.linalg.norm(y)**2)
 
-    JNIS = (np.linalg.norm(y)**2) * 0.5
+
     return JNIS
 
 
@@ -264,7 +266,6 @@ class JCBB:
                     key_type=types.int64,
                     value_type=types.float64[:],
         )
-        st = time.time()
         for measurement in unassociated_measurements:
             boundary_idxs = np.where(individual_compatibilities[int(measurement),:] == 1)[0]
 
@@ -277,8 +278,6 @@ class JCBB:
             selected_boundaries = np.setdiff1d(np.array(list(selected_boundaries)), min_asso_vals)
 
             compat_boundaries[int(measurement)] = selected_boundaries
-        et = time.time()
-        print("COmpat time {}".format(et-st))
         assigned_associations = self.branch_and_bound(unassociated_measurements, minimal_association, compat_boundaries, boundary_points)
         
         return assigned_associations
@@ -292,9 +291,7 @@ class JCBB:
         # compat_boundaries = np.array(list(compat_boundaries.values()))
         #breakpoint()
         # print(compat_boundaries)
-        st = time.time()
         try:
-            print("DFS begin.")
             # self.DFS(0, minimal_association, compat_boundaries, boundary_points, boundaries_taken)
             jcbb_vals = JCBBVals(minimal_association)
             jcbb_vals.unassociated_measurements = unassociated_measurements
@@ -304,8 +301,6 @@ class JCBB:
                 self.chi2table, jcbb_vals)
         except RecursionStop:
             pass
-        et = time.time()
-        print("DFS time {}".format(et-st))
         self.best_JNIS = jcbb_vals.best_JNIS# 0.04s
 
         self.best_num_associated = jcbb_vals.best_num_associated #0.04s

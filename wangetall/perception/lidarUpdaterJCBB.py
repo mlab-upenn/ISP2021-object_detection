@@ -204,13 +204,9 @@ class lidarUpdater:
                 scan_data = self.laserpoints[tgt_points]
 
                 boundary_points = track.xp
-                print("JCBB start")
-                st = time.time()
                 self.jcbb.assign_values(xs = self.state.xs, scan_data = scan_data, track = track.kf.x, P = track.kf.P[0:2,0:2], static=False, psi=self.state.xs[2])
 
                 association = self.jcbb.run(initial_association, boundary_points)
-                et = time.time()
-                print("JCBB end. Time {}".format(et-st))
                 association[0] = tgt_points
                 pairings = association[:,~np.isnan(association[1])]
                 if pairings.shape[1] < 2:
@@ -297,8 +293,6 @@ class lidarUpdater:
                     #print("Elapsed TRANSFORM for 1 track= %s s" % round(end - start, 2))
                     # print("Track {} new state {}".format(track.id, track.kf.x[0:4]))
 
-        et1 = time.time()
-        print("Dyn tracks time {}".format(et1-st1))
         return new_tracks #need to feed remaining clusters into initialize and update
 
     def calc_F(self, dt):

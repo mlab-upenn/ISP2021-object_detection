@@ -20,7 +20,7 @@ class InitAndMerge:
 
     def static_check(self):
         static_check = np.zeros(len(self.tentative))
-        chi2 = stats.chi2.ppf(self.alpha, df=3)
+        chi2 = stats.chi2.ppf(0.02, df=3)
 
         h = np.zeros((len(self.tentative), 3))
         for idx, track_id in enumerate(self.tentative):
