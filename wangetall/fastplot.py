@@ -9,6 +9,7 @@ import matplotlib
 import sys
 import math
 from timeit import default_timer as timer
+import pyqtgraph as pg
 
 matplotlib.use("Qt5Agg")
 
@@ -104,10 +105,19 @@ def main(arg=None):
     else:
         plot = True
     if plot:
-        fig, ax = plt.subplots(figsize=(6, 6))
+        win = pg.GraphicsWindow()
+        win.resize(800, 800)
 
-        ax.set_xlim([-30, 30])
-        ax.set_ylim([-30,30])
+        p = win.addPlot()
+        # main_plot = p.plot(pen=None, symbol='o')
+        scatter = pg.ScatterPlotItem(pxMode = False)
+        p.addItem(scatter)
+
+        # pass
+        # fig, ax = plt.subplots(figsize=(6, 6))
+
+        # ax.set_xlim([-30, 30])
+        # ax.set_ylim([-30,30])
     count = 0
     # breakpoint()
     tot_num_counts = 1000
@@ -131,46 +141,81 @@ def main(arg=None):
             obs["LiDAR"] = False
         time_now = time.time()
         tracker.update(obs, time_now)
-        if plot:
-            # thisapp._update(tracker)
-            fig.canvas.manager.window.move(0,0)
-            ax.clear()
-            ax.set_xlim([tracker.state.xs[0] - 10, tracker.state.xs[0] + 10])
-            ax.set_ylim([tracker.state.xs[1] - 10, tracker.state.xs[1] + 10])
-            static_background_state = tracker.state.static_background
-            ax.scatter(static_background_state.xb[:,0], static_background_state.xb[:,1], color="black", label="Static Background", s=20)
+        x = np.linspace(-2 * np.pi, 2 * np.pi, 1000)
+        y = np.cos(x)
 
-            ax.scatter(tracker.state.xs[0], tracker.state.xs[1], color="blue")
-            lidararc = Arc((tracker.state.xs[0], tracker.state.xs[1]), \
-                width = 2, height = 2,\
-                angle = math.degrees(tracker.state.xs[2]),\
-                theta1= math.degrees(-4.7/2), theta2 = math.degrees(4.7/2), color="turquoise", linestyle="--",  alpha=0.8)
-            ax.add_patch(lidararc)
+        if plot:
+            static_background_state = tracker.state.static_background
+        
+            points_dict_list = []
+            # ax.scatter(static_background_state.xb[:,0], static_background_state.xb[:,1], color="black", label="Static Background", s=20)
+            for i in range(len(static_background_state.xb[:,0])):
+                points_dict = {"pos": (static_background_state.xb[i,0], static_background_state.xb[i,1]),
+                                            "size": 0.2, 'pen': {'color': 'b', 'width': 2}}
+                points_dict_list.append(points_dict)
+            
+            points_dict = {"pos": (tracker.state.xs[0], tracker.state.xs[1],),
+                                "size": 0.1}
+            points_dict_list.append(points_dict)
+            # ax.scatter(tracker.state.xs[0], tracker.state.xs[1], color="blue")
+            # lidararc = Arc((tracker.state.xs[0], tracker.state.xs[1]), \
+            #     width = 2, height = 2,\
+            #     angle = math.degrees(tracker.state.xs[2]),\
+            #     theta1= math.degrees(-4.7/2), theta2 = math.degrees(4.7/2), color="turquoise", linestyle="--",  alpha=0.8)
+            # ax.add_patch(lidararc)
 
             for idx, track in tracker.state.dynamic_tracks.items():
-                ax.scatter(track.kf.x[0], track.kf.x[1], color="purple", s=60)
-                ax.scatter(track.xp[:,0]+track.kf.x[0], track.xp[:,1]+track.kf.x[1], s = 1, c = track.color)
-                trackspeed = round(np.sqrt(track.kf.x[3]**2+track.kf.x[4]**2), 2)                    
-                if track.parent is not None:
-                    ax.text(track.kf.x[0], track.kf.x[1], "T{} S:{}, P:{}".format(idx, trackspeed, track.parent), size = "x-small")
-                else:
-                    ax.text(track.kf.x[0], track.kf.x[1], "T{} S:{}".format(idx, trackspeed), size = "x-small")
-                if track.id ==  13 or track.id == 24 or track.id == 131:
-                    tracked_object_speeds[i,1:3] = [track.id, trackspeed]
-            plt.legend()
-            plt.pause(0.0001)
-        else:
-            pass
-            # for idx, track in tracker.state.dynamic_tracks.items():
-            #     trackspeed = round(np.sqrt(track.kf.x[3]**2+track.kf.x[4]**2), 2)
-            #     if track.id ==  13 or track.id == 24 or track.id == 131:
-            #         tracked_object_speeds[i,1:3] = [track.id, trackspeed]
+                points_dict = {"pos": (track.kf.x[0], track.kf.x[1],),
+                                "size": 0.1, 'pen': {'color': 'y', 'width': 5}}
+                points_dict_list.append(points_dict)
+
+                # ax.scatter(track.kf.x[0], track.kf.x[1], color="purple", s=60)
+                # ax.scatter(track.xp[:,0]+track.kf.x[0], track.xp[:,1]+track.kf.x[1], s = 1, c = track.color)
+                
+                for i in range(len(track.xp[:,0])):
+                    points_dict = {"pos": (track.xp[i,0]+track.kf.x[0], track.xp[i,1]+track.kf.x[1]),
+                                "size": 0.1, 'pen': {'color': track.color, 'width': 2}}
+                    points_dict_list.append(points_dict)
+            scatter.setData(points_dict_list)
+            pg.QtGui.QApplication.processEvents()
+
+        #     fig.canvas.manager.window.move(0,0)
+        #     ax.clear()
+        #     ax.set_xlim([tracker.state.xs[0] - 10, tracker.state.xs[0] + 10])
+        #     ax.set_ylim([tracker.state.xs[1] - 10, tracker.state.xs[1] + 10])
+        #     static_background_state = tracker.state.static_background
+        #     ax.scatter(static_background_state.xb[:,0], static_background_state.xb[:,1], color="black", label="Static Background", s=20)
+
+        #     ax.scatter(tracker.state.xs[0], tracker.state.xs[1], color="blue")
+        #     lidararc = Arc((tracker.state.xs[0], tracker.state.xs[1]), \
+        #         width = 2, height = 2,\
+        #         angle = math.degrees(tracker.state.xs[2]),\
+        #         theta1= math.degrees(-4.7/2), theta2 = math.degrees(4.7/2), color="turquoise", linestyle="--",  alpha=0.8)
+        #     ax.add_patch(lidararc)
+
+        #     for idx, track in tracker.state.dynamic_tracks.items():
+        #         ax.scatter(track.kf.x[0], track.kf.x[1], color="purple", s=60)
+        #         ax.scatter(track.xp[:,0]+track.kf.x[0], track.xp[:,1]+track.kf.x[1], s = 1, c = track.color)
+        #         trackspeed = round(np.sqrt(track.kf.x[3]**2+track.kf.x[4]**2), 2)                    
+        #         if track.parent is not None:
+        #             ax.text(track.kf.x[0], track.kf.x[1], "T{} S:{}, P:{}".format(idx, trackspeed, track.parent), size = "x-small")
+        #         else:
+        #             ax.text(track.kf.x[0], track.kf.x[1], "T{} S:{}".format(idx, trackspeed), size = "x-small")
+        #         if track.id ==  21 or track.id == 60:
+        #             tracked_object_speeds[i,1:3] = [track.id, trackspeed]
+        #     plt.legend()
+        #     plt.pause(0.0001)
+        # else:
+        #     for idx, track in tracker.state.dynamic_tracks.items():
+        #         trackspeed = round(np.sqrt(track.kf.x[3]**2+track.kf.x[4]**2), 2)
+        #         if track.id ==  21 or track.id == 60:
+        #             tracked_object_speeds[i,1:3] = [track.id, trackspeed]
         
         # np.save("Tracked_obj_speed.npy", tracked_object_speeds)
         # np.save("true_speed.npy", true_speeds)
-        # i += 1
-        # if i > 999:
-        #     break
+        i += 1
+        if i > 999:
+            break
         
 
         # plt.clf()
@@ -183,7 +228,7 @@ def main(arg=None):
         count += 1
         end = timer()
     # print('Sim elapsed time:', laptime, 'Real elapsed time:', time.time()-start_total)
-
+    win.close()
 
 if __name__ == '__main__':
     log.get_logger()

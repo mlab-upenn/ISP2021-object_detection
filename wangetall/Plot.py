@@ -21,6 +21,11 @@ class App(QtGui.QMainWindow):
 
         self.label = QtGui.QLabel()
         self.mainbox.layout().addWidget(self.label)
+        self.timer = QtCore.QTimer(self)
+        self.timer.setInterval(100) # in milliseconds
+        self.timer.start()
+        self.timer.timeout.connect(self.onNewData)
+
 
         # self.view = self.canvas.addViewBox()
         # self.view.setAspectLocked(True)
@@ -47,6 +52,49 @@ class App(QtGui.QMainWindow):
 
         #### Start  #####################
         # self._update()
+    def onNewData(self, tracker):
+        static_background_state = tracker.state.static_background
+        
+        points_dict_list = []
+        # ax.scatter(static_background_state.xb[:,0], static_background_state.xb[:,1], color="black", label="Static Background", s=20)
+        for i in range(len(static_background_state.xb[:,0])):
+            points_dict = {"pos": (static_background_state.xb[i,0], static_background_state.xb[i,1]),
+                                        "size": 0.2, 'pen': {'color': 'b', 'width': 2}, 'brush': pg.intColor(10, 100)}
+            points_dict_list.append(points_dict)
+        
+        points_dict = {"pos": (tracker.state.xs[0], tracker.state.xs[1],),
+                            "size": 0.2, 'pen': {'color': 'b', 'width': 2}, 'brush': pg.intColor(10, 100)}
+        points_dict_list.append(points_dict)
+        # ax.scatter(tracker.state.xs[0], tracker.state.xs[1], color="blue")
+        # lidararc = Arc((tracker.state.xs[0], tracker.state.xs[1]), \
+        #     width = 2, height = 2,\
+        #     angle = math.degrees(tracker.state.xs[2]),\
+        #     theta1= math.degrees(-4.7/2), theta2 = math.degrees(4.7/2), color="turquoise", linestyle="--",  alpha=0.8)
+        # ax.add_patch(lidararc)
+
+        for idx, track in tracker.state.dynamic_tracks.items():
+            points_dict = {"pos": (track.kf.x[0], track.kf.x[1],),
+                            "size": 0.2, 'pen': {'color': 'purple', 'width': 5}, 'brush': pg.intColor(10, 100)}
+            points_dict_list.append(points_dict)
+
+            # ax.scatter(track.kf.x[0], track.kf.x[1], color="purple", s=60)
+            # ax.scatter(track.xp[:,0]+track.kf.x[0], track.xp[:,1]+track.kf.x[1], s = 1, c = track.color)
+            
+            for i in range(len(track.xp[:,0])):
+                points_dict = {"pos": (track.xp[i,0]+track.kf.x[0], track.xp[i,1]+track.kf.x[1]),
+                            "size": 0.2, 'pen': {'color': track.color, 'width': 2}, 'brush': pg.intColor(10, 100)}
+                points_dict_list.append(points_dict)
+
+            # trackspeed = round(np.sqrt(track.kf.x[3]**2+track.kf.x[4]**2), 2)                    
+            # if track.parent is not None:
+            #     ax.text(track.kf.x[0], track.kf.x[1], "T{} S:{}, P:{}".format(idx, trackspeed, track.parent), size = "x-small")
+            # else:
+            #     ax.text(track.kf.x[0], track.kf.x[1], "T{} S:{}".format(idx, trackspeed), size = "x-small")
+            # if track.id ==  13 or track.id == 24 or track.id == 131:
+            #     tracked_object_speeds[i,1:3] = [track.id, trackspeed]
+            self.setData(points_dict_list)
+    def setData(self, ls):
+        self.h2.setData(ls)
 
     def _update(self, tracker):
         # self.otherplot.setXRange(tracker.state.xs[0] - 10, tracker.state.xs[0] + 10)
@@ -116,6 +164,4 @@ if __name__ == '__main__':
     app = QtGui.QApplication(sys.argv)
     thisapp = App()
     thisapp.show()
-    for i in range(1000):
-        pass
     sys.exit(app.exec_())
