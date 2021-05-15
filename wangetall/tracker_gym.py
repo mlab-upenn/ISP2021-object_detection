@@ -84,8 +84,8 @@ def main(arg=None):
         conf_dict = yaml.load(file, Loader=yaml.FullLoader)
     conf = Namespace(**conf_dict)
 
-    env = gym.make('f110_gym:f110-v0', map=conf.map_path, map_ext=conf.map_ext)
-    obs, step_reward, done, info = env.reset(np.array([[conf.sx, conf.sy, conf.stheta], [conf.sx2, conf.sy2, conf.stheta2]]))
+    env = gym.make('f110_gym:f110-v0', map=conf.map_path, map_ext=conf.map_ext, num_agents = 3)
+    obs, step_reward, done, info = env.reset(np.array([[conf.sx, conf.sy, conf.stheta], [conf.sx2, conf.sy2, conf.stheta2], [conf.sx3, conf.sy3, conf.stheta3]]))
 
     show_env = False
     if show_env:
@@ -109,20 +109,10 @@ def main(arg=None):
         ax.set_xlim([-30, 30])
         ax.set_ylim([-30,30])
     count = 0
-    # breakpoint()
-    tot_num_counts = 1000
-    tracked_object_speeds = np.zeros((tot_num_counts,3))
-    tracked_object_speeds[:,0] = np.arange(tot_num_counts)
-    true_speeds = np.zeros((tot_num_counts))
-    i = 0
     while not done:
         speed, steer = planner.plan(obs['poses_x'][0], obs['poses_y'][0], obs['poses_theta'][0], work['tlad'], work['vgain'])
         speed2, steer2 = planner2.plan(obs['poses_x'][1], obs['poses_y'][1], obs['poses_theta'][1], work['tlad'], work['vgain'])
-        tgt_speed_x = obs["linear_vels_x"][0]*np.cos(obs["poses_theta"][0])
-        tgt_speed_y = obs["linear_vels_x"][0]*np.sin(obs["poses_theta"][0])
-        tgt_speed = np.sqrt(tgt_speed_x**2+tgt_speed_y**2)
-        true_speeds[i] = tgt_speed
-        # print("Agent 2 speed {}".format(speed2))
+        speed3, steer3 = planner3.plan(obs['poses_x'][1], obs['poses_y'][1], obs['poses_theta'][1], work['tlad'], work['vgain'])
         if count % 3 == 0 and count != 0:
             obs["Odom"] = False
             obs["LiDAR"] = True
@@ -155,34 +145,18 @@ def main(arg=None):
                     ax.text(track.kf.x[0], track.kf.x[1], "T{} S:{}, P:{}".format(idx, trackspeed, track.parent), size = "x-small")
                 else:
                     ax.text(track.kf.x[0], track.kf.x[1], "T{} S:{}".format(idx, trackspeed), size = "x-small")
-                if track.id ==  13 or track.id == 24 or track.id == 131:
-                    tracked_object_speeds[i,1:3] = [track.id, trackspeed]
             plt.legend()
             plt.pause(0.0001)
         else:
             pass
-            # for idx, track in tracker.state.dynamic_tracks.items():
-            #     trackspeed = round(np.sqrt(track.kf.x[3]**2+track.kf.x[4]**2), 2)
-            #     if track.id ==  13 or track.id == 24 or track.id == 131:
-            #         tracked_object_speeds[i,1:3] = [track.id, trackspeed]
-        
-        # np.save("Tracked_obj_speed.npy", tracked_object_speeds)
-        # np.save("true_speed.npy", true_speeds)
-        # i += 1
-        # if i > 999:
-        #     break
-        
-
-        # plt.clf()
 
 
-        obs, step_reward, done, info = env.step(np.array([[steer, speed], [steer2, speed2]]))
+        obs, step_reward, done, info = env.step(np.array([[steer, speed], [steer2, speed2], [steer3, speed3]]))
         laptime += step_reward
         if show_env:
             env.render(mode='human')
         count += 1
         end = timer()
-    # print('Sim elapsed time:', laptime, 'Real elapsed time:', time.time()-start_total)
 
 
 if __name__ == '__main__':

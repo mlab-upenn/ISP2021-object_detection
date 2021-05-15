@@ -47,9 +47,6 @@ class lidarUpdater:
         self.state = state
         self.theta = self.theta_init+self.state.xs[2] #do I need to correct for current heading?
         # self.theta = self.theta_init
-        self.polar_laser_points = np.zeros((len(data), 2))
-        self.polar_laser_points[:,0] = data
-        self.polar_laser_points[:,1] = self.theta
         self.forward(dt)
         x, y = Helper.convert_scan_polar_cartesian(np.array(data), self.theta)
         self.laserpoints = np.vstack((x, y)).T
@@ -308,7 +305,7 @@ class lidarUpdater:
         Q[0:3,0:3] = (dt**3/3)*V
         Q[0:3,3:] = (dt**2/2)*V
         Q[3:,0:3] = (dt**2/2)*V
-        Q[3:,3:] = dt*V
+        Q[3:,3:] = dt*V*3
         return Q
 
     def calc_V(self):
