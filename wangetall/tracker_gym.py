@@ -15,7 +15,6 @@ matplotlib.use("Qt5Agg")
 from matplotlib import pyplot as plt
 from pylab import *
 from matplotlib.patches import Arc
-
 ##CUSTOM IMPORTS
 from perception.helper import Helper
 from perception.odomUpdater import OdomUpdater
@@ -25,7 +24,7 @@ from gym_testing.pure_pursuit_planner import PurePursuitPlanner
 from State import State
 import log
 
-
+np.random.seed(20)
 class Tracker:
     def __init__(self, idx, dt):
 
@@ -63,7 +62,6 @@ class Tracker:
         dt =self.dt
         self.prev_Odom_callback_time = time
 
-        # print("Theta {}".format(theta))
         self.control_input["dt"] = dt
         # self.control_input["theta"] = theta
         # self.control_input["v"] = data["linear_vels_x"][self.id]
@@ -86,10 +84,10 @@ def main(arg=None):
         conf_dict = yaml.load(file, Loader=yaml.FullLoader)
     conf = Namespace(**conf_dict)
 
-    env = gym.make('f110_gym:f110-v0', map=conf.map_path, map_ext=conf.map_ext)
-    obs, step_reward, done, info = env.reset(np.array([[conf.sx, conf.sy, conf.stheta], [conf.sx2, conf.sy2, conf.stheta2]]))
+    env = gym.make('f110_gym:f110-v0', map=conf.map_path, map_ext=conf.map_ext, num_agents = 3)
+    obs, step_reward, done, info = env.reset(np.array([[conf.sx, conf.sy, conf.stheta], [conf.sx2, conf.sy2, conf.stheta2], [conf.sx3, conf.sy3, conf.stheta3]]))
 
-    show_env = True
+    show_env = False
     if show_env:
         env.render()
     planner = PurePursuitPlanner(conf, 0.17145+0.15875)
@@ -107,14 +105,14 @@ def main(arg=None):
         plot = True
     if plot:
         fig, ax = plt.subplots(figsize=(6, 6))
-        #ax.set_xlim([-30, 30])
-        #ax.set_ylim([-30,30])
+
+        ax.set_xlim([-30, 30])
+        ax.set_ylim([-30,30])
     count = 0
-    # breakpoint()
     while not done:
         speed, steer = planner.plan(obs['poses_x'][0], obs['poses_y'][0], obs['poses_theta'][0], work['tlad'], work['vgain'])
         speed2, steer2 = planner2.plan(obs['poses_x'][1], obs['poses_y'][1], obs['poses_theta'][1], work['tlad'], work['vgain'])
-        # print("Agent 2 speed {}".format(speed2))
+        speed3, steer3 = planner3.plan(obs['poses_x'][1], obs['poses_y'][1], obs['poses_theta'][1], work['tlad'], work['vgain'])
         if count % 3 == 0 and count != 0:
             obs["Odom"] = False
             obs["LiDAR"] = True
@@ -124,6 +122,7 @@ def main(arg=None):
         time_now = time.time()
         tracker.update(obs, time_now)
         if plot:
+            # thisapp._update(tracker)
             fig.canvas.manager.window.move(0,0)
             ax.clear()
             ax.set_xlim([tracker.state.xs[0] - 10, tracker.state.xs[0] + 10])
@@ -140,23 +139,24 @@ def main(arg=None):
 
             for idx, track in tracker.state.dynamic_tracks.items():
                 ax.scatter(track.kf.x[0], track.kf.x[1], color="purple", s=60)
-                ax.scatter(track.xp[:,0]+track.kf.x[0], track.xp[:,1]+track.kf.x[1], s = 1)
-                trackspeed = round(np.sqrt(track.kf.x[3]**2+track.kf.x[4]**2), 2)
-                ax.text(track.kf.x[0], track.kf.x[1], "T{} S:{}".format(idx, trackspeed), size = "x-small")
+                ax.scatter(track.xp[:,0]+track.kf.x[0], track.xp[:,1]+track.kf.x[1], s = 1, c = track.color)
+                trackspeed = round(np.sqrt(track.kf.x[3]**2+track.kf.x[4]**2), 2)                    
+                if track.parent is not None:
+                    ax.text(track.kf.x[0], track.kf.x[1], "T{} S:{}, P:{}".format(idx, trackspeed, track.parent), size = "x-small")
+                else:
+                    ax.text(track.kf.x[0], track.kf.x[1], "T{} S:{}".format(idx, trackspeed), size = "x-small")
             plt.legend()
+            plt.pause(0.0001)
+        else:
+            pass
 
-            plt.pause(0.00001)
 
-        # plt.clf()
-
-
-        obs, step_reward, done, info = env.step(np.array([[steer, speed], [steer2, speed2]]))
+        obs, step_reward, done, info = env.step(np.array([[steer, speed], [steer2, speed2], [steer3, speed3]]))
         laptime += step_reward
         if show_env:
             env.render(mode='human')
         count += 1
         end = timer()
-    print('Sim elapsed time:', laptime, 'Real elapsed time:', time.time()-start_total)
 
 
 if __name__ == '__main__':

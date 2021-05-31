@@ -25,9 +25,12 @@ class OdomUpdater:
 
         #Since F1Tenth gym doesn't give info about wheel angle,
         # let's just update xs with actual xs to save time. 
-        self.state.xs = np.array([control_input["poses_x"], control_input["poses_y"], \
+        rnd = np.random.normal(loc=0.0, scale=0.001, size=5)
+        xs = np.array([control_input["poses_x"], control_input["poses_y"], \
             control_input["poses_theta"], control_input["linear_vels_x"]*np.cos(control_input["poses_theta"]), \
                 control_input["linear_vels_x"]*np.sin(control_input["poses_theta"])])
+        # xs = xs+ rnd    
+        self.state.xs = xs
 
 
     def calc_F(self, prev_sensor_mean_pose, control_input):
