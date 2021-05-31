@@ -81,7 +81,7 @@ class lidarUpdater:
         end = timer()
         #print("Elapsed INIT_AND_MERGE = %s s" % round(end - start, 2))
         end_total = timer()
-        print("%s," % round(end_total - start_total, 4))
+        #print("%s," % round(end_total - start_total, 4))
 
 
     def forward(self, dt):
